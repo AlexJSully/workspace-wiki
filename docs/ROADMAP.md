@@ -8,23 +8,22 @@ This roadmap breaks down the implementation plan from the design doc into granul
 
 ### 0.1. Create Project Structure
 
-- [ ] Create `.github` folder
-- [ ] Add Copilot instructions file
-- [ ] Add initial README
-- [ ] Add initial ROADMAP.md
-- [ ] Add initial CHANGELOG.md
-- [ ] Add `docs/` folder
-- [ ] Add `src/` folder
-- [ ] Add `test/` folder
+- [x] Create `.github` folder
+- [x] Add Copilot instructions file
+- [x] Add initial README
+- [x] Add initial ROADMAP.md
+- [x] Add initial CHANGELOG.md
+- [x] Add `docs/` folder
+- [x] Add `src/` folder
+- [x] Add `test/` folder
 
 ### 0.2. Setup Tooling
 
-- [ ] Setup ESLint with TypeScript plugin
-- [ ] Setup Prettier
-- [ ] Setup Jest for unit tests
-- [ ] Setup Husky and lint-staged for pre-commit/push
-- [ ] Add VS Code launch and tasks config
-- [ ] Add esbuild bundler config
+- [x] Setup ESLint with TypeScript plugin
+- [x] Setup Prettier
+- [x] Setup Jest for unit tests
+- [x] Add VS Code launch and tasks config
+- [x] Add esbuild bundler config
 
 ---
 
@@ -32,7 +31,7 @@ This roadmap breaks down the implementation plan from the design doc into granul
 
 ### 1.1. Scanner Module
 
-- [ ] Implement workspace scanning for `.md`, `.markdown`, `.txt` files
+- [x] Implement workspace scanning for `.md`, `.markdown`, `.txt` files
 - [ ] Respect `excludeGlobs` and `.gitignore`
 - [ ] Implement file system watcher for live updates
 - [ ] Cache metadata (title, path, mtime)
