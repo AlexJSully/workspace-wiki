@@ -34,13 +34,8 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 
 ## Developer Workflows
 
-- **Build:**
-    - Use `npm run compile` for a full build (type-check, lint, bundle via esbuild).
-    - Use `npm run watch` for live builds (runs both `watch:tsc` and `watch:esbuild`).
-- **Test:**
-    - Use `npm run test` for integration tests (via `vscode-test`).
-    - Use `npm run watch-tests` for live test compilation.
-    - Test files must match `**.test.ts` and reside in `src/test/`.
+**Testing Requirements:** - Whenever any changes are made within the codebase, both unit tests and end-to-end (e2e) tests must be created or updated. - For example, changes to `src/extension.ts` require: - Unit tests in `src/extension.test.ts` - E2E tests in `src/extension.e2e.test.ts` - Test files should be located in the same directory as the file being tested (e.g., `src/extension.test.ts` for `src/extension.ts`). - The `src/test` directory is reserved for testing utilities and setup scripts (e.g., `setupTests.ts`). - Unit tests should cover all exported functions and logic. - E2E tests should validate extension behavior in a running VS Code environment. - Use `npm run test:jest` for Jest unit tests. - Use `npm run test:extension` for integration/e2e tests (via `vscode-test`). - Use `npm run watch-tests` for live test compilation. - Test files must match `**.test.ts` (unit) and `**.e2e.test.ts` (e2e) and reside in `src/test/`.
+
 - **Lint:**
     - Use `npm run lint` (TypeScript ESLint config in `eslint.config.mjs`).
 - **Debug:**

@@ -1,25 +1,71 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
+// No direct vscode import for testability
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "workspace-wiki" is now active!');
+/**
+ * Scanner module: Scans the workspace for documentation files (.md, .markdown, .txt)
+ * Returns a list of file URIs matching supported extensions.
+ */
+export async function scanWorkspaceDocs(workspace: {
+	findFiles: (pattern: string) => Thenable<any[]>;
+}): Promise<any[]> {
+	const patterns = ['**/*.md', '**/*.markdown', '**/*.txt'];
+	const results: any[] = [];
+	for (const pattern of patterns) {
+		const uris = await Promise.resolve(workspace.findFiles(pattern));
+		results.push(...uris);
+	}
+	return results;
+}
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('workspace-wiki.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from workspace-wiki!');
-	});
+// Activation logic moved to extension.vscode.ts
 
-	context.subscriptions.push(disposable);
+export class WorkspaceWikiTreeProvider {
+	private _onDidChangeTreeData: any;
+	readonly onDidChangeTreeData: any;
+	private workspace: { findFiles: (pattern: string) => Thenable<any[]> };
+	private TreeItem: any;
+	private CollapsibleState: any;
+
+	constructor(
+		workspace: { findFiles: (pattern: string) => Thenable<any[]> },
+		TreeItem: any,
+		CollapsibleState: any,
+		EventEmitter: any,
+	) {
+		this.workspace = workspace;
+		this.TreeItem = TreeItem;
+		this.CollapsibleState = CollapsibleState;
+		this._onDidChangeTreeData = new EventEmitter();
+		this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+	}
+
+	async getChildren(element?: any): Promise<any[]> {
+		if (element) {
+			return [];
+		}
+		const uris = await scanWorkspaceDocs(this.workspace);
+		return uris.map((uri) => {
+			const item = new this.TreeItem(uri, this.CollapsibleState.None);
+			item.label = uri.fsPath.split('/').pop();
+			item.tooltip = uri.fsPath;
+			item.command = {
+				command: 'vscode.open',
+				title: 'Open Document',
+				arguments: [uri],
+			};
+			return item;
+		});
+	}
+
+	getTreeItem(element: any): any {
+		return element;
+	}
+
+	refresh(): void {
+		this._onDidChangeTreeData.fire(undefined);
+	}
 }
 
 // This method is called when your extension is deactivated
-export function deactivate() {}
+// Deactivate logic moved to extension.vscode.ts

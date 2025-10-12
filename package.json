@@ -3,6 +3,7 @@
 	"displayName": "workspace-wiki",
 	"description": "Workspace Wiki",
 	"version": "0.0.1",
+	"publisher": "alexjsully",
 	"engines": {
 		"vscode": "^1.105.0"
 	},
@@ -17,13 +18,21 @@
 				"command": "workspace-wiki.helloWorld",
 				"title": "Hello World"
 			}
-		]
+		],
+		"views": {
+			"explorer": [
+				{
+					"id": "workspaceWiki",
+					"name": "Workspace Wiki"
+				}
+			]
+		}
 	},
 	"scripts": {
 		"audit:fix": "npm i && npm audit fix",
 		"check-types": "tsc --noEmit",
 		"compile-tests": "tsc -p . --outDir out",
-		"compile": "npm run check-types && npm run lint && node esbuild.js",
+		"compile": "npm run check-types && node esbuild.js",
 		"lint": "eslint src",
 		"lint:markdown": "markdownlint \"**/*.md\"",
 		"package": "node esbuild.js --production",
@@ -33,8 +42,11 @@
 		"prettier:check": "prettier --check ./",
 		"regen-package-lock": "rm -rf node_modules package-lock.json && npm run audit:fix",
 		"test": "vscode-test",
-		"test:extension": "vscode-test",
-		"validate": "npm run prettier && npm run lint && npm run lint:markdown && npm run test:extension",
+		"compile:tests": "rm -rf out && npm run compile && mkdir -p out/test/suite && tsc src/extension.e2e.test.ts --outDir out --module commonjs --target ES2020 --moduleResolution node --esModuleInterop true --types vscode,node,mocha && mv out/extension.e2e.test.js out/test/suite/",
+		"test:extension": "npm run compile:tests && vscode-test",
+		"test:jest": "jest src/",
+		"test:jest:coverage": "jest --coverage src/",
+		"validate": "npm run compile && npm run prettier && npm run lint && npm run lint:markdown && npm run test:jest && npm run test:extension",
 		"vscode:prepublish": "npm run package",
 		"watch": "npm-run-all -p watch:*",
 		"watch-tests": "tsc -p . -w --outDir out",
@@ -58,8 +70,10 @@
 		"jest": "^30.2.0",
 		"jest-environment-jsdom": "^30.2.0",
 		"markdownlint-cli": "^0.45.0",
+		"mocha": "^11.7.4",
 		"npm-run-all": "^4.1.5",
 		"prettier": "^3.6.2",
+		"ts-jest": "^29.4.5",
 		"typescript": "^5.9.3"
 	}
 }
