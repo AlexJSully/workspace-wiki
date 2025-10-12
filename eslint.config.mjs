@@ -1,0 +1,36 @@
+import typescriptEslint from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+
+export default [
+	{
+		ignores: ['**/proto/**'], // Ignore generated protobuf files
+	},
+	{
+		files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
+		plugins: {
+			'@typescript-eslint': typescriptEslint,
+		},
+
+		languageOptions: {
+			parser: tsParser,
+			ecmaVersion: 2022,
+			sourceType: 'module',
+		},
+
+		rules: {
+			'@typescript-eslint/naming-convention': [
+				'warn',
+				{
+					selector: 'import',
+					format: ['camelCase', 'PascalCase'],
+				},
+			],
+			'no-throw-literal': 'warn',
+			'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+			curly: 'warn',
+			eqeqeq: 'warn',
+			radix: 'off',
+			semi: 'warn',
+		},
+	},
+];

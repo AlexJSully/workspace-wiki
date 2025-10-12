@@ -1,0 +1,105 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.venv/
+__pycache__/
+jspm_packages/
+vendor/
+
+# Build outputs
+*.dll
+*.dylib
+*.exe
+*.exe~
+*.pprof
+*.prof
+*.so
+*.tsbuildinfo
+*.wasm
+/go/bin
+/out-tsc
+bin/
+build/
+builds/
+dist/
+out/
+tmp/
+fhirpath-explorer-*.vsix
+
+# Environment variables
+.env*
+!.env.example
+!.env.project
+!.env.vault
+.staging_db_url
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+/libpeerconnection.log
+testem.log
+
+# Coverage and testing
+.coverage
+/coverage
+coverage.html
+coverage.out
+coverage.xml
+cypress/screenshots
+cypress/videos
+htmlcov/
+worker-@cypress/
+playwright-report/
+test-results/
+
+# Cache directories
+.cache
+.cache/
+.eslintcache
+.mypy_cache/
+.npm
+.pytest_cache/
+.ruff_cache/
+.temp
+/.sass-cache
+
+# IDE and editor files
+.vscode-test
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+*.launch
+*.sublime-workspace
+.c9/
+.classpath
+.project
+.settings/
+/.idea
+
+# OS files
+.DS_Store
+.pem
+Thumbs.db
+
+# Service workers and generated files
+*.js.map
+worker-*.js
+
+# Runtime files
+/connect.lock
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+typings/
+
+# Sensitive data (even though we shouldn't have any)
+*.crt
+*.key
+*.pem
+*credential*
+*password*
+*secret*

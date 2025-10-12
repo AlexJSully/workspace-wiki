@@ -1,0 +1,36 @@
+# Dependencies
+
+node_modules/
+vendor/
+
+# Build outputs
+
+dist/
+out/
+build/
+builds/
+tmp/
+bin/
+
+# Coverage and testing
+
+/coverage
+
+# Cache directories
+
+.cache
+.temp
+.npm
+
+# IDE and editor files
+
+.vscode-test/
+
+# OS files
+
+.DS_Store
+Thumbs.db
+
+# Logs
+
+*.log

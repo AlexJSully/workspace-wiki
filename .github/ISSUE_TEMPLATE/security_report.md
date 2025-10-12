@@ -1,0 +1,43 @@
+---
+name: Security vulnerability report
+about: Create a report to help us improve our security
+---
+
+**Describe the issue**
+A clear and concise description of what the security vulnerability/issue is.
+
+**To Reproduce**
+Steps to reproduce the behavior:
+
+1. Go to '...'
+2. Click on '....'
+3. Scroll down to '....'
+4. See error
+
+**Expected behavior**
+A clear and concise description of what you expected to happen.
+
+**Screenshots**
+If applicable, add screenshots to help explain your problem.
+
+**Desktop (please complete the following information):**
+
+- OS: [e.g. iOS]
+- Browser [e.g. chrome, safari]
+- Version [e.g. 22]
+
+**Smartphone (please complete the following information):**
+
+- Device: [e.g. iPhone6]
+- OS: [e.g. iOS8.1]
+- Browser [e.g. stock browser, safari]
+- Version [e.g. 22]
+
+**Potential Fix**
+If you know of a way to fix this vulnerability, please describe it here.
+
+**Severity**
+How severe is the vulnerability? Does it allow an attacker to access sensitive data, or does it potentially lead to a denial of service?
+
+**Additional context**
+Add any other context about the problem here.

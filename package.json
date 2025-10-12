@@ -1,0 +1,65 @@
+{
+	"name": "workspace-wiki",
+	"displayName": "workspace-wiki",
+	"description": "Workspace Wiki",
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.105.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [],
+	"main": "./dist/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "workspace-wiki.helloWorld",
+				"title": "Hello World"
+			}
+		]
+	},
+	"scripts": {
+		"audit:fix": "npm i && npm audit fix",
+		"check-types": "tsc --noEmit",
+		"compile-tests": "tsc -p . --outDir out",
+		"compile": "npm run check-types && npm run lint && node esbuild.js",
+		"lint": "eslint src",
+		"lint:markdown": "markdownlint \"**/*.md\"",
+		"package": "node esbuild.js --production",
+		"package:vsix": "npm run compile && vsce package",
+		"pretest": "npm run compile-tests && npm run compile && npm run lint",
+		"prettier": "prettier --write ./",
+		"prettier:check": "prettier --check ./",
+		"regen-package-lock": "rm -rf node_modules package-lock.json && npm run audit:fix",
+		"test": "vscode-test",
+		"test:extension": "vscode-test",
+		"validate": "npm run prettier && npm run lint && npm run lint:markdown && npm run test:extension",
+		"vscode:prepublish": "npm run package",
+		"watch": "npm-run-all -p watch:*",
+		"watch-tests": "tsc -p . -w --outDir out",
+		"watch:esbuild": "node esbuild.js --watch",
+		"watch:tsc": "tsc --noEmit --watch --project tsconfig.json"
+	},
+	"devDependencies": {
+		"@testing-library/jest-dom": "^6.9.1",
+		"@trivago/prettier-plugin-sort-imports": "^5.2.2",
+		"@types/jest": "^30.0.0",
+		"@types/mocha": "^10.0.10",
+		"@types/node": "^24.7.2",
+		"@types/vscode": "^1.105.0",
+		"@typescript-eslint/eslint-plugin": "^8.46.0",
+		"@typescript-eslint/parser": "^8.46.0",
+		"@vscode/test-cli": "^0.0.12",
+		"@vscode/test-electron": "^2.5.2",
+		"@vscode/vsce": "^3.6.2",
+		"esbuild": "^0.25.10",
+		"eslint": "^9.37.0",
+		"jest": "^30.2.0",
+		"jest-environment-jsdom": "^30.2.0",
+		"markdownlint-cli": "^0.45.0",
+		"npm-run-all": "^4.1.5",
+		"prettier": "^3.6.2",
+		"typescript": "^5.9.3"
+	}
+}

@@ -1,0 +1,66 @@
+# Development files
+.vscode/**
+.vscode-test
+.vscode-test/**
+**/.vscode-test.*
+src/**
+test/**
+tests/**
+
+# Dependencies and virtual environments
+node_modules/**
+vendor/
+.venv/**
+venv/**
+go.mod
+go.sum
+requirements*.txt
+
+# Unused Build artifacts
+out/**
+coverage/**
+
+# Cache directories
+.mypy_cache/**
+.pytest_cache/**
+.ruff_cache/**
+.cache/**
+.temp/**
+
+# Config files
+.gitignore
+.prettierrc*
+.prettierignore
+.eslintrc*
+eslint.config.*
+esbuild.js
+jest.config.js
+tsconfig*.json
+.markdownlint.json
+.markdownlintignore
+
+# Development tools
+Makefile
+
+# Documentation and CI
+.github/**
+SECURITY.MD
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+CHANGELOG.md
+vsc-extension-quickstart.md
+*.md
+!README.md
+docs/**
+
+# Source maps and TypeScript
+**/*.map
+**/*.ts
+!**/*.d.ts
+
+# Logs
+*.log
+
+# Test files
+**/*.test.*
+**/*.spec.*

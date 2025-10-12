@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+out/
+build/
+builds/
+tmp/
+bin/
+
+# Coverage and testing
+/coverage
+
+# Cache directories
+.cache
+.temp
+.npm
+
+# Logs
+*.log
+
+# Generated files
+*.js.map
+sw.js
+sw.js.map
+workbox-*.js
+worker-*.js
+
+# Package files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Config files that shouldn't be formatted
+.vscode-test/
+tsconfig*.json
+*.tsbuildinfo
+
+# Environment files
+.env*
+
+# Ignore files themselves
+.gitignore
+.prettierignore
+.vscodeignore
+
+# Ignore YAMLs
+*.yaml
+*.yml

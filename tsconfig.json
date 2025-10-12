@@ -1,0 +1,36 @@
+{
+	"compilerOptions": {
+		"module": "Node16",
+		"target": "ES2022",
+		"lib": [
+			"ES2022",
+			"DOM"
+		],
+		"jsx": "react-jsx",
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"sourceMap": true,
+		"rootDir": ".",
+		"baseUrl": "src",
+		"paths": {
+			"@/*": ["./*"],
+		},
+		"strict": true,
+		"types": ["node", "vscode"],
+	},
+	"exclude": [
+		"**/*.e2e.test.ts",
+		"**/*.spec.ts",
+		"**/*.test.ts",
+		"**/*.test.tsx",
+		"bin/**/*",
+		"node_modules/**/*",
+		"out/**/*",
+		"src/test/**/*",
+		"test/**/*",
+		"tests/**/*",
+		"vendor/**/*",
+	]
+}
