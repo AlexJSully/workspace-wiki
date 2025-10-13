@@ -1,0 +1,9 @@
+{
+    "workspaceWiki.supportedExtensions": [
+        "md",
+        "markdown",
+        "txt",
+        "html",
+        "htm"
+    ]
+}

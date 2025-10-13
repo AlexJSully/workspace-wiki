@@ -14,10 +14,129 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "workspace-wiki.helloWorld",
-				"title": "Hello World"
+				"command": "workspace-wiki.openPreview",
+				"title": "Open in Preview",
+				"icon": "$(open-preview)"
+			},
+			{
+				"command": "workspace-wiki.openEditor",
+				"title": "Edit",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "workspace-wiki.refresh",
+				"title": "Refresh",
+				"icon": "$(refresh)"
 			}
-		]
+		],
+		"views": {
+			"explorer": [
+				{
+					"id": "workspaceWiki",
+					"name": "Workspace Wiki"
+				}
+			]
+		},
+		"menus": {
+			"view/item/context": [
+				{
+					"command": "workspace-wiki.openPreview",
+					"when": "view == workspaceWiki && viewItem == file",
+					"group": "navigation@1"
+				},
+				{
+					"command": "workspace-wiki.openEditor",
+					"when": "view == workspaceWiki && viewItem == file",
+					"group": "navigation@2"
+				}
+			],
+			"view/item/inline": [
+				{
+					"command": "workspace-wiki.openPreview",
+					"when": "view == workspaceWiki && viewItem == file",
+					"group": "inline@1"
+				},
+				{
+					"command": "workspace-wiki.openEditor",
+					"when": "view == workspaceWiki && viewItem == file",
+					"group": "inline@2"
+				}
+			],
+			"view/title": [
+				{
+					"command": "workspace-wiki.refresh",
+					"when": "view == workspaceWiki",
+					"group": "navigation"
+				}
+			]
+		},
+		"configuration": {
+			"title": "Workspace Wiki",
+			"properties": {
+				"workspaceWiki.supportedExtensions": {
+					"type": "array",
+					"default": [
+						"md",
+						"markdown",
+						"txt"
+					],
+					"description": "List of file extensions to include in the workspace wiki",
+					"items": {
+						"type": "string"
+					}
+				},
+				"workspaceWiki.defaultOpenMode": {
+					"type": "string",
+					"enum": [
+						"preview",
+						"editor"
+					],
+					"default": "preview",
+					"description": "Default mode for opening files (preview or editor)"
+				},
+				"workspaceWiki.openWith": {
+					"type": "object",
+					"default": {
+						"md": "markdown.showPreview",
+						"markdown": "markdown.showPreview",
+						"txt": "vscode.open"
+					},
+					"description": "Commands to use for opening different file types",
+					"patternProperties": {
+						".*": {
+							"type": "string",
+							"description": "Command to execute for this file extension"
+						}
+					}
+				},
+				"workspaceWiki.directorySort": {
+					"type": "string",
+					"enum": [
+						"files-first",
+						"folders-first",
+						"alphabetical"
+					],
+					"default": "files-first",
+					"description": "How to sort files and folders within directories"
+				},
+				"workspaceWiki.excludeGlobs": {
+					"type": "array",
+					"default": [
+						"**/node_modules/**",
+						"**/.git/**"
+					],
+					"description": "Glob patterns for files to exclude from the workspace wiki",
+					"items": {
+						"type": "string"
+					}
+				},
+				"workspaceWiki.maxSearchDepth": {
+					"type": "number",
+					"default": 10,
+					"description": "Maximum directory depth to search for documentation files"
+				}
+			}
+		}
 	},
 	"scripts": {
 		"audit:fix": "npm i && npm audit fix",
@@ -48,8 +167,8 @@
 		"@types/mocha": "^10.0.10",
 		"@types/node": "^24.7.2",
 		"@types/vscode": "^1.105.0",
-		"@typescript-eslint/eslint-plugin": "^8.46.0",
-		"@typescript-eslint/parser": "^8.46.0",
+		"@typescript-eslint/eslint-plugin": "^8.46.1",
+		"@typescript-eslint/parser": "^8.46.1",
 		"@vscode/test-cli": "^0.0.12",
 		"@vscode/test-electron": "^2.5.2",
 		"@vscode/vsce": "^3.6.2",

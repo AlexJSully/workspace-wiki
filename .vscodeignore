@@ -53,6 +53,9 @@ vsc-extension-quickstart.md
 !README.md
 docs/**
 
+# Test/Mock data
+example/**
+
 # Source maps and TypeScript
 **/*.map
 **/*.ts

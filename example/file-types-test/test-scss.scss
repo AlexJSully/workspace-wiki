@@ -1,0 +1,7 @@
+// test-scss.scss
+// Export: This file is for testing SCSS exclusion in Workspace Wiki
+$color: green;
+.hello {
+	color: $color;
+	font-weight: bold;
+}

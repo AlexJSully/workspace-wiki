@@ -1,0 +1,25 @@
+Test Notes - Plain Text Format
+
+This is a plain text file with .txt extension to test the Workspace Wiki extension's handling of non-Markdown documentation.
+
+PURPOSE:
+This file validates that the extension:
+- Discovers and includes .txt files in the documentation tree
+- Displays them with appropriate icons and context
+- Opens them correctly in VS Code's text editor
+- Treats them as documentation alongside Markdown files
+
+CONTENT STRUCTURE:
+Plain text files don't support rich formatting like Markdown, but they're still valuable for:
+- Simple documentation
+- Configuration notes
+- Quick reference guides
+- Legacy documentation that hasn't been converted to Markdown
+
+TESTING POINTS:
+1. File should appear in the Workspace Wiki tree view
+2. Title should be normalized ("test-notes.txt" → "Test Notes")
+3. File should open in text editor when clicked
+4. Should maintain proper alphabetical ordering with other file types
+
+The extension should handle this plain text file seamlessly alongside Markdown and other supported formats, demonstrating its versatility for different documentation approaches.

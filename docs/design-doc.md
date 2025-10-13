@@ -160,12 +160,8 @@ Use `contributes.configuration` to add these settings under `workspaceWiki` name
 ```json
 {
 	"workspaceWiki.supportedExtensions": ["md", "markdown", "txt"],
-	"workspaceWiki.enableHtml": false,
-	"workspaceWiki.includePdf": true,
 	"workspaceWiki.defaultOpenMode": "preview",
 	"workspaceWiki.syncWithActiveEditor": true,
-	"workspaceWiki.showIndexAsFolderNode": true,
-	"workspaceWiki.hideDuplicateIndexChild": true,
 	"workspaceWiki.openWith": {
 		"pdf": "my-pdf-viewer-extension-id",
 		"md": "vscode.markdown.preview"
@@ -173,8 +169,6 @@ Use `contributes.configuration` to add these settings under `workspaceWiki` name
 	"workspaceWiki.scanOnStartup": true,
 	"workspaceWiki.maxSearchDepth": 10,
 	"workspaceWiki.excludeGlobs": ["**/node_modules/**", "**/.git/**"],
-	"workspaceWiki.titlePrecedence": ["frontmatter.title", "fileName"],
-	"workspaceWiki.autoRevealDelayMs": 120
 }
 ```
 
@@ -199,53 +193,7 @@ Use `contributes.configuration` to add these settings under `workspaceWiki` name
 
 ---
 
-## 10. Implementation Plan & Milestones
-
-### Phase 0 — Scaffolding
-
-- Create `.github` folder and setup the appropriate GitHub Copilot Agent AI files like copilot instructions.
-- Create extension skeleton.
-- Setup ESLint, Prettier, and Jest.
-- Add basic README and ROADMAP.md.
-
-### Phase 1 — Core MVP
-
-- Implement Scanner using `workspace.findFiles` for `.md`, `.markdown` and `.txt`.
-- Implement TreeDataProvider and register `views` contribution.
-- Basic title normalization and ordering rules (README, root files, alphabetical dirs).
-- Open-in-preview behavior on single click; open-in-editor on double click.
-- Basic settings (supportedExtensions, defaultOpenMode, excludeGlobs).
-- File watcher to refresh tree on change.
-- Unit tests for normalization & ordering logic.
-
-### Phase 2 — UX polish & features
-
-- Implement index.md/index handling and folder-as-index behavior.
-- Implement sync-with-active-editor feature (auto-reveal).
-- Add context menu actions and `Open With...` plumbing.
-- Add setting to show/hide index child file.
-
-### Phase 3 — Formatters & Integration
-
-- Integrate with Markdown preview & optionally provide a small webview for consistent styling.
-- Support PDF preview detection; integrate `openWith` behavior.
-- Add more settings (enableHtml, includePdf, maxSearchDepth).
-
-### Phase 4 — Polishing, i18n, and Release
-
-- Polish labels, icons (use codicons), accessibility roles (a11y), and keyboard nav.
-- Add user documentation and extension marketplace metadata.
-- Run full CI, package VSIX and publish to Marketplace.
-
-### Phase 5 — Stretch goals
-
-- Search across docs (content search), tagging, extracted headings outline.
-- Optional webview with unified reading experience (TOC, search, unified theme).
-- Summarization assistant (privacy-optional) for long docs.
-
----
-
-## 11. Edge Cases & Considerations
+## 10. Edge Cases & Considerations
 
 - **Very large repos**: allow a `maxSearchDepth` and lazy-loading per-folder to avoid scanning entire repo at startup.
 - **Case-insensitive filesystems**: treat `README.md` and `readme.md` as equivalent; prefer one canonical version.
@@ -254,7 +202,7 @@ Use `contributes.configuration` to add these settings under `workspaceWiki` name
 
 ---
 
-## 12. APIs & VS Code Contributes
+## 11. APIs & VS Code Contributes
 
 - `contributes.views` to add `workspaceWiki` to Explorer view container.
 - `contributes.configuration` for settings.
@@ -262,7 +210,7 @@ Use `contributes.configuration` to add these settings under `workspaceWiki` name
 
 ---
 
-## 13. Final Recommendations
+## 12. Final Recommendations
 
 - **Start small**: ship MD + TXT support and the tree with README/index behavior. This unlocks the majority of value.
 - **Make HTML opt-in**: it prevents noise in web projects.

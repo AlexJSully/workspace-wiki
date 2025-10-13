@@ -1,0 +1,25 @@
+Index File - Text Format
+
+This is an index file in plain text format (.txt) to test how the Workspace Wiki extension handles non-Markdown index files.
+
+PURPOSE:
+This file tests whether the extension:
+- Recognizes .txt files as potential index files
+- Handles multiple index files in the same directory
+- Maintains proper precedence between index.md and index.txt
+- Shows appropriate behavior when index files have different extensions
+
+EXPECTED BEHAVIOR:
+Since this directory already contains an index.md file, that should take precedence for folder naming. However, this index.txt should still be:
+- Discovered and listed in the file tree
+- Available for viewing/editing
+- Properly ordered within the directory contents
+- Handled with appropriate plain text context
+
+TESTING SCENARIOS:
+1. Multiple index files in same directory
+2. Extension precedence (index.md should override index.txt for folder naming)
+3. Plain text index file handling
+4. File ordering with multiple index types present
+
+This validates that the extension can handle complex scenarios where multiple index-style files exist in the same directory while maintaining predictable behavior.
