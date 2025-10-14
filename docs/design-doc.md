@@ -168,7 +168,7 @@ Use `contributes.configuration` to add these settings under `workspaceWiki` name
 	},
 	"workspaceWiki.scanOnStartup": true,
 	"workspaceWiki.maxSearchDepth": 10,
-	"workspaceWiki.excludeGlobs": ["**/node_modules/**", "**/.git/**"],
+	"workspaceWiki.excludeGlobs": ["**/node_modules/**", "**/.git/**"]
 }
 ```
 

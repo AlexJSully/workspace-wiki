@@ -8,6 +8,15 @@ import * as vscode from 'vscode';
 const { scanWorkspaceDocs, WorkspaceWikiTreeProvider } = require(process.cwd() + '/dist/extension.js');
 
 describe('scanWorkspaceDocs E2E', () => {
+	it('should exclude files listed in .gitignore and excludeGlobs', async () => {
+		const docs = await scanWorkspaceDocs(vscode.workspace);
+		// Should exclude ignore-me.md and ignore-folder/README.md
+		assert.ok(!docs.some((uri: any) => uri.fsPath.endsWith('ignore-me.md')));
+		assert.ok(!docs.some((uri: any) => uri.fsPath.includes('ignore-folder')));
+		// Should include test-md.md and test-txt.txt
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('test-md.md')));
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('test-txt.txt')));
+	});
 	it('should find documentation files in the workspace', async () => {
 		const docs = await scanWorkspaceDocs(vscode.workspace);
 		// E2E: In a development workspace, we expect to find documentation files

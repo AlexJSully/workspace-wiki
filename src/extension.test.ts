@@ -7,6 +7,35 @@ class MockEventEmitter {
 }
 
 describe('scanWorkspaceDocs', () => {
+	it('should exclude files listed in .gitignore and excludeGlobs', async () => {
+		const mockWorkspace = {
+			findFiles: async (_pattern: string, _exclude?: string) => [
+				{ fsPath: '/workspace-wiki/example/ignore-me.md' },
+				{ fsPath: '/workspace-wiki/example/ignore-folder/README.md' },
+				{ fsPath: '/workspace-wiki/example/file-types-test/test-md.md' },
+				{ fsPath: '/workspace-wiki/example/file-types-test/test-php.php' },
+				{ fsPath: '/workspace-wiki/example/file-types-test/test-python.py' },
+				{ fsPath: '/workspace-wiki/example/file-types-test/test-txt.txt' },
+			],
+			getConfiguration: (_section: string) => ({
+				get: (key: string) => {
+					if (key === 'excludeGlobs') {
+						return ['**/ignore-folder/**', '**/file-types-test/test-php.php'];
+					}
+					return undefined;
+				},
+			}),
+		};
+		const docs = await scanWorkspaceDocs(mockWorkspace);
+		// Should exclude ignore-me.md, ignore-folder/README.md, and test-php.php
+		assert.ok(!docs.some((uri) => uri.fsPath.endsWith('ignore-me.md')));
+		assert.ok(!docs.some((uri) => uri.fsPath.includes('ignore-folder')));
+		assert.ok(!docs.some((uri) => uri.fsPath.endsWith('test-php.php')));
+		// Should include test-md.md, test-python.py, test-txt.txt
+		assert.ok(docs.some((uri) => uri.fsPath.endsWith('test-md.md')));
+		assert.ok(docs.some((uri) => uri.fsPath.endsWith('test-python.py')));
+		assert.ok(docs.some((uri) => uri.fsPath.endsWith('test-txt.txt')));
+	});
 	it('should return an array of Uri-like objects', async () => {
 		const mockWorkspace = {
 			findFiles: async (pattern: string) => [{ fsPath: `/fake/path/doc.${pattern.split('.').pop()}` }],
@@ -475,8 +504,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 
 	it('should handle different directory sort options', async () => {
 		// Test with alphabetical sorting - simpler test that should work
-		const directorySort1: 'files-first' | 'folders-first' | 'alphabetical' = 'alphabetical';
-		const tree1 = buildTree([{ fsPath: '/base/zebra.md' }, { fsPath: '/base/alpha.md' }], directorySort1);
+		const tree1 = buildTree([{ fsPath: '/base/zebra.md' }, { fsPath: '/base/alpha.md' }], 'alphabetical');
 
 		// Should be sorted alphabetically
 		assert.ok(tree1.length >= 2, 'Should have at least 2 items');
@@ -486,15 +514,12 @@ describe('WorkspaceWikiTreeProvider', () => {
 		}
 
 		// Test files-first vs folders-first with mixed items
-		const directorySort2: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first';
-		const tree2 = buildTree([{ fsPath: '/base/file.md' }, { fsPath: '/base/folder/nested.md' }], directorySort2);
+		const tree2 = buildTree([{ fsPath: '/base/file.md' }, { fsPath: '/base/folder/nested.md' }], 'files-first');
 
 		assert.ok(tree2.length > 0, 'Should have items in tree');
 
 		// Test that the sorting logic itself works
-		const directorySort3: 'files-first' | 'folders-first' | 'alphabetical' = 'folders-first';
-		const tree3 = buildTree([{ fsPath: '/base/file.md' }, { fsPath: '/base/folder/nested.md' }], directorySort3);
-
+		const tree3 = buildTree([{ fsPath: '/base/file.md' }, { fsPath: '/base/folder/nested.md' }], 'folders-first');
 		assert.ok(tree3.length > 0, 'Should have items in tree');
 	});
 

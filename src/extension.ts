@@ -4,10 +4,6 @@ import * as vscode from 'vscode';
 
 /**
  * Scanner module: Scans the workspace for documentation files (.md, .markdown, .txt)
- * Returns a list of file URIs matching supported extensions.
- */
-/**
- * Scanner module: Scans the workspace for documentation files (.md, .markdown, .txt)
  * Returns a list of file URIs matching supported extensions, respecting excludes and settings.
  */
 export async function scanWorkspaceDocs(workspace: {
@@ -23,6 +19,33 @@ export async function scanWorkspaceDocs(workspace: {
 		supportedExtensions = config.get('supportedExtensions') || supportedExtensions;
 		excludeGlobs = config.get('excludeGlobs') || excludeGlobs;
 		maxSearchDepth = config.get('maxSearchDepth') || maxSearchDepth;
+	}
+	// Read .gitignore from workspace root and merge patterns
+	try {
+		// Only works in VS Code extension host, so fallback if not available
+		const fs = require('fs');
+		const path = require('path');
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+		if (workspaceFolders && workspaceFolders.length > 0) {
+			const gitignorePath = path.join(workspaceFolders[0].uri.fsPath, '.gitignore');
+			if (fs.existsSync(gitignorePath)) {
+				const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
+				const gitignorePatterns = gitignoreContent
+					.split('\n')
+					.map((line: string) => line.trim())
+					.filter((line: string) => line && !line.startsWith('#'))
+					.map((line: string) => {
+						// Convert .gitignore pattern to glob
+						if (line.endsWith('/')) {
+							return `**/${line}**`;
+						}
+						return `**/${line}`;
+					});
+				excludeGlobs = [...excludeGlobs, ...gitignorePatterns];
+			}
+		}
+	} catch {
+		// Ignore errors reading .gitignore
 	}
 	// Build glob patterns for supported extensions
 	const patterns = supportedExtensions.map((ext) => `**/*.${ext}`);
@@ -43,18 +66,18 @@ export async function scanWorkspaceDocs(workspace: {
 		if (maxSearchDepth > 0) {
 			uris = uris.filter((uri) => {
 				const relPath = uri.fsPath.replace(/\\/g, '/');
-				// Calculate depth by counting directory separators after base path
-				// /fake/path/level1.md -> 0 directories deep (depth 1)
-				// /fake/path/deep/level2.md -> 1 directory deep (depth 2)
-				// /fake/path/deep/deeper/level3.md -> 2 directories deep (depth 3)
-				const pathMatch = relPath.match(/\/fake\/path\/(.*)$/);
-				if (pathMatch) {
-					const relativePath = pathMatch[1];
-					const separatorCount = (relativePath.match(/\//g) || []).length;
-					const depth = separatorCount + 1;
-					return depth <= maxSearchDepth;
+				// Calculate depth by counting directory separators after workspace root
+				// Find the workspace root (assume first folder in path)
+				const pathParts = relPath.split('/').filter(Boolean);
+				// Depth is number of path segments after the workspace root
+				// e.g. /workspace-root/example/file-types-test/test-md.md
+				// workspace root: 'workspace-wiki', depth = segments after root
+				let rootIndex = pathParts.indexOf('workspace-wiki');
+				if (rootIndex === -1) {
+					rootIndex = 0; // fallback if not found
 				}
-				return true; // Keep file if we can't determine depth
+				const depth = pathParts.length - (rootIndex + 1);
+				return depth + 1 <= maxSearchDepth;
 			});
 		}
 		results.push(...uris);
