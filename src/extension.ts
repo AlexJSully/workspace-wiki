@@ -3,10 +3,20 @@
 import * as vscode from 'vscode';
 
 /**
+ * WorkspaceLike interface: Represents the minimal workspace API required for scanning docs.
+ * - findFiles: Used to search for files matching patterns.
+ * - getConfiguration: Used to read extension settings (optional).
+ */
+export interface WorkspaceLike {
+	findFiles: (pattern: string, exclude?: string, maxResults?: number) => Thenable<any[]>;
+	getConfiguration?: (section: string) => { get: (key: string) => any };
+}
+
+/**
  * Scanner module: Scans the workspace for documentation files (.md, .markdown, .txt)
  * Returns a list of file URIs matching supported extensions, respecting excludes and settings.
  */
-export async function scanWorkspaceDocs(workspace: any): Promise<any[]> {
+export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]> {
 	// Read settings from workspaceWiki config if available
 	let supportedExtensions = ['md', 'markdown', 'txt'];
 	let excludeGlobs: string[] = ['**/node_modules/**', '**/.git/**'];
@@ -69,12 +79,8 @@ export async function scanWorkspaceDocs(workspace: any): Promise<any[]> {
 
 	const results: any[] = [];
 	for (const pattern of patterns) {
-		// First try without exclude to see if that's the issue
-		let uris = await Promise.resolve(workspace.findFiles(pattern, undefined, undefined));
-		if (uris.length === 0) {
-			// Also try with explicit exclude
-			uris = await Promise.resolve(workspace.findFiles(pattern, exclude, undefined));
-		}
+		// Always use the exclude pattern if provided
+		let uris = await Promise.resolve(workspace.findFiles(pattern, exclude, undefined));
 
 		// Filter out excluded files (simulate .gitignore/excludeGlobs)
 		if (excludeGlobs.length > 0) {
@@ -126,7 +132,14 @@ export function normalizeTitle(fileName: string, acronyms: string[] = []): strin
 		return '';
 	}
 
-	const nameWithoutExt = fileName.replace(/\.(md|markdown|txt|html?|pdf|css|js|ts|json|xml)$/i, '');
+	/**
+	 * nameWithoutExt:
+	 * - Removes the file extension from the provided fileName using a regex.
+	 * - Used to extract the base name for further normalization (e.g., converting to title case, handling acronyms).
+	 * - Should include only the main part of the filename, excluding extensions like .md, .markdown, .txt, .htm, .html, .pdf, .css, .js, .ts, .json, .xml.
+	 * - This is important for generating human-readable titles and for consistent handling of technical acronyms.
+	 */
+	const nameWithoutExt = fileName.replace(/\.(md|markdown|txt|(htm|html)|pdf|css|js|ts|json|xml)$/i, '');
 
 	// Handle special cases
 	if (nameWithoutExt.toLowerCase() === 'readme') {

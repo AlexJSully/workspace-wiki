@@ -2,7 +2,7 @@
 	"name": "workspace-wiki",
 	"displayName": "workspace-wiki",
 	"description": "Workspace Wiki",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"publisher": "alexjsully",
 	"engines": {
 		"vscode": "^1.105.0"
@@ -222,5 +222,24 @@
 		"prettier": "^3.6.2",
 		"ts-jest": "^29.4.5",
 		"typescript": "^5.9.3"
-	}
+	},
+	"bugs": "https://github.com/AlexJSully/workspace-wiki/issues",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/AlexJSully/workspace-wiki.git"
+	},
+	"keywords": [
+		"documentation",
+		"wiki",
+		"markdown",
+		"notes",
+		"tree view",
+		"workspace",
+		"preview",
+		"editor",
+		"readme",
+		"index",
+		"local",
+		"vscode-extension"
+	]
 }
