@@ -13,6 +13,15 @@
 	"activationEvents": [],
 	"main": "./dist/extension.js",
 	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "workspaceWiki",
+					"title": "Workspace Wiki",
+					"icon": "media/icon.svg"
+				}
+			]
+		},
 		"commands": [
 			{
 				"command": "workspace-wiki.openPreview",
@@ -34,7 +43,8 @@
 			"explorer": [
 				{
 					"id": "workspaceWiki",
-					"name": "Workspace Wiki"
+					"name": "Workspace Wiki",
+					"icon": "media/icon.svg"
 				}
 			]
 		},
@@ -135,6 +145,34 @@
 					"type": "number",
 					"default": 10,
 					"description": "Maximum directory depth to search for documentation files"
+				},
+				"workspaceWiki.acronymCasing": {
+					"type": "array",
+					"default": [
+						"HTML",
+						"CSS",
+						"JS",
+						"TS",
+						"API",
+						"URL",
+						"JSON",
+						"XML",
+						"HTTP",
+						"HTTPS",
+						"REST",
+						"SQL",
+						"CSV",
+						"FHIR"
+					],
+					"description": "List of acronyms to preserve proper casing in file titles (e.g., 'html' becomes 'HTML')",
+					"items": {
+						"type": "string"
+					}
+				},
+				"workspaceWiki.showIgnoredFiles": {
+					"type": "boolean",
+					"default": false,
+					"description": "Show files and folders that are listed in .gitignore and excludeGlobs in the Workspace Wiki tree. Default is false (ignored/hidden)."
 				}
 			}
 		}

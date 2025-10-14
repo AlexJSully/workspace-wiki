@@ -27,10 +27,6 @@ out/
 tmp/
 workspace-wiki-*.vsix
 
-# Ignore test and temp files for Workspace Wiki
-ignore-me.md
-ignore-folder/
-
 # Environment variables
 .env*
 !.env.example

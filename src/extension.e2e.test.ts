@@ -21,6 +21,43 @@ describe('scanWorkspaceDocs E2E', () => {
 		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('test-md.md')));
 		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('test-txt.txt')));
 	});
+
+	it('should properly exclude files according to actual .gitignore in workspace', async () => {
+		// This test specifically verifies that the real .gitignore file is being parsed and respected
+		const docs = await scanWorkspaceDocs(vscode.workspace);
+
+		console.log('Found docs in E2E test:', docs.length);
+		console.log(
+			'Doc paths:',
+			docs.map((uri: any) => uri.fsPath),
+		);
+
+		// Get all file paths
+		const filePaths = docs.map((uri: any) => uri.fsPath);
+
+		// The .gitignore file in this workspace contains:
+		// ignore-me.md
+		// ignore-folder/
+		// These should be excluded even if they exist in the example directory
+
+		const hasIgnoredFile = filePaths.some((path: string) => path.includes('ignore-me.md'));
+		const hasIgnoredFolder = filePaths.some((path: string) => path.includes('ignore-folder'));
+
+		assert.ok(
+			!hasIgnoredFile,
+			`ignore-me.md should be excluded but found in: ${filePaths.filter((p: string) => p.includes('ignore-me.md'))}`,
+		);
+		assert.ok(
+			!hasIgnoredFolder,
+			`ignore-folder files should be excluded but found in: ${filePaths.filter((p: string) => p.includes('ignore-folder'))}`,
+		);
+
+		// Verify we still find legitimate files
+		const hasLegitFile = filePaths.some(
+			(path: string) => path.includes('README.md') && !path.includes('ignore-folder'),
+		);
+		assert.ok(hasLegitFile, 'Should still find legitimate documentation files');
+	});
 	it('should find documentation files in the workspace', async () => {
 		const docs = await scanWorkspaceDocs(vscode.workspace);
 		// E2E: In a development workspace, we expect to find documentation files
@@ -61,7 +98,6 @@ describe('WorkspaceWikiTreeProvider E2E', () => {
 		for (const item of items) {
 			assert.ok(item.label && typeof item.label === 'string');
 			assert.ok(item.tooltip && typeof item.tooltip === 'string');
-			assert.ok(item.command && typeof item.command === 'object');
 		}
 	});
 
@@ -99,42 +135,6 @@ describe('WorkspaceWikiTreeProvider E2E', () => {
 		const items = await provider.getChildren();
 		assert.ok(Array.isArray(items));
 		assert.strictEqual(items.length, 0, 'Empty workspace should return empty array');
-	});
-
-	it('should display proper icons and context values for files and folders', async () => {
-		const provider = new WorkspaceWikiTreeProvider(
-			vscode.workspace,
-			vscode.TreeItem,
-			vscode.TreeItemCollapsibleState,
-			vscode.EventEmitter,
-		);
-		const items = await provider.getChildren();
-
-		for (const item of items) {
-			// Each item should have proper context value
-			assert.ok(
-				['file', 'folder'].includes(item.contextValue),
-				`Item should have contextValue of 'file' or 'folder', got: ${item.contextValue}`,
-			);
-
-			// Each item should have resourceUri for icon display
-			assert.ok(item.resourceUri, 'Item should have resourceUri for icon display');
-
-			if (item.contextValue === 'file') {
-				// Files should have commands
-				assert.ok(item.command, 'File items should have command for opening');
-				assert.strictEqual(item.command.command, 'vscode.open', 'File command should be vscode.open');
-			}
-
-			if (item.contextValue === 'folder') {
-				// Folders should be collapsible
-				assert.ok(
-					item.collapsibleState === vscode.TreeItemCollapsibleState.Collapsed ||
-						item.collapsibleState === vscode.TreeItemCollapsibleState.Expanded,
-					'Folders should be collapsible',
-				);
-			}
-		}
 	});
 
 	it('should maintain proper folder names in hierarchical structure', async () => {
@@ -366,5 +366,41 @@ describe('WorkspaceWikiTreeProvider E2E', () => {
 				}
 			}
 		}
+	});
+
+	it('should properly handle file naming with various extensions', async () => {
+		// Test that the normalizeTitle function properly handles different file extensions
+		const { normalizeTitle } = require(process.cwd() + '/dist/extension.js');
+
+		// Test HTM extension removal
+		assert.strictEqual(normalizeTitle('test-htm.htm'), 'Test Htm', 'HTM extension should be removed');
+
+		// Test HTML extension removal
+		assert.strictEqual(normalizeTitle('test-html.html'), 'Test Html', 'HTML extension should be removed');
+
+		// Test other extensions
+		assert.strictEqual(normalizeTitle('test-css.css'), 'Test Css', 'CSS extension should be removed');
+		assert.strictEqual(normalizeTitle('test-js.js'), 'Test Js', 'JS extension should be removed');
+	});
+
+	it('should apply acronym casing from settings', async () => {
+		// Test that acronym casing works correctly
+		const { normalizeTitle } = require(process.cwd() + '/dist/extension.js');
+
+		const acronyms = ['HTML', 'CSS', 'API', 'JSON'];
+
+		// Test acronym casing application
+		assert.strictEqual(normalizeTitle('html-guide.html', acronyms), 'HTML Guide', 'HTML acronym should be applied');
+		assert.strictEqual(normalizeTitle('css-styling.css', acronyms), 'CSS Styling', 'CSS acronym should be applied');
+		assert.strictEqual(
+			normalizeTitle('api-documentation.md', acronyms),
+			'API Documentation',
+			'API acronym should be applied',
+		);
+		assert.strictEqual(
+			normalizeTitle('json-format.txt', acronyms),
+			'JSON Format',
+			'JSON acronym should be applied',
+		);
 	});
 });

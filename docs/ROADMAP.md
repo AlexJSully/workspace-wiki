@@ -17,8 +17,7 @@ This roadmap breaks down the implementation plan from the design doc into granul
 ### 1.1. Scanner Module
 
 - [x] Implement workspace scanning for `.md`, `.markdown`, `.txt` files
-- [ ] Respect `excludeGlobs` and `.gitignore`
-- [ ] Implement file system watcher for live updates
+- [x] Respect `excludeGlobs` and `.gitignore`
 - [ ] Cache metadata (title, path, mtime)
 
 ### 1.2. TreeDataProvider
@@ -30,7 +29,6 @@ This roadmap breaks down the implementation plan from the design doc into granul
 ### 1.3. Title Normalization
 
 - [x] Normalize file names to human-friendly titles
-- [ ] Parse frontmatter for custom titles
 
 ### 1.4. Preview/Open Controller
 
