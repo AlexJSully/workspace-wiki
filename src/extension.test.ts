@@ -20,7 +20,13 @@ describe('scanWorkspaceDocs', () => {
 			getConfiguration: (_section: string) => ({
 				get: (key: string) => {
 					if (key === 'excludeGlobs') {
-						return ['**/ignore-folder/**', '**/file-types-test/test-php.php'];
+						// Simulate .gitignore patterns as well as config excludes
+						return [
+							'**/ignore-folder/**',
+							'**/file-types-test/test-php.php',
+							'ignore-me.md',
+							'ignore-folder/',
+						];
 					}
 					return undefined;
 				},
