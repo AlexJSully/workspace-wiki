@@ -1,0 +1,6 @@
+/* test-css.css */
+/* Export: This file is for testing CSS exclusion in Workspace Wiki */
+.hello {
+	color: green;
+	font-weight: bold;
+}

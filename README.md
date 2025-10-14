@@ -25,10 +25,7 @@ This extension contributes the following settings under the `workspaceWiki` name
 - `workspaceWiki.supportedExtensions`: Array of file extensions to include (default: ["md", "markdown", "txt"])
 - `workspaceWiki.excludeGlobs`: Glob patterns to exclude from scanning
 - `workspaceWiki.defaultOpenMode`: "preview" or "editor" (default: "preview")
-- `workspaceWiki.enableHtml`: Enable HTML file support (default: false)
-- `workspaceWiki.includePdf`: Enable PDF file support (default: false)
 - `workspaceWiki.maxSearchDepth`: Maximum folder depth to scan
-- `workspaceWiki.autoRevealDelayMs`: Delay in ms before auto-revealing active file
 
 ## Known Issues
 

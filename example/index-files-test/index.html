@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Index HTML - Landing Page</title>
+		<style>
+			body {
+				font-family: 'Segoe UI', system-ui, sans-serif;
+				max-width: 900px;
+				margin: 0 auto;
+				padding: 40px 20px;
+				background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+				color: white;
+				min-height: 100vh;
+			}
+			.container {
+				background: rgba(255, 255, 255, 0.1);
+				backdrop-filter: blur(10px);
+				border-radius: 15px;
+				padding: 40px;
+				border: 1px solid rgba(255, 255, 255, 0.2);
+			}
+			h1 {
+				color: #fff;
+				text-align: center;
+				margin-bottom: 30px;
+				text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+			}
+			.section {
+				background: rgba(255, 255, 255, 0.1);
+				padding: 20px;
+				margin: 20px 0;
+				border-radius: 8px;
+				border-left: 4px solid #00d4aa;
+			}
+			ul li {
+				margin: 8px 0;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h1>Index HTML - Alternative Index Format</h1>
+
+			<div class="section">
+				<h2>🎯 Purpose</h2>
+				<p>
+					This HTML index file tests the Workspace Wiki extension's handling of HTML-based index files when
+					HTML support is enabled through configuration.
+				</p>
+			</div>
+
+			<div class="section">
+				<h2>🧪 Testing Scenarios</h2>
+				<ul>
+					<li>
+						<strong>HTML Index Recognition:</strong> Should the extension recognize index.html as a folder
+						landing page?
+					</li>
+					<li>
+						<strong>Multi-format Precedence:</strong> How does index.html interact with index.md and
+						index.txt?
+					</li>
+					<li><strong>Display Integration:</strong> Proper rendering and interaction within VS Code</li>
+				</ul>
+			</div>
+
+			<div class="section">
+				<h2>📋 Expected Behavior</h2>
+				<p>This index.html file should:</p>
+				<ul>
+					<li>Be discovered only when HTML support is enabled</li>
+					<li>Have lower precedence than index.md for folder naming</li>
+					<li>Open appropriately in browser preview or code editor</li>
+					<li>Maintain proper ordering with other index files</li>
+				</ul>
+			</div>
+		</div>
+	</body>
+</html>

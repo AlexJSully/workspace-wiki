@@ -64,6 +64,12 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 - **Strict TypeScript:** Enforced via `tsconfig.json`.
 - **ESLint:** Custom rules for naming conventions and code style.
 
+**Path Handling:**
+
+- Never use developer-specific paths (e.g., usernames, home directories, or absolute paths like `/Users/user/...`) in code, comments, or documentation.
+- Always use generic workspace root examples (e.g., `/workspace-root/...` or `/project-root/...`).
+- All code, comments, and tests must be portable and not reference any developer's local system.
+
 ## Integration Points
 
 - **VS Code API:** TreeDataProvider, commands, workspace, window, configuration.

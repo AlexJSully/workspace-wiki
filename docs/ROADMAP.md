@@ -8,22 +8,7 @@ This roadmap breaks down the implementation plan from the design doc into granul
 
 ### 0.1. Create Project Structure
 
-- [x] Create `.github` folder
-- [x] Add Copilot instructions file
-- [x] Add initial README
-- [x] Add initial ROADMAP.md
-- [x] Add initial CHANGELOG.md
-- [x] Add `docs/` folder
-- [x] Add `src/` folder
-- [x] Add `test/` folder
-
-### 0.2. Setup Tooling
-
-- [x] Setup ESLint with TypeScript plugin
-- [x] Setup Prettier
-- [x] Setup Jest for unit tests
-- [x] Add VS Code launch and tasks config
-- [x] Add esbuild bundler config
+- [x] Initialize project
 
 ---
 
@@ -38,54 +23,33 @@ This roadmap breaks down the implementation plan from the design doc into granul
 
 ### 1.2. TreeDataProvider
 
-- [ ] Implement tree view in Explorer
-- [ ] Convert file system entries to tree nodes
-- [ ] Apply ordering rules (README, root files, alphabetical dirs)
-- [ ] Implement folder-as-index behavior
-- [ ] Support multi-root workspaces
+- [x] Implement tree view in Explorer
+- [x] Convert file system entries to tree nodes
+- [x] Apply ordering rules (README, root files, alphabetical dirs)
 
 ### 1.3. Title Normalization
 
-- [ ] Normalize file names to human-friendly titles
+- [x] Normalize file names to human-friendly titles
 - [ ] Parse frontmatter for custom titles
 
 ### 1.4. Preview/Open Controller
 
-- [ ] Open files in preview mode on single click
+- [x] Open files in preview mode on single click
 - [ ] Open files in editor mode on double click
-- [ ] Implement context menu actions
+- [x] Implement context menu actions
 
 ### 1.5. Settings Manager
 
-- [ ] Read config from `workspaceWiki` namespace
-- [ ] Expose typed settings to modules
 - [ ] Implement settings for supported extensions, excludes, open mode
-
-### 1.6. Unit Tests
-
-- [ ] Write unit tests for normalization logic
-- [ ] Write unit tests for ordering logic
-- [ ] Write integration tests for tree view
 
 ---
 
 ## Milestone 2 — UX Polish & Features
 
-### 2.1. Index Handling
-
-- [ ] Implement index.md handling for folder nodes
-- [ ] Add setting to show/hide index child file
-
-### 2.2. Sync Module
+### 2.1. Sync Module
 
 - [ ] Reveal active file in tree on editor change
 - [ ] Implement auto-reveal delay setting
-
-### 2.3. Context Menu & Open With
-
-- [ ] Add context menu actions for preview/editor
-- [ ] Integrate with Markdown preview extension
-- [ ] Add plumbing for `Open With...`
 
 ---
 
@@ -93,18 +57,7 @@ This roadmap breaks down the implementation plan from the design doc into granul
 
 ### 3.1. Markdown Preview Integration
 
-- [ ] Integrate with VS Code Markdown preview
-- [ ] Provide consistent styling via webview (optional)
-
-### 3.2. PDF & HTML Support
-
-- [ ] Detect PDF files and enable preview
-- [ ] Add settings for enabling HTML preview
-- [ ] Implement extension-to-handler mapping
-
-### 3.3. Settings Expansion
-
-- [ ] Add settings for enableHtml, includePdf, maxSearchDepth
+- [x] Integrate with VS Code Markdown preview
 
 ---
 
@@ -128,32 +81,10 @@ This roadmap breaks down the implementation plan from the design doc into granul
 
 ---
 
-## Milestone 5 — Stretch Goals
-
-### 5.1. Search & Tagging
-
-- [ ] Implement content search across docs
-- [ ] Add tagging support for docs
-- [ ] Extract headings outline
-
-### 5.2. Unified Reading Experience
-
-- [ ] Optional webview with TOC, search, unified theme
-
-### 5.3. Summarization Assistant
-
-- [ ] Add privacy-optional summarization for long docs
-
----
-
 ## Edge Cases & Quality
 
 - [ ] Handle very large repos (maxSearchDepth, lazy loading)
-- [ ] Treat README.md/readme.md as equivalent
+- [x] Treat README.md/readme.md as equivalent
 - [ ] Avoid opening binary files as text
 - [ ] Do not follow symlinks by default
 - [ ] Respect all excludes
-
----
-
-_This roadmap should be updated as features are completed or new requirements emerge._

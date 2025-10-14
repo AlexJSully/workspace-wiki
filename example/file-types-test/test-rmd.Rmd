@@ -1,0 +1,9 @@
+---
+title: "Test R Markdown"
+output: html_document
+---
+
+```{r}
+# Export: This chunk is for testing R Markdown exclusion in Workspace Wiki
+print('Hello, World!')
+```
