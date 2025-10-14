@@ -1,0 +1,3 @@
+# Ignore test and temp files for Workspace Wiki
+ignore-me.md
+ignore-folder/

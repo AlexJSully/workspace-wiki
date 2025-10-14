@@ -3,71 +3,103 @@
 import * as vscode from 'vscode';
 
 /**
+ * WorkspaceLike interface: Represents the minimal workspace API required for scanning docs.
+ * - findFiles: Used to search for files matching patterns.
+ * - getConfiguration: Used to read extension settings (optional).
+ */
+export interface WorkspaceLike {
+	findFiles: (pattern: string, exclude?: string, maxResults?: number) => Thenable<any[]>;
+	getConfiguration?: (section: string) => { get: (key: string) => any };
+}
+
+/**
  * Scanner module: Scans the workspace for documentation files (.md, .markdown, .txt)
  * Returns a list of file URIs matching supported extensions, respecting excludes and settings.
  */
-export async function scanWorkspaceDocs(workspace: {
-	findFiles: (pattern: string, exclude?: string, maxResults?: number) => Thenable<any[]>;
-	getConfiguration?: (section: string) => { get: (key: string) => any };
-}): Promise<any[]> {
+export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]> {
 	// Read settings from workspaceWiki config if available
 	let supportedExtensions = ['md', 'markdown', 'txt'];
 	let excludeGlobs: string[] = ['**/node_modules/**', '**/.git/**'];
 	let maxSearchDepth = 10;
+	let showIgnoredFiles = false;
 	if (workspace.getConfiguration) {
 		const config = workspace.getConfiguration('workspaceWiki');
 		supportedExtensions = config.get('supportedExtensions') || supportedExtensions;
 		excludeGlobs = config.get('excludeGlobs') || excludeGlobs;
 		maxSearchDepth = config.get('maxSearchDepth') || maxSearchDepth;
+		showIgnoredFiles = config.get('showIgnoredFiles') ?? false;
 	}
+
 	// Read .gitignore from workspace root and merge patterns
-	try {
-		// Only works in VS Code extension host, so fallback if not available
-		const fs = require('fs');
-		const path = require('path');
-		const workspaceFolders = vscode.workspace.workspaceFolders;
-		if (workspaceFolders && workspaceFolders.length > 0) {
-			const gitignorePath = path.join(workspaceFolders[0].uri.fsPath, '.gitignore');
-			if (fs.existsSync(gitignorePath)) {
-				const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
-				const gitignorePatterns = gitignoreContent
-					.split('\n')
-					.map((line: string) => line.trim())
-					.filter((line: string) => line && !line.startsWith('#'))
-					.map((line: string) => {
-						// Convert .gitignore pattern to glob
-						if (line.endsWith('/')) {
-							return `**/${line}**`;
-						}
-						return `**/${line}`;
-					});
-				excludeGlobs = [...excludeGlobs, ...gitignorePatterns];
+	if (!showIgnoredFiles) {
+		try {
+			const vscode = require('vscode');
+			const fs = require('fs');
+			const path = require('path');
+			const workspaceFolders = vscode.workspace?.workspaceFolders;
+
+			if (workspaceFolders && workspaceFolders.length > 0) {
+				const gitignorePath = path.join(workspaceFolders[0].uri.fsPath, '.gitignore');
+
+				if (fs.existsSync(gitignorePath)) {
+					const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
+					const gitignorePatterns = gitignoreContent
+						.split('\n')
+						.map((line: string) => line.trim())
+						.filter((line: string) => line && !line.startsWith('#'))
+						.map((line: string) => {
+							// Convert .gitignore pattern to glob
+							if (line.endsWith('/')) {
+								// Directory pattern: ignore all files under this directory
+								return `**/${line}**`;
+							} else if (line.startsWith('/')) {
+								// Absolute path from root
+								return `**${line}${line.endsWith('/') ? '**' : ''}`;
+							} else if (line.includes('*')) {
+								// Wildcard pattern
+								return `**/${line}`;
+							} else {
+								// File pattern: match anywhere in workspace
+								return `**/${line}`;
+							}
+						});
+					excludeGlobs = [...excludeGlobs, ...gitignorePatterns];
+				}
 			}
+		} catch {
+			// Ignore errors reading .gitignore - might be in test environment
 		}
-	} catch {
-		// Ignore errors reading .gitignore
 	}
+
 	// Build glob patterns for supported extensions
 	const patterns = supportedExtensions.map((ext) => `**/*.${ext}`);
-	const exclude = excludeGlobs.length > 0 ? `{${excludeGlobs.join(',')}}` : undefined;
+
+	// Use VS Code's built-in exclude functionality
+	const exclude = !showIgnoredFiles && excludeGlobs.length > 0 ? `{${excludeGlobs.join(',')}}` : undefined;
+
 	const results: any[] = [];
 	for (const pattern of patterns) {
+		// Always use the exclude pattern if provided
 		let uris = await Promise.resolve(workspace.findFiles(pattern, exclude, undefined));
+
 		// Filter out excluded files (simulate .gitignore/excludeGlobs)
 		if (excludeGlobs.length > 0) {
-			uris = uris.filter((uri) => {
+			uris = uris.filter((uri: any) => {
 				// Support both relative and absolute path matching for test mocks and real files
-				return !excludeGlobs.some((glob) => {
+				const shouldExclude = excludeGlobs.some((glob) => {
 					// Remove leading/trailing wildcards and slashes for matching
 					const globPart = glob.replace(/\*\*/g, '').replace(/\*/g, '').replace(/^\//, '').replace(/\/$/, '');
 					// Match against both full path and filename
-					return uri.fsPath.includes(globPart) || uri.fsPath.endsWith(globPart);
+					const matches = uri.fsPath.includes(globPart) || uri.fsPath.endsWith(globPart);
+					return matches;
 				});
+				return !shouldExclude;
 			});
 		}
-		// Optionally filter by maxSearchDepth
+
+		// Apply maxSearchDepth filter
 		if (maxSearchDepth > 0) {
-			uris = uris.filter((uri) => {
+			uris = uris.filter((uri: any) => {
 				const relPath = uri.fsPath.replace(/\\/g, '/');
 				// For test mocks, use /fake/path/ as base; for real, use workspace root
 				let base = '';
@@ -84,6 +116,7 @@ export async function scanWorkspaceDocs(workspace: {
 				return depth <= maxSearchDepth;
 			});
 		}
+
 		results.push(...uris);
 	}
 	return results;
@@ -92,25 +125,60 @@ export async function scanWorkspaceDocs(workspace: {
 /**
  * Convert file name to human-readable title
  * e.g. "gettingStarted.md" -> "Getting Started"
+ * Applies acronym casing from settings for common technical terms
  */
-export function normalizeTitle(fileName: string): string {
+export function normalizeTitle(fileName: string, acronyms: string[] = []): string {
 	if (!fileName || typeof fileName !== 'string') {
 		return '';
 	}
 
-	const nameWithoutExt = fileName.replace(/\.(md|markdown|txt|html|pdf)$/i, '');
+	/**
+	 * nameWithoutExt:
+	 * - Removes the file extension from the provided fileName using a regex.
+	 * - Used to extract the base name for further normalization (e.g., converting to title case, handling acronyms).
+	 * - Should include only the main part of the filename, excluding extensions like .md, .markdown, .txt, .htm, .html, .pdf, .css, .js, .ts, .json, .xml.
+	 * - This is important for generating human-readable titles and for consistent handling of technical acronyms.
+	 */
+	const nameWithoutExt = fileName.replace(/\.(md|markdown|txt|(htm|html)|pdf|css|js|ts|json|xml)$/i, '');
 
 	// Handle special cases
 	if (nameWithoutExt.toLowerCase() === 'readme') {
 		return 'README';
 	}
 
+	// Apply acronym casing early, before other transformations
+	let processedName = nameWithoutExt;
+	if (acronyms.length > 0) {
+		// Create a regex pattern to match any acronym as a whole word
+		const acronymMap = new Map(acronyms.map((acronym) => [acronym.toLowerCase(), acronym]));
+
+		// Replace acronyms in dash/underscore separated segments
+		processedName = processedName.replace(/\b\w+\b/g, (word) => {
+			const lowerWord = word.toLowerCase();
+			return acronymMap.get(lowerWord) || word;
+		});
+	}
+
 	// Convert camelCase to Title Case
-	return nameWithoutExt
+	let result = processedName
 		.replace(/([a-z])([A-Z])/g, '$1 $2') // camelCase
 		.replace(/[-_]/g, ' ') // kebab-case and snake_case
 		.replace(/\b\w/g, (l) => l.toUpperCase()) // Title Case
 		.trim();
+
+	// Apply acronym casing again to ensure proper casing after transformations
+	if (acronyms.length > 0) {
+		const words = result.split(/\s+/);
+		result = words
+			.map((word) => {
+				// Check if this word matches any acronym (case-insensitive)
+				const matchingAcronym = acronyms.find((acronym) => acronym.toLowerCase() === word.toLowerCase());
+				return matchingAcronym || word;
+			})
+			.join(' ');
+	}
+
+	return result;
 }
 
 /**
@@ -133,6 +201,7 @@ interface TreeNode {
 export function buildTree(
 	uris: any[],
 	directorySort: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first',
+	acronyms: string[] = [],
 ): TreeNode[] {
 	if (uris.length === 0) {
 		return [];
@@ -176,7 +245,7 @@ export function buildTree(
 				const folderNode: TreeNode = {
 					type: 'folder',
 					name: folderName,
-					title: normalizeTitle(folderName),
+					title: normalizeTitle(folderName, acronyms),
 					path: currentPath,
 					children: [],
 				};
@@ -196,7 +265,7 @@ export function buildTree(
 		const fileNode: TreeNode = {
 			type: 'file',
 			name: relativeFileName,
-			title: normalizeTitle(relativeFileName),
+			title: normalizeTitle(relativeFileName, acronyms),
 			path: uri.fsPath,
 			uri,
 			isIndex: relativeFileName.toLowerCase() === 'index.md',
@@ -298,14 +367,16 @@ export class WorkspaceWikiTreeProvider {
 		// Root level - build hierarchical tree structure
 		const uris = await scanWorkspaceDocs(this.workspace);
 
-		// Get directory sort setting
+		// Get directory sort setting and acronyms
 		let directorySort: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first';
+		let acronyms: string[] = [];
 		if (this.workspace.getConfiguration) {
 			const config = this.workspace.getConfiguration('workspaceWiki');
 			directorySort = config.get('directorySort') || 'files-first';
+			acronyms = config.get('acronymCasing') || [];
 		}
 
-		const tree = buildTree(uris, directorySort);
+		const tree = buildTree(uris, directorySort, acronyms);
 
 		return tree.map((node) => this.createTreeItem(node));
 	}

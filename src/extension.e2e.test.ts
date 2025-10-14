@@ -21,6 +21,7 @@ describe('scanWorkspaceDocs E2E', () => {
 		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('test-md.md')));
 		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('test-txt.txt')));
 	});
+
 	it('should find documentation files in the workspace', async () => {
 		const docs = await scanWorkspaceDocs(vscode.workspace);
 		// E2E: In a development workspace, we expect to find documentation files
@@ -366,5 +367,41 @@ describe('WorkspaceWikiTreeProvider E2E', () => {
 				}
 			}
 		}
+	});
+
+	it('should properly handle file naming with various extensions', async () => {
+		// Test that the normalizeTitle function properly handles different file extensions
+		const { normalizeTitle } = require(process.cwd() + '/dist/extension.js');
+
+		// Test HTM extension removal
+		assert.strictEqual(normalizeTitle('test-htm.htm'), 'Test Htm', 'HTM extension should be removed');
+
+		// Test HTML extension removal
+		assert.strictEqual(normalizeTitle('test-html.html'), 'Test Html', 'HTML extension should be removed');
+
+		// Test other extensions
+		assert.strictEqual(normalizeTitle('test-css.css'), 'Test Css', 'CSS extension should be removed');
+		assert.strictEqual(normalizeTitle('test-js.js'), 'Test Js', 'JS extension should be removed');
+	});
+
+	it('should apply acronym casing from settings', async () => {
+		// Test that acronym casing works correctly
+		const { normalizeTitle } = require(process.cwd() + '/dist/extension.js');
+
+		const acronyms = ['HTML', 'CSS', 'API', 'JSON'];
+
+		// Test acronym casing application
+		assert.strictEqual(normalizeTitle('html-guide.html', acronyms), 'HTML Guide', 'HTML acronym should be applied');
+		assert.strictEqual(normalizeTitle('css-styling.css', acronyms), 'CSS Styling', 'CSS acronym should be applied');
+		assert.strictEqual(
+			normalizeTitle('api-documentation.md', acronyms),
+			'API Documentation',
+			'API acronym should be applied',
+		);
+		assert.strictEqual(
+			normalizeTitle('json-format.txt', acronyms),
+			'JSON Format',
+			'JSON acronym should be applied',
+		);
 	});
 });

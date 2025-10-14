@@ -49,6 +49,15 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 - Use `npm run watch-tests` for live test compilation.
 - Test files must match `**.test.ts` (unit) and `**.e2e.test.ts` (e2e) and reside in `src/test/`.
 
+**CRITICAL - Test Preservation:**
+
+- **NEVER delete existing unit tests or E2E tests** when making changes or improvements to the codebase.
+- Existing tests serve as regression protection and validate current functionality.
+- If tests need modification due to API changes, **update** them to match new behavior, don't delete them.
+- When adding new features, **add new tests** alongside existing ones.
+- All tests must continue to pass after any changes - use `npm run validate` to verify.
+- Deleting tests removes safety nets and can lead to undetected regressions in production.
+
 - **Lint:**
     - Use `npm run lint` (TypeScript ESLint config in `eslint.config.mjs`).
 - **Debug:**

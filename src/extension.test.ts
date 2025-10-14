@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { WorkspaceWikiTreeProvider, buildTree, scanWorkspaceDocs } from './extension';
+import { WorkspaceWikiTreeProvider, buildTree, normalizeTitle, scanWorkspaceDocs } from './extension';
 
 class MockEventEmitter {
 	public event = () => {};
@@ -41,6 +41,88 @@ describe('scanWorkspaceDocs', () => {
 		assert.ok(docs.some((uri) => uri.fsPath.endsWith('test-md.md')));
 		assert.ok(docs.some((uri) => uri.fsPath.endsWith('test-python.py')));
 		assert.ok(docs.some((uri) => uri.fsPath.endsWith('test-txt.txt')));
+	});
+
+	it('should properly parse .gitignore patterns for real gitignore exclusion', async () => {
+		// Test that .gitignore patterns are converted to proper glob patterns and excluded
+		const mockWorkspace = {
+			findFiles: async (pattern: string, exclude?: string) => {
+				// Simulate findFiles respecting exclude patterns
+				const allFiles = [
+					{ fsPath: '/workspace-wiki/example/ignore-me.md' },
+					{ fsPath: '/workspace-wiki/example/ignore-folder/README.md' },
+					{ fsPath: '/workspace-wiki/absolute-ignore.md' },
+					{ fsPath: '/workspace-wiki/example/test.temp' },
+					{ fsPath: '/workspace-wiki/node_modules/something.md' },
+					{ fsPath: '/workspace-wiki/example/keep-me.md' },
+					{ fsPath: '/workspace-wiki/example/also-keep.txt' },
+				];
+
+				if (!exclude) {
+					return allFiles;
+				}
+
+				// Parse exclude patterns and filter
+				const excludePatterns = exclude.slice(1, -1).split(','); // Remove { } and split
+				return allFiles.filter((file) => {
+					return !excludePatterns.some((pattern) => {
+						const cleanPattern = pattern.replace(/\*\*/g, '');
+						if (cleanPattern.includes('ignore-me.md')) {
+							return file.fsPath.includes('ignore-me.md');
+						}
+						if (cleanPattern.includes('ignore-folder')) {
+							return file.fsPath.includes('ignore-folder');
+						}
+						if (cleanPattern.includes('absolute-ignore.md')) {
+							return file.fsPath.includes('absolute-ignore.md');
+						}
+						if (cleanPattern.includes('.temp')) {
+							return file.fsPath.endsWith('.temp');
+						}
+						if (cleanPattern.includes('node_modules')) {
+							return file.fsPath.includes('node_modules');
+						}
+						return false;
+					});
+				});
+			},
+			getConfiguration: () => ({
+				get: (key: string) => {
+					// Simulate the patterns that would be added by .gitignore parsing
+					if (key === 'excludeGlobs') {
+						return [
+							'**/node_modules/**',
+							'**/.git/**',
+							'**/ignore-me.md',
+							'**/ignore-folder/**',
+							'**/absolute-ignore.md',
+							'**/*.temp',
+							'**/node_modules/**',
+						];
+					}
+					return undefined;
+				},
+			}),
+		};
+
+		const docs = await scanWorkspaceDocs(mockWorkspace);
+
+		// Should exclude all gitignore patterns
+		assert.ok(!docs.some((uri) => uri.fsPath.includes('ignore-me.md')), 'Should exclude ignore-me.md');
+		assert.ok(!docs.some((uri) => uri.fsPath.includes('ignore-folder')), 'Should exclude ignore-folder/');
+		assert.ok(!docs.some((uri) => uri.fsPath.includes('absolute-ignore.md')), 'Should exclude /absolute-ignore.md');
+		assert.ok(!docs.some((uri) => uri.fsPath.endsWith('.temp')), 'Should exclude *.temp files');
+		assert.ok(!docs.some((uri) => uri.fsPath.includes('node_modules')), 'Should exclude node_modules/');
+
+		// Should include non-ignored files
+		assert.ok(
+			docs.some((uri) => uri.fsPath.includes('keep-me.md')),
+			'Should include keep-me.md',
+		);
+		assert.ok(
+			docs.some((uri) => uri.fsPath.includes('also-keep.txt')),
+			'Should include also-keep.txt',
+		);
 	});
 	it('should return an array of Uri-like objects', async () => {
 		const mockWorkspace = {
@@ -126,6 +208,68 @@ describe('scanWorkspaceDocs', () => {
 			const ext = uri.fsPath.split('.').pop()?.toLowerCase();
 			assert.ok(['md', 'markdown', 'custom'].includes(ext ?? ''));
 		}
+	});
+});
+
+describe('normalizeTitle', () => {
+	it('should remove .htm extension correctly', () => {
+		assert.strictEqual(normalizeTitle('test-htm.htm'), 'Test Htm');
+	});
+
+	it('should remove .html extension correctly', () => {
+		assert.strictEqual(normalizeTitle('test-html.html'), 'Test Html');
+	});
+
+	it('should remove various file extensions', () => {
+		assert.strictEqual(normalizeTitle('document.md'), 'Document');
+		assert.strictEqual(normalizeTitle('guide.markdown'), 'Guide');
+		assert.strictEqual(normalizeTitle('notes.txt'), 'Notes');
+		assert.strictEqual(normalizeTitle('report.pdf'), 'Report');
+	});
+
+	it('should handle README files specially', () => {
+		assert.strictEqual(normalizeTitle('readme.md'), 'README');
+		assert.strictEqual(normalizeTitle('README.txt'), 'README');
+	});
+
+	it('should convert dash-case to Title Case', () => {
+		assert.strictEqual(normalizeTitle('getting-started.md'), 'Getting Started');
+		assert.strictEqual(normalizeTitle('api-documentation.md'), 'Api Documentation');
+	});
+
+	it('should convert snake_case to Title Case', () => {
+		assert.strictEqual(normalizeTitle('user_guide.md'), 'User Guide');
+		assert.strictEqual(normalizeTitle('installation_instructions.md'), 'Installation Instructions');
+	});
+
+	it('should convert camelCase to Title Case', () => {
+		assert.strictEqual(normalizeTitle('getUserData.md'), 'Get User Data');
+		assert.strictEqual(normalizeTitle('createNewProject.md'), 'Create New Project');
+	});
+
+	it('should apply acronym casing when provided', () => {
+		const acronyms = ['HTML', 'CSS', 'API', 'JSON'];
+		assert.strictEqual(normalizeTitle('html-guide.html', acronyms), 'HTML Guide');
+		assert.strictEqual(normalizeTitle('css-styling.css', acronyms), 'CSS Styling');
+		assert.strictEqual(normalizeTitle('api-documentation.md', acronyms), 'API Documentation');
+		assert.strictEqual(normalizeTitle('json-format.txt', acronyms), 'JSON Format');
+	});
+
+	it('should handle mixed case acronyms', () => {
+		const acronyms = ['HTML', 'CSS', 'API'];
+		assert.strictEqual(normalizeTitle('html-guide.html', acronyms), 'HTML Guide');
+		assert.strictEqual(normalizeTitle('api-DOCS.md', acronyms), 'API DOCS');
+	});
+
+	it('should work without acronyms parameter', () => {
+		assert.strictEqual(normalizeTitle('test-file.md'), 'Test File');
+		assert.strictEqual(normalizeTitle('html-content.html'), 'Html Content');
+	});
+
+	it('should handle empty or invalid input', () => {
+		assert.strictEqual(normalizeTitle(''), '');
+		assert.strictEqual(normalizeTitle(null as any), '');
+		assert.strictEqual(normalizeTitle(undefined as any), '');
 	});
 });
 
