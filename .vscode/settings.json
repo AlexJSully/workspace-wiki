@@ -10,11 +10,5 @@
 	},
 	// Turn off tsc task auto detection since we have the necessary tasks as npm scripts
 	"typescript.tsc.autoDetect": "off",
-	"workspaceWiki.supportedExtensions": [
-		"md",
-		"markdown",
-		"txt",
-		"html",
-		"htm"
-	]
+	"workspaceWiki.supportedExtensions": ["md", "markdown", "txt", "html", "htm"]
 }
