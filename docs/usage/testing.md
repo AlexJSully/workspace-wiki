@@ -33,6 +33,16 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
 - E2E tests: `src/*.e2e.test.ts`
 - Test utilities: `src/test/`
 
+## Example Directory for Testing
+
+The `example/` directory contains a variety of files and folders used to test and demonstrate the Workspace Wiki extension's features. Use these files to verify:
+
+- File type support and filtering (see `file-types-test/`)
+- Handling of ignored and hidden files (see `ignore-files-test/`)
+- Tree structure, index/README handling, and nested folders
+
+You can toggle extension settings (such as `showHiddenFiles`) and observe how the Workspace Wiki tree updates to reflect these changes using the files in `example/`.
+
 ## Testing Hidden File Visibility
 
 - The `workspaceWiki.showHiddenFiles` setting controls whether hidden files/folders (those starting with a dot, e.g. `.github`, `.env`) are shown in the Workspace Wiki tree.

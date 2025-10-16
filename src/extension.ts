@@ -553,12 +553,11 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Listen for configuration changes to auto-refresh tree and sync extensions
 	const configurationChangeListener = vscode.workspace.onDidChangeConfiguration((event) => {
+		// Refresh tree and sync extensions on any workspaceWiki.* setting change
 		if (
-			event.affectsConfiguration('workspaceWiki.directorySort') ||
-			event.affectsConfiguration('workspaceWiki.supportedExtensions') ||
-			event.affectsConfiguration('workspaceWiki.excludeGlobs') ||
-			event.affectsConfiguration('workspaceWiki.maxSearchDepth') ||
-			event.affectsConfiguration('workspaceWiki.openWith')
+			Object.keys(vscode.workspace.getConfiguration('workspaceWiki')).some((key) =>
+				event.affectsConfiguration(`workspaceWiki.${key}`),
+			)
 		) {
 			syncOpenWithToSupportedExtensions();
 			treeProvider.refresh();
