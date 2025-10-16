@@ -35,55 +35,62 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 	// Read .gitignore from workspace root and merge patterns
 	if (!showIgnoredFiles) {
 		try {
-			// Use vscode parameter instead of require for better web compatibility
-			// Note: fs and path are Node.js specific and may not work in web environment
-			const fs = require('fs');
-			const path = require('path');
+			// Guard Node.js APIs for web extension compatibility
+			if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+				// Use vscode parameter instead of require for better web compatibility
+				// Note: fs and path are Node.js specific and may not work in web environment
+				const fs = require('fs');
+				const path = require('path');
 
-			// Get workspace folders from the passed workspace parameter or global vscode
-			let workspaceFolders;
-			if (typeof vscode !== 'undefined' && vscode.workspace?.workspaceFolders) {
-				workspaceFolders = vscode.workspace.workspaceFolders;
+				// Get workspace folders from the passed workspace parameter or global vscode
+				let workspaceFolders;
+				if (typeof vscode !== 'undefined' && vscode.workspace?.workspaceFolders) {
+					workspaceFolders = vscode.workspace.workspaceFolders;
+				} else {
+					// Fallback - might not work in web, but gracefully handle
+					try {
+						const vscodeModule = require('vscode');
+						workspaceFolders = vscodeModule.workspace?.workspaceFolders;
+					} catch {
+						// In web environment, fs operations may not be available, continue without gitignore
+					}
+				}
+
+				if (workspaceFolders && workspaceFolders.length > 0) {
+					const gitignorePath = path.join(workspaceFolders[0].uri.fsPath, '.gitignore');
+
+					if (fs.existsSync(gitignorePath)) {
+						const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
+						const gitignorePatterns = gitignoreContent
+							.split('\n')
+							.map((line: string) => line.trim())
+							.filter((line: string) => line && !line.startsWith('#'))
+							.map((line: string) => {
+								// Convert .gitignore pattern to glob
+								if (line.endsWith('/')) {
+									// Directory pattern: ignore all files under this directory
+									return `**/${line}**`;
+								} else if (line.startsWith('/')) {
+									// Absolute path from root
+									return `**${line}${line.endsWith('/') ? '**' : ''}`;
+								} else if (line.includes('*')) {
+									// Wildcard pattern
+									return `**/${line}`;
+								} else {
+									// File pattern: match anywhere in workspace
+									return `**/${line}`;
+								}
+							});
+						excludeGlobs = [...excludeGlobs, ...gitignorePatterns];
+					}
+				}
 			} else {
-				// Fallback - might not work in web, but gracefully handle
-				try {
-					const vscodeModule = require('vscode');
-					workspaceFolders = vscodeModule.workspace?.workspaceFolders;
-				} catch {
-					// In web environment, fs operations may not be available, continue without gitignore
-				}
+				// Web environment - skip gitignore processing
+				console.log('Workspace Wiki: Running in web environment, skipping .gitignore processing');
 			}
-
-			if (workspaceFolders && workspaceFolders.length > 0) {
-				const gitignorePath = path.join(workspaceFolders[0].uri.fsPath, '.gitignore');
-
-				if (fs.existsSync(gitignorePath)) {
-					const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
-					const gitignorePatterns = gitignoreContent
-						.split('\n')
-						.map((line: string) => line.trim())
-						.filter((line: string) => line && !line.startsWith('#'))
-						.map((line: string) => {
-							// Convert .gitignore pattern to glob
-							if (line.endsWith('/')) {
-								// Directory pattern: ignore all files under this directory
-								return `**/${line}**`;
-							} else if (line.startsWith('/')) {
-								// Absolute path from root
-								return `**${line}${line.endsWith('/') ? '**' : ''}`;
-							} else if (line.includes('*')) {
-								// Wildcard pattern
-								return `**/${line}`;
-							} else {
-								// File pattern: match anywhere in workspace
-								return `**/${line}`;
-							}
-						});
-					excludeGlobs = [...excludeGlobs, ...gitignorePatterns];
-				}
-			}
-		} catch {
-			// Ignore errors reading .gitignore - might be in test environment
+		} catch (error) {
+			// Silently continue if gitignore processing fails
+			console.warn('Workspace Wiki: Could not process .gitignore file:', error);
 		}
 	}
 
@@ -97,6 +104,11 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 	for (const pattern of patterns) {
 		// Always use the exclude pattern if provided
 		let uris = await Promise.resolve(workspace.findFiles(pattern, exclude, undefined));
+
+		// Handle cases where findFiles returns undefined (e.g., in web environment)
+		if (!uris) {
+			uris = [];
+		}
 
 		// Filter out excluded files (simulate .gitignore/excludeGlobs)
 		if (excludeGlobs.length > 0) {
@@ -367,6 +379,7 @@ export class WorkspaceWikiTreeProvider {
 	private CollapsibleState: any;
 	private treeData: TreeNode[] = [];
 	private nodeMap: Map<string, TreeNode> = new Map();
+	private nodeMapBuilt: boolean = false;
 
 	constructor(
 		workspace: {
@@ -404,14 +417,20 @@ export class WorkspaceWikiTreeProvider {
 		}
 
 		this.treeData = buildTree(uris, directorySort, acronyms);
+
+		// Clear existing map and rebuild immediately for consistency
+		this.nodeMap.clear();
 		this.buildNodeMap(this.treeData);
+		this.nodeMapBuilt = true;
 
 		return this.treeData.map((node) => this.createTreeItem(node));
 	}
 
 	private buildNodeMap(nodes: TreeNode[], parent?: TreeNode): void {
 		for (const node of nodes) {
-			this.nodeMap.set(node.path, node);
+			// Use consistent absolute fsPath for both files and folders
+			const absolutePath = node.uri ? node.uri.fsPath : node.path;
+			this.nodeMap.set(absolutePath, node);
 			if (parent) {
 				(node as any).parent = parent;
 			}
@@ -505,29 +524,31 @@ export class WorkspaceWikiTreeProvider {
 	}
 
 	refresh(): void {
+		// Clear node map flag to force rebuild on next access
+		this.nodeMapBuilt = false;
+		this.nodeMap.clear();
 		this._onDidChangeTreeData.fire(undefined);
 	}
 
 	findNodeByPath(filePath: string): any | undefined {
-		// Check if the file path exactly matches any node
+		// Ensure nodeMap is built before lookup
+		if (!this.nodeMapBuilt && this.treeData.length > 0) {
+			this.buildNodeMap(this.treeData);
+			this.nodeMapBuilt = true;
+		}
+
+		// Direct lookup with absolute path
 		const node = this.nodeMap.get(filePath);
 		if (node && node.type === 'file') {
 			return this.createTreeItem(node);
 		}
 
-		// If not found, try to match by file name at the end of the path
-		for (const [_path, node] of this.nodeMap.entries()) {
-			if (node.type === 'file' && node.uri && node.uri.fsPath === filePath) {
-				return this.createTreeItem(node);
-			}
-		}
-
-		// Try to match by normalized path comparison
+		// Try normalized path comparison for cross-platform compatibility
 		const normalizedFilePath = filePath.replace(/\\/g, '/');
-		for (const [_path, node] of this.nodeMap.entries()) {
-			if (node.type === 'file' && node.uri) {
-				const normalizedNodePath = node.uri.fsPath.replace(/\\/g, '/');
-				if (normalizedNodePath === normalizedFilePath || normalizedNodePath.endsWith(normalizedFilePath)) {
+		for (const [mapPath, node] of this.nodeMap.entries()) {
+			if (node.type === 'file') {
+				const normalizedMapPath = mapPath.replace(/\\/g, '/');
+				if (normalizedMapPath === normalizedFilePath) {
 					return this.createTreeItem(node);
 				}
 			}
@@ -669,7 +690,7 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	// Sync functionality: reveal active file in tree
-	let revealTimeout: NodeJS.Timeout | undefined;
+	let revealTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	const revealActiveFile = () => {
 		const config = vscode.workspace.getConfiguration('workspaceWiki');
@@ -764,9 +785,18 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	// Initial reveal of active file
-	setTimeout(() => {
+	const initialRevealTimeout = setTimeout(() => {
 		revealActiveFile();
 	}, 1000); // Give time for the tree to be built
+
+	// Create disposable for initial timeout cleanup
+	const initialTimeoutDisposable = {
+		dispose: () => {
+			if (initialRevealTimeout) {
+				clearTimeout(initialRevealTimeout);
+			}
+		},
+	};
 
 	context.subscriptions.push(treeProvider);
 	context.subscriptions.push(treeView);
@@ -777,6 +807,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(editorChangeListener);
 	context.subscriptions.push(configurationChangeListener);
 	context.subscriptions.push(treeVisibilityListener);
+	context.subscriptions.push(initialTimeoutDisposable);
 }
 
 export function deactivate() {

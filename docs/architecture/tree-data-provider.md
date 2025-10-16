@@ -26,7 +26,7 @@ The TreeDataProvider is implemented in [`src/extension.ts`](../../src/extension.
 - `getParent()` - Returns parent node for sync and reveal functionality
 - `createTreeItem()` - Creates tree items with proper commands and icons
 - `findNodeByPath()` - Efficient file path lookups for sync module
-- `refresh()` - Triggers tree data refresh and rebuilds node map
+- `refresh()` - Triggers tree data change event; node map is cleared and rebuilt lazily on next `getChildren()` call
 
 ## Example
 

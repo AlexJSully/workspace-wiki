@@ -81,6 +81,66 @@ export function createMockWorkspace(config: MockWorkspaceConfig = {}, files: Moc
 }
 
 /**
+ * Mock VS Code API for testing
+ */
+export const commands = {
+	executeCommand: jest.fn(),
+	registerCommand: jest.fn(),
+};
+
+export const window = {
+	createTreeView: jest.fn(() => ({
+		reveal: jest.fn(),
+		dispose: jest.fn(),
+	})),
+	showInformationMessage: jest.fn(),
+	showErrorMessage: jest.fn(),
+	activeTextEditor: undefined,
+	onDidChangeActiveTextEditor: jest.fn(),
+};
+
+export const workspace = {
+	findFiles: jest.fn(),
+	getConfiguration: jest.fn(() => ({
+		get: jest.fn(),
+	})),
+	workspaceFolders: [{ uri: { fsPath: '/workspace-root' } }],
+	onDidChangeConfiguration: jest.fn(),
+};
+
+export const TreeItemCollapsibleState = {
+	None: 0,
+	Collapsed: 1,
+	Expanded: 2,
+};
+
+export const TreeItem = class {
+	constructor(
+		public label: string,
+		public collapsibleState?: number,
+	) {}
+};
+
+export const Uri = {
+	file: jest.fn((path: string) => ({ fsPath: path, scheme: 'file', path })),
+};
+
+export const EventEmitter = class {
+	private listeners: any[] = [];
+
+	fire(data: any) {
+		this.listeners.forEach((listener) => listener(data));
+	}
+
+	get event() {
+		return (listener: any) => {
+			this.listeners.push(listener);
+			return { dispose: () => {} };
+		};
+	}
+};
+
+/**
  * Creates a mock workspace specifically for hidden file testing
  *
  * @param showHiddenFiles Whether to show hidden files
