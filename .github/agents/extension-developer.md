@@ -43,6 +43,7 @@ You are a specialized VS Code extension developer with deep expertise in the VS 
 - **File Types**: `.md`, `.markdown`, `.txt` by default; configurable via settings
 - **Tree Ordering**: README first, index.md as folder representative, alphabetical sorting
 - **Settings Namespace**: All configuration under `workspaceWiki.*`
+- **File Filtering**: Support for hidden files (`showHiddenFiles`) and ignored files (`showIgnoredFiles`)
 - **Performance**: File system caching and efficient tree updates
 
 ### Key Implementation Areas

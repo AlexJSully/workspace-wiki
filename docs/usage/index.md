@@ -15,7 +15,7 @@ The `example/` directory in this repository contains a variety of test and demon
 
 You can use the `example/` directory to experiment with extension settings and verify that the Workspace Wiki tree updates as expected.
 
-# Usage Guide
+## Usage Guide
 
 This section covers how to install, configure, and use the Workspace Wiki extension in your VS Code environment.
 

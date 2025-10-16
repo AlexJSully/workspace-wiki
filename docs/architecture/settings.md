@@ -4,11 +4,23 @@ The Settings Manager reads and applies user configuration for the Workspace Wiki
 
 ## Supported Settings
 
+### File Discovery & Filtering
+
 - `workspaceWiki.supportedExtensions`: File types to scan (default: `md`, `markdown`, `txt`).
 - `workspaceWiki.excludeGlobs`: Patterns to exclude (e.g., `**/node_modules/**`).
-- `workspaceWiki.defaultOpenMode`: `preview` or `editor`.
-- `workspaceWiki.syncWithActiveEditor`: Auto-reveal active file in tree.
 - `workspaceWiki.maxSearchDepth`: Limit scan depth for large repos.
+- `workspaceWiki.showIgnoredFiles`: Show files listed in .gitignore and excludeGlobs (default: false).
+- `workspaceWiki.showHiddenFiles`: Show hidden files/folders starting with a dot (default: false).
+
+### File Opening & Display
+
+- `workspaceWiki.defaultOpenMode`: `preview` or `editor`.
+- `workspaceWiki.openWith`: Commands to use for opening different file types.
+- `workspaceWiki.directorySort`: How to sort files and folders (default: "files-first").
+
+### Title Formatting
+
+- `workspaceWiki.acronymCasing`: Acronyms to preserve proper casing in file titles.
 
 ## Example
 

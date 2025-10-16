@@ -29,6 +29,7 @@ This extension contributes the following settings under the `workspaceWiki` name
 - `workspaceWiki.excludeGlobs`: Glob patterns to exclude from scanning (default: ["**/node_modules/**", "**/.git/**"])
 - `workspaceWiki.maxSearchDepth`: Maximum folder depth to scan (default: 10)
 - `workspaceWiki.showIgnoredFiles`: Show files listed in .gitignore and excludeGlobs (default: false)
+- `workspaceWiki.showHiddenFiles`: Show hidden files and folders (those starting with a dot, e.g. .github, .env) in the Workspace Wiki tree (default: false)
 
 ### File Opening & Display
 
