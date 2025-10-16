@@ -35,10 +35,24 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 	// Read .gitignore from workspace root and merge patterns
 	if (!showIgnoredFiles) {
 		try {
-			const vscode = require('vscode');
+			// Use vscode parameter instead of require for better web compatibility
+			// Note: fs and path are Node.js specific and may not work in web environment
 			const fs = require('fs');
 			const path = require('path');
-			const workspaceFolders = vscode.workspace?.workspaceFolders;
+
+			// Get workspace folders from the passed workspace parameter or global vscode
+			let workspaceFolders;
+			if (typeof vscode !== 'undefined' && vscode.workspace?.workspaceFolders) {
+				workspaceFolders = vscode.workspace.workspaceFolders;
+			} else {
+				// Fallback - might not work in web, but gracefully handle
+				try {
+					const vscodeModule = require('vscode');
+					workspaceFolders = vscodeModule.workspace?.workspaceFolders;
+				} catch {
+					// In web environment, fs operations may not be available, continue without gitignore
+				}
+			}
 
 			if (workspaceFolders && workspaceFolders.length > 0) {
 				const gitignorePath = path.join(workspaceFolders[0].uri.fsPath, '.gitignore');
@@ -351,6 +365,8 @@ export class WorkspaceWikiTreeProvider {
 	};
 	private TreeItem: any;
 	private CollapsibleState: any;
+	private treeData: TreeNode[] = [];
+	private nodeMap: Map<string, TreeNode> = new Map();
 
 	constructor(
 		workspace: {
@@ -387,9 +403,33 @@ export class WorkspaceWikiTreeProvider {
 			acronyms = config.get('acronymCasing') || [];
 		}
 
-		const tree = buildTree(uris, directorySort, acronyms);
+		this.treeData = buildTree(uris, directorySort, acronyms);
+		this.buildNodeMap(this.treeData);
 
-		return tree.map((node) => this.createTreeItem(node));
+		return this.treeData.map((node) => this.createTreeItem(node));
+	}
+
+	private buildNodeMap(nodes: TreeNode[], parent?: TreeNode): void {
+		for (const node of nodes) {
+			this.nodeMap.set(node.path, node);
+			if (parent) {
+				(node as any).parent = parent;
+			}
+			if (node.children) {
+				this.buildNodeMap(node.children, node);
+			}
+		}
+	}
+
+	getParent(element: any): any | undefined {
+		if (element && (element as any).treeNode) {
+			const node = (element as any).treeNode as TreeNode;
+			const parent = (node as any).parent;
+			if (parent) {
+				return this.createTreeItem(parent);
+			}
+		}
+		return undefined;
 	}
 
 	private createTreeItem(node: TreeNode): any {
@@ -466,6 +506,34 @@ export class WorkspaceWikiTreeProvider {
 
 	refresh(): void {
 		this._onDidChangeTreeData.fire(undefined);
+	}
+
+	findNodeByPath(filePath: string): any | undefined {
+		// Check if the file path exactly matches any node
+		const node = this.nodeMap.get(filePath);
+		if (node && node.type === 'file') {
+			return this.createTreeItem(node);
+		}
+
+		// If not found, try to match by file name at the end of the path
+		for (const [_path, node] of this.nodeMap.entries()) {
+			if (node.type === 'file' && node.uri && node.uri.fsPath === filePath) {
+				return this.createTreeItem(node);
+			}
+		}
+
+		// Try to match by normalized path comparison
+		const normalizedFilePath = filePath.replace(/\\/g, '/');
+		for (const [_path, node] of this.nodeMap.entries()) {
+			if (node.type === 'file' && node.uri) {
+				const normalizedNodePath = node.uri.fsPath.replace(/\\/g, '/');
+				if (normalizedNodePath === normalizedFilePath || normalizedNodePath.endsWith(normalizedFilePath)) {
+					return this.createTreeItem(node);
+				}
+			}
+		}
+
+		return undefined;
 	}
 
 	dispose(): void {
@@ -562,6 +630,9 @@ export function handleFileClick(uri: vscode.Uri, defaultCommand: string): void {
 // VS Code extension activation: register WorkspaceWikiTreeProvider for 'workspaceWiki' view
 
 export function activate(context: vscode.ExtensionContext) {
+	// Set context for when the extension is active
+	vscode.commands.executeCommand('setContext', 'workspaceWiki:enabled', true);
+
 	const syncOpenWithToSupportedExtensions = () => {
 		const config = vscode.workspace.getConfiguration('workspaceWiki');
 		const openWith = config.get('openWith') || {};
@@ -592,7 +663,64 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.EventEmitter,
 	);
 
-	vscode.window.registerTreeDataProvider('workspaceWiki', treeProvider);
+	const treeView = vscode.window.createTreeView('workspaceWiki', {
+		treeDataProvider: treeProvider,
+		showCollapseAll: true,
+	});
+
+	// Sync functionality: reveal active file in tree
+	let revealTimeout: NodeJS.Timeout | undefined;
+
+	const revealActiveFile = () => {
+		const config = vscode.workspace.getConfiguration('workspaceWiki');
+		const autoReveal = config.get('autoReveal', true);
+		const autoRevealDelay = config.get('autoRevealDelay', 500);
+
+		if (!autoReveal) {
+			return;
+		}
+
+		const activeEditor = vscode.window.activeTextEditor;
+		if (!activeEditor) {
+			return;
+		}
+
+		const activeFilePath = activeEditor.document.uri.fsPath;
+
+		// Check if this file is supported by our extension
+		const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'txt']) as string[];
+		const fileExt = activeFilePath.split('.').pop()?.toLowerCase();
+
+		if (!fileExt || !supportedExtensions.includes(fileExt)) {
+			return;
+		}
+
+		// Clear any existing timeout
+		if (revealTimeout) {
+			clearTimeout(revealTimeout);
+		}
+
+		const doReveal = () => {
+			const node = treeProvider.findNodeByPath(activeFilePath);
+			if (node && treeView.visible) {
+				Promise.resolve(
+					treeView.reveal(node, {
+						select: true,
+						focus: false,
+						expand: true,
+					}),
+				).catch(() => {
+					// Ignore errors - might happen if tree not ready yet
+				});
+			}
+		};
+
+		if (autoRevealDelay > 0) {
+			revealTimeout = setTimeout(doReveal, autoRevealDelay);
+		} else {
+			doReveal();
+		}
+	};
 
 	const handleClickCommand = vscode.commands.registerCommand('workspace-wiki.handleClick', (uri, defaultCommand) => {
 		handleFileClick(uri, defaultCommand);
@@ -614,6 +742,11 @@ export function activate(context: vscode.ExtensionContext) {
 		treeProvider.refresh();
 	});
 
+	// Listen for active editor changes
+	const editorChangeListener = vscode.window.onDidChangeActiveTextEditor(() => {
+		revealActiveFile();
+	});
+
 	// Listen for configuration changes to auto-refresh tree and sync extensions
 	const configurationChangeListener = vscode.workspace.onDidChangeConfiguration((event) => {
 		// Refresh tree and sync extensions on any workspaceWiki.* setting change
@@ -623,12 +756,27 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	// Reveal the currently active file when the tree becomes visible
+	const treeVisibilityListener = treeView.onDidChangeVisibility((e) => {
+		if (e.visible) {
+			revealActiveFile();
+		}
+	});
+
+	// Initial reveal of active file
+	setTimeout(() => {
+		revealActiveFile();
+	}, 1000); // Give time for the tree to be built
+
 	context.subscriptions.push(treeProvider);
+	context.subscriptions.push(treeView);
 	context.subscriptions.push(handleClickCommand);
 	context.subscriptions.push(openPreviewCommand);
 	context.subscriptions.push(openEditorCommand);
 	context.subscriptions.push(refreshCommand);
+	context.subscriptions.push(editorChangeListener);
 	context.subscriptions.push(configurationChangeListener);
+	context.subscriptions.push(treeVisibilityListener);
 }
 
 export function deactivate() {

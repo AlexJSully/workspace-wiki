@@ -22,6 +22,11 @@ The Settings Manager reads and applies user configuration for the Workspace Wiki
 
 - `workspaceWiki.acronymCasing`: Acronyms to preserve proper casing in file titles.
 
+### Sync & Auto-Reveal
+
+- `workspaceWiki.autoReveal`: Enable automatic file revelation in tree (default: `true`).
+- `workspaceWiki.autoRevealDelay`: Delay in milliseconds before revealing (default: `500`).
+
 ## Example
 
 ```ts

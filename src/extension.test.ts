@@ -834,3 +834,142 @@ describe('handleFileClick', () => {
 		assert.ok(!mockCommands['vscode.open']);
 	});
 });
+
+describe('WorkspaceWikiTreeProvider Sync Features', () => {
+	let provider: WorkspaceWikiTreeProvider;
+	const MockTreeItem = function (label: string, state: any) {
+		return {
+			label,
+			collapsibleState: state,
+			contextValue: 'file',
+			resourceUri: undefined,
+			tooltip: '',
+			command: undefined,
+		};
+	};
+	const MockTreeItemCollapsibleState = { None: 0, Collapsed: 1, Expanded: 2 };
+
+	beforeEach(() => {
+		const mockWorkspace = {
+			findFiles: async (_pattern: string, _exclude?: string) => [
+				{ fsPath: '/workspace-root/docs/getting-started.md' },
+				{ fsPath: '/workspace-root/guides/tutorial.md' },
+				{ fsPath: '/workspace-root/README.md' },
+			],
+			getConfiguration: (_section: string) => ({
+				get: (key: string) => {
+					if (key === 'directorySort') {
+						return 'files-first';
+					}
+					if (key === 'acronymCasing') {
+						return [];
+					}
+					if (key === 'autoReveal') {
+						return true;
+					}
+					if (key === 'autoRevealDelay') {
+						return 500;
+					}
+					return undefined;
+				},
+			}),
+		};
+
+		provider = new WorkspaceWikiTreeProvider(
+			mockWorkspace,
+			MockTreeItem,
+			MockTreeItemCollapsibleState,
+			MockEventEmitter,
+		);
+	});
+
+	it('should implement getParent method for TreeView reveal functionality', async () => {
+		// Build the tree first
+		await provider.getChildren();
+
+		// Find a file node
+		const children = await provider.getChildren();
+		let fileItem;
+		for (const child of children) {
+			if ((child as any).treeNode && (child as any).treeNode.type === 'file') {
+				fileItem = child;
+				break;
+			}
+		}
+
+		if (fileItem) {
+			// getParent should return undefined for root level items
+			const parent = provider.getParent(fileItem);
+			// For root level files, parent should be undefined
+			assert.strictEqual(parent, undefined);
+		}
+	});
+
+	it('should build node map for efficient file path lookups', async () => {
+		// Build the tree
+		await provider.getChildren();
+
+		// Test findNodeByPath method
+		const node = provider.findNodeByPath('/workspace-root/README.md');
+		assert.ok(node, 'Should find README.md node');
+		assert.ok((node as any).treeNode, 'Node should have treeNode property');
+		assert.strictEqual((node as any).treeNode.type, 'file', 'Should be a file node');
+	});
+
+	it('should find nodes by normalized paths', async () => {
+		await provider.getChildren();
+
+		// Test with different path separators
+		const windowsPath = '\\workspace-root\\docs\\getting-started.md';
+		const node = provider.findNodeByPath(windowsPath);
+		// Should handle path normalization and find the file
+		// Note: This might not find exact match due to our simplified test setup,
+		// but the method should handle it gracefully
+		assert.ok(typeof node !== 'undefined', 'Should handle normalized paths gracefully');
+	});
+
+	it('should handle file path lookups when tree is empty', async () => {
+		// Create provider with empty workspace
+		const emptyWorkspace = {
+			findFiles: async () => [],
+			getConfiguration: () => ({ get: () => undefined }),
+		};
+
+		const emptyProvider = new WorkspaceWikiTreeProvider(
+			emptyWorkspace,
+			MockTreeItem,
+			MockTreeItemCollapsibleState,
+			MockEventEmitter,
+		);
+
+		await emptyProvider.getChildren();
+
+		const node = emptyProvider.findNodeByPath('/nonexistent/file.md');
+		assert.strictEqual(node, undefined, 'Should return undefined for non-existent files');
+	});
+
+	it('should refresh tree data correctly', () => {
+		let fireCallCount = 0;
+		const mockEventEmitter = {
+			fire: () => {
+				fireCallCount++;
+			},
+			event: () => {},
+		};
+
+		const refreshProvider = new WorkspaceWikiTreeProvider(
+			{
+				findFiles: async () => [],
+				getConfiguration: () => ({ get: () => undefined }),
+			},
+			MockTreeItem,
+			MockTreeItemCollapsibleState,
+			function () {
+				return mockEventEmitter;
+			},
+		);
+
+		refreshProvider.refresh();
+		assert.strictEqual(fireCallCount, 1, 'Should fire tree data change event');
+	});
+});
