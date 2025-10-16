@@ -16,6 +16,8 @@ The extension works out-of-the-box, but you can customize it via settings:
 - `workspaceWiki.excludeGlobs`: Glob patterns to exclude (e.g., `**/node_modules/**`).
 - `workspaceWiki.defaultOpenMode`: `preview` or `editor`.
 - `workspaceWiki.syncWithActiveEditor`: Auto-reveal active file in tree.
+- `workspaceWiki.showIgnoredFiles`: Show files/folders listed in .gitignore and excludeGlobs (default: false).
+- `workspaceWiki.showHiddenFiles`: **Show hidden files and folders** (those starting with a dot, e.g. `.github`, `.env`) in the Workspace Wiki tree, unless excluded by .gitignore or excludeGlobs. Default is false (hidden files are not shown).
 
 To change settings:
 
@@ -29,7 +31,8 @@ To change settings:
 {
 	"workspaceWiki.supportedExtensions": ["md", "markdown", "txt"],
 	"workspaceWiki.excludeGlobs": ["**/node_modules/**", "**/.git/**"],
-	"workspaceWiki.defaultOpenMode": "preview"
+	"workspaceWiki.defaultOpenMode": "preview",
+	"workspaceWiki.showHiddenFiles": true
 }
 ```
 

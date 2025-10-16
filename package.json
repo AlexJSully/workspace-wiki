@@ -178,6 +178,11 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Show files and folders that are listed in .gitignore and excludeGlobs in the Workspace Wiki tree. Default is false (ignored/hidden)."
+				},
+				"workspaceWiki.showHiddenFiles": {
+					"type": "boolean",
+					"default": false,
+					"description": "Show hidden files and folders (those starting with a dot, e.g. .github, .env) in the Workspace Wiki tree, unless excluded by .gitignore or excludeGlobs. Default is false (hidden files are not shown)."
 				}
 			}
 		}

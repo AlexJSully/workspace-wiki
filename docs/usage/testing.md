@@ -33,6 +33,13 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
 - E2E tests: `src/*.e2e.test.ts`
 - Test utilities: `src/test/`
 
+## Testing Hidden File Visibility
+
+- The `workspaceWiki.showHiddenFiles` setting controls whether hidden files/folders (those starting with a dot, e.g. `.github`, `.env`) are shown in the Workspace Wiki tree.
+- When `showHiddenFiles` is `false` (default), hidden files/folders are excluded from the tree (unless explicitly included by other settings).
+- When `showHiddenFiles` is `true`, hidden files/folders are included in the tree unless excluded by `.gitignore` or `excludeGlobs`.
+- Unit and E2E tests should verify that toggling this setting correctly includes/excludes hidden files and folders in the tree view.
+
 ## Example Unit Test
 
 ```ts

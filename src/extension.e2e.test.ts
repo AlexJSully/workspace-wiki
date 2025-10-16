@@ -404,4 +404,66 @@ describe('WorkspaceWikiTreeProvider E2E', () => {
 			'JSON acronym should be applied',
 		);
 	});
+
+	it('should include hidden files in tree when showHiddenFiles is true', async () => {
+		const mockWorkspace = {
+			findFiles: async (_pattern: string, _exclude?: string) => [
+				{ fsPath: '/workspace-wiki/.github/agents.md' },
+				{ fsPath: '/workspace-wiki/docs/visible.md' },
+				{ fsPath: '/workspace-wiki/.env' },
+				{ fsPath: '/workspace-wiki/visible.txt' },
+			],
+			getConfiguration: (_section: string) => ({
+				get: (key: string) => {
+					if (key === 'showHiddenFiles') {
+						return true;
+					}
+					if (key === 'excludeGlobs') {
+						return [];
+					}
+					if (key === 'supportedExtensions') {
+						return ['md', 'txt'];
+					}
+					return undefined;
+				},
+			}),
+		};
+		const docs = await scanWorkspaceDocs(mockWorkspace);
+		// Should include hidden files
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('.github/agents.md')));
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('.env')));
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('visible.md')));
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('visible.txt')));
+	});
+
+	it('should exclude hidden files in tree when showHiddenFiles is false', async () => {
+		const mockWorkspace = {
+			findFiles: async (_pattern: string, _exclude?: string) => [
+				{ fsPath: '/workspace-wiki/.github/agents.md' },
+				{ fsPath: '/workspace-wiki/docs/visible.md' },
+				{ fsPath: '/workspace-wiki/.env' },
+				{ fsPath: '/workspace-wiki/visible.txt' },
+			],
+			getConfiguration: (_section: string) => ({
+				get: (key: string) => {
+					if (key === 'showHiddenFiles') {
+						return false;
+					}
+					if (key === 'excludeGlobs') {
+						return [];
+					}
+					if (key === 'supportedExtensions') {
+						return ['md', 'txt'];
+					}
+					return undefined;
+				},
+			}),
+		};
+		const docs = await scanWorkspaceDocs(mockWorkspace);
+		// Should exclude hidden files
+		assert.ok(!docs.some((uri: any) => uri.fsPath.endsWith('.github/agents.md')));
+		assert.ok(!docs.some((uri: any) => uri.fsPath.endsWith('.env')));
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('visible.md')));
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('visible.txt')));
+	});
 });

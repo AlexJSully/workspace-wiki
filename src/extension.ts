@@ -22,12 +22,14 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 	let excludeGlobs: string[] = ['**/node_modules/**', '**/.git/**'];
 	let maxSearchDepth = 10;
 	let showIgnoredFiles = false;
+	let showHiddenFiles = false;
 	if (workspace.getConfiguration) {
 		const config = workspace.getConfiguration('workspaceWiki');
 		supportedExtensions = config.get('supportedExtensions') || supportedExtensions;
 		excludeGlobs = config.get('excludeGlobs') || excludeGlobs;
 		maxSearchDepth = config.get('maxSearchDepth') || maxSearchDepth;
 		showIgnoredFiles = config.get('showIgnoredFiles') ?? false;
+		showHiddenFiles = config.get('showHiddenFiles') ?? false;
 	}
 
 	// Read .gitignore from workspace root and merge patterns
@@ -94,6 +96,15 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 					return matches;
 				});
 				return !shouldExclude;
+			});
+		}
+
+		// Filter out hidden files/folders if showHiddenFiles is false
+		if (!showHiddenFiles) {
+			uris = uris.filter((uri: any) => {
+				// Split path into segments and check if any segment (file or folder) starts with a dot
+				const segments = uri.fsPath.split(/[\\/]/);
+				return !segments.some((seg: string) => seg.startsWith('.') && seg.length > 1);
 			});
 		}
 
