@@ -1,12 +1,18 @@
 # Workspace Wiki
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/alexjsully.workspace-wiki?label=VS%20Code%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
+[![Follow on Twitter](https://img.shields.io/twitter/follow/alexjsully?style=social)](https://twitter.com/alexjsully)
+[![GitHub repo size](https://img.shields.io/github/repo-size/AlexJSully/alexjsully-portfolio)](https://github.com/AlexJSully/alexjsully-portfolio)
+[![GitHub](https://img.shields.io/github/license/AlexJSully/alexjsully-portfolio)](https://github.com/AlexJSully/alexjsully-portfolio)
+
 Workspace Wiki is a VS Code extension that scans your workspace for documentation files (Markdown and plain text by default) and presents them in a sidebar tree view for fast preview and editing. It emphasizes readability, predictable ordering (README/index handling, alphabetical directories), and fast access via preview or edit. All operations are local-first and privacy-friendly.
 
 ## Features
 
 - **Workspace Wiki Tree View:** Discover all documentation files in a single sidebar tree.
-- **Smart Ordering:** README at root is always top; index.md in folders replaces folder name; alphabetical sorting elsewhere.
-- **Human-Friendly Titles:** File names are normalized to readable titles (e.g., "test-htm.htm" → "Test Htm"); frontmatter titles supported.
+- **Smart and Human Readable Title Display**: Automatically converts file names (e.g., `user-guide.md`) to readable titles (`User Guide`)
+- **Flexible File Types**: Supports `.md`, `.txt` and other files with configurable extension filtering
+- **Intelligent Ordering**: README files appear first, index files represent their folders, alphabetical sorting for others
 - **Acronym Case Preservation:** Technical terms like HTML, CSS, API maintain proper casing in titles.
 - **Intelligent File Exclusion:** Respects .gitignore patterns and configurable exclude globs to hide unwanted files.
 - **Preview & Edit:** Single-click to preview, double-click to edit in full editor.
@@ -29,6 +35,7 @@ This extension contributes the following settings under the `workspaceWiki` name
 - `workspaceWiki.excludeGlobs`: Glob patterns to exclude from scanning (default: ["**/node_modules/**", "**/.git/**"])
 - `workspaceWiki.maxSearchDepth`: Maximum folder depth to scan (default: 10)
 - `workspaceWiki.showIgnoredFiles`: Show files listed in .gitignore and excludeGlobs (default: false)
+- `workspaceWiki.showHiddenFiles`: Show hidden files and folders (those starting with a dot, e.g. .github, .env) in the Workspace Wiki tree (default: false)
 
 ### File Opening & Display
 

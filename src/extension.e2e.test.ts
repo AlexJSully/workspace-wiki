@@ -7,6 +7,34 @@ import * as vscode from 'vscode';
 
 const { scanWorkspaceDocs, WorkspaceWikiTreeProvider } = require(process.cwd() + '/dist/extension.js');
 
+/**
+ * Simple mock workspace factory for E2E tests
+ */
+function createHiddenFilesMockWorkspace(showHiddenFiles: boolean) {
+	return {
+		findFiles: async (_pattern: string, _exclude?: string) => [
+			{ fsPath: '/workspace-root/.github/agents.md' },
+			{ fsPath: '/workspace-root/docs/visible.md' },
+			{ fsPath: '/workspace-root/.env' },
+			{ fsPath: '/workspace-root/visible.txt' },
+		],
+		getConfiguration: (_section: string) => ({
+			get: (key: string) => {
+				if (key === 'showHiddenFiles') {
+					return showHiddenFiles;
+				}
+				if (key === 'excludeGlobs') {
+					return [];
+				}
+				if (key === 'supportedExtensions') {
+					return ['md', 'txt'];
+				}
+				return undefined;
+			},
+		}),
+	};
+}
+
 describe('scanWorkspaceDocs E2E', () => {
 	it('should exclude files listed in .gitignore and excludeGlobs', async () => {
 		const docs = await scanWorkspaceDocs(vscode.workspace);
@@ -403,5 +431,70 @@ describe('WorkspaceWikiTreeProvider E2E', () => {
 			'JSON Format',
 			'JSON acronym should be applied',
 		);
+	});
+
+	it('should include hidden files in tree when showHiddenFiles is true', async () => {
+		const mockWorkspace = createHiddenFilesMockWorkspace(true);
+		const docs = await scanWorkspaceDocs(mockWorkspace);
+		// Should include hidden files
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('.github/agents.md')));
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('.env')));
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('visible.md')));
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('visible.txt')));
+	});
+
+	it('should exclude hidden files in tree when showHiddenFiles is false', async () => {
+		const mockWorkspace = createHiddenFilesMockWorkspace(false);
+		const docs = await scanWorkspaceDocs(mockWorkspace);
+		// Should exclude hidden files
+		assert.ok(!docs.some((uri: any) => uri.fsPath.endsWith('.github/agents.md')));
+		assert.ok(!docs.some((uri: any) => uri.fsPath.endsWith('.env')));
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('visible.md')));
+		assert.ok(docs.some((uri: any) => uri.fsPath.endsWith('visible.txt')));
+	});
+
+	it('should handle double-click to open in editor mode', async () => {
+		const { handleFileClick } = require(process.cwd() + '/dist/extension.js');
+
+		// Mock command tracking
+		const executedCommands: string[] = [];
+		const originalExecuteCommand = vscode.commands.executeCommand;
+
+		vscode.commands.executeCommand = async (command: string, ...args: any[]) => {
+			executedCommands.push(command);
+			return originalExecuteCommand(command, ...args);
+		};
+
+		try {
+			const mockUri = vscode.Uri.file('/test/file.md');
+			const defaultCommand = 'markdown.showPreview';
+
+			// First click
+			handleFileClick(mockUri, defaultCommand);
+
+			// Second click within threshold (simulating double-click)
+			handleFileClick(mockUri, defaultCommand);
+
+			// Allow some time for commands to execute
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			// Should have executed preview command once and open command once
+			assert.ok(executedCommands.includes(defaultCommand), 'Preview command should be executed');
+			assert.ok(
+				executedCommands.includes('vscode.open'),
+				'Editor open command should be executed on double-click',
+			);
+		} finally {
+			// Restore original command
+			vscode.commands.executeCommand = originalExecuteCommand;
+		}
+	});
+});
+
+describe('Double-Click Integration E2E', () => {
+	it('should have double-click functionality available', async () => {
+		// Verify that the extension module exports the handleFileClick function
+		const extension = require(process.cwd() + '/dist/extension.js');
+		assert.ok(typeof extension.handleFileClick === 'function', 'handleFileClick function should be exported');
 	});
 });

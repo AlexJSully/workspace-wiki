@@ -1,7 +1,5 @@
 # Workspace Wiki — Design Document
 
-**Author:** Alex
-
 **Date:** 2025-10-11
 
 **Purpose:** Design document (TDD / DD hybrid) describing the Workspace Wiki VS Code extension: goals, UX, architecture, tech stack, features, settings, implementation plan, and security/privacy considerations.
@@ -135,7 +133,7 @@ Notes:
     - Listens to `window.onDidChangeActiveTextEditor` and reveals the active file in the tree.
 
 - **Utilities**
-    - Title normalizer, frontmatter parser (`gray-matter`), mime-type detection, extension-to-handler mapping.
+    - Title normalizer, mime-type detection, extension-to-handler mapping.
 
 ---
 

@@ -33,7 +33,7 @@ This roadmap breaks down the implementation plan from the design doc into granul
 ### 1.4. Preview/Open Controller
 
 - [x] Open files in preview mode on single click
-- [ ] Open files in editor mode on double click
+- [x] Open files in editor mode on double click
 - [x] Implement context menu actions
 
 ### 1.5. Settings Manager
