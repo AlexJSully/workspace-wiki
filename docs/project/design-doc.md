@@ -1,7 +1,5 @@
 # Workspace Wiki — Design Document
 
-**Author:** Alex
-
 **Date:** 2025-10-11
 
 **Purpose:** Design document (TDD / DD hybrid) describing the Workspace Wiki VS Code extension: goals, UX, architecture, tech stack, features, settings, implementation plan, and security/privacy considerations.
