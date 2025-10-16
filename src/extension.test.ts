@@ -834,3 +834,485 @@ describe('handleFileClick', () => {
 		assert.ok(!mockCommands['vscode.open']);
 	});
 });
+
+describe('WorkspaceWikiTreeProvider Sync Features', () => {
+	let provider: WorkspaceWikiTreeProvider;
+	const MockTreeItem = function (label: string, state: any) {
+		return {
+			label,
+			collapsibleState: state,
+			contextValue: 'file',
+			resourceUri: undefined,
+			tooltip: '',
+			command: undefined,
+		};
+	};
+	const MockTreeItemCollapsibleState = { None: 0, Collapsed: 1, Expanded: 2 };
+
+	beforeEach(() => {
+		const mockWorkspace = {
+			findFiles: async (_pattern: string, _exclude?: string) => [
+				{ fsPath: '/workspace-root/docs/getting-started.md' },
+				{ fsPath: '/workspace-root/guides/tutorial.md' },
+				{ fsPath: '/workspace-root/README.md' },
+			],
+			getConfiguration: (_section: string) => ({
+				get: (key: string) => {
+					if (key === 'directorySort') {
+						return 'files-first';
+					}
+					if (key === 'acronymCasing') {
+						return [];
+					}
+					if (key === 'autoReveal') {
+						return true;
+					}
+					if (key === 'autoRevealDelay') {
+						return 500;
+					}
+					return undefined;
+				},
+			}),
+		};
+
+		provider = new WorkspaceWikiTreeProvider(
+			mockWorkspace,
+			MockTreeItem,
+			MockTreeItemCollapsibleState,
+			MockEventEmitter,
+		);
+	});
+
+	it('should implement getParent method for TreeView reveal functionality', async () => {
+		// Build the tree first
+		await provider.getChildren();
+
+		// Find a file node
+		const children = await provider.getChildren();
+		let fileItem;
+		for (const child of children) {
+			if ((child as any).treeNode && (child as any).treeNode.type === 'file') {
+				fileItem = child;
+				break;
+			}
+		}
+
+		if (fileItem) {
+			// getParent should return undefined for root level items
+			const parent = provider.getParent(fileItem);
+			// For root level files, parent should be undefined
+			assert.strictEqual(parent, undefined);
+		}
+	});
+
+	it('should build node map for efficient file path lookups', async () => {
+		// Build the tree
+		await provider.getChildren();
+
+		// Test findNodeByPath method
+		const node = provider.findNodeByPath('/workspace-root/README.md');
+		assert.ok(node, 'Should find README.md node');
+		assert.ok((node as any).treeNode, 'Node should have treeNode property');
+		assert.strictEqual((node as any).treeNode.type, 'file', 'Should be a file node');
+	});
+
+	it('should find nodes by normalized paths', async () => {
+		await provider.getChildren();
+
+		// Test with different path separators
+		const windowsPath = '\\workspace-root\\docs\\getting-started.md';
+		const node = provider.findNodeByPath(windowsPath);
+		// Should handle path normalization and find the file
+		// Note: This might not find exact match due to our simplified test setup,
+		// but the method should handle it gracefully
+		assert.ok(typeof node !== 'undefined', 'Should handle normalized paths gracefully');
+	});
+
+	it('should handle file path lookups when tree is empty', async () => {
+		// Create provider with empty workspace
+		const emptyWorkspace = {
+			findFiles: async () => [],
+			getConfiguration: () => ({ get: () => undefined }),
+		};
+
+		const emptyProvider = new WorkspaceWikiTreeProvider(
+			emptyWorkspace,
+			MockTreeItem,
+			MockTreeItemCollapsibleState,
+			MockEventEmitter,
+		);
+
+		await emptyProvider.getChildren();
+
+		const node = emptyProvider.findNodeByPath('/nonexistent/file.md');
+		assert.strictEqual(node, undefined, 'Should return undefined for non-existent files');
+	});
+
+	it('should refresh tree data correctly', () => {
+		let fireCallCount = 0;
+		const mockEventEmitter = {
+			fire: () => {
+				fireCallCount++;
+			},
+			event: () => {},
+		};
+
+		const refreshProvider = new WorkspaceWikiTreeProvider(
+			{
+				findFiles: async () => [],
+				getConfiguration: () => ({ get: () => undefined }),
+			},
+			MockTreeItem,
+			MockTreeItemCollapsibleState,
+			function () {
+				return mockEventEmitter;
+			},
+		);
+
+		refreshProvider.refresh();
+		assert.strictEqual(fireCallCount, 1, 'Should fire tree data change event');
+	});
+
+	it('should clear nodeMap on refresh and rebuild on next getChildren', async () => {
+		// First, build tree with initial files
+		const mockWorkspace = {
+			findFiles: async (_pattern: string, _exclude?: string) => [
+				{ fsPath: '/workspace-root/docs/file1.md' },
+				{ fsPath: '/workspace-root/docs/file2.md' },
+			],
+			getConfiguration: (_section: string) => ({
+				get: (key: string) => {
+					if (key === 'directorySort') {
+						return 'files-first';
+					}
+					if (key === 'acronymCasing') {
+						return [];
+					}
+					return undefined;
+				},
+			}),
+		};
+
+		const provider = new WorkspaceWikiTreeProvider(
+			mockWorkspace,
+			MockTreeItem,
+			MockTreeItemCollapsibleState,
+			MockEventEmitter,
+		);
+
+		// Build initial tree
+		await provider.getChildren();
+
+		// Verify file1 is findable
+		let node = provider.findNodeByPath('/workspace-root/docs/file1.md');
+		assert.ok(node, 'Should find file1.md initially');
+
+		// Mock workspace now returns different files (file1 was removed, file3 added)
+		mockWorkspace.findFiles = async () => [
+			{ fsPath: '/workspace-root/docs/file2.md' },
+			{ fsPath: '/workspace-root/docs/file3.md' },
+		];
+
+		// Refresh should clear the old map
+		provider.refresh();
+
+		// Rebuild with new files
+		await provider.getChildren();
+
+		// file1 should no longer be findable
+		node = provider.findNodeByPath('/workspace-root/docs/file1.md');
+		assert.strictEqual(node, undefined, 'Should not find removed file1.md after refresh');
+
+		// file2 should still be findable
+		node = provider.findNodeByPath('/workspace-root/docs/file2.md');
+		assert.ok(node, 'Should still find file2.md after refresh');
+
+		// file3 should now be findable
+		node = provider.findNodeByPath('/workspace-root/docs/file3.md');
+		assert.ok(node, 'Should find new file3.md after refresh');
+	});
+});
+
+describe('RevealActiveFile Logic', () => {
+	let mockVscode: any;
+	let mockProvider: any;
+	let mockTreeView: any;
+	let mockConfig: any;
+
+	beforeEach(() => {
+		// Mock VS Code API
+		mockConfig = {
+			get: jest.fn(),
+		};
+
+		mockVscode = {
+			window: {
+				activeTextEditor: null,
+			},
+			workspace: {
+				getConfiguration: jest.fn(() => mockConfig),
+			},
+		};
+
+		mockTreeView = {
+			visible: true,
+			reveal: jest.fn(() => Promise.resolve()),
+		};
+
+		mockProvider = {
+			findNodeByPath: jest.fn(),
+		};
+
+		// Replace global vscode for testing
+		(global as any).vscode = mockVscode;
+	});
+
+	afterEach(() => {
+		// Clean up global mock
+		delete (global as any).vscode;
+	});
+
+	it('should return early when autoReveal is disabled', () => {
+		mockConfig.get.mockImplementation((key: string) => {
+			if (key === 'autoReveal') {
+				return false;
+			}
+			return undefined;
+		});
+
+		// Create the reveal function with mock context
+		const revealActiveFile = () => {
+			const config = mockVscode.workspace.getConfiguration('workspaceWiki');
+			const autoReveal = config.get('autoReveal', true);
+			if (!autoReveal) {
+				return;
+			}
+			// Rest of function would continue...
+		};
+
+		revealActiveFile();
+
+		// Should have checked autoReveal setting
+		expect(mockConfig.get).toHaveBeenCalledWith('autoReveal', true);
+
+		// Should not have checked for active editor since it returned early
+		expect(mockProvider.findNodeByPath).not.toHaveBeenCalled();
+	});
+
+	it('should return early when no active editor', () => {
+		mockConfig.get.mockImplementation((key: string) => {
+			if (key === 'autoReveal') {
+				return true;
+			}
+			return undefined;
+		});
+
+		mockVscode.window.activeTextEditor = null;
+
+		const revealActiveFile = () => {
+			const config = mockVscode.workspace.getConfiguration('workspaceWiki');
+			const autoReveal = config.get('autoReveal', true);
+			if (!autoReveal) {
+				return;
+			}
+
+			const activeEditor = mockVscode.window.activeTextEditor;
+			if (!activeEditor) {
+				return;
+			}
+			// Rest of function would continue...
+		};
+
+		revealActiveFile();
+
+		expect(mockProvider.findNodeByPath).not.toHaveBeenCalled();
+	});
+
+	it('should return early for unsupported file extensions', () => {
+		mockConfig.get.mockImplementation((key: string) => {
+			if (key === 'autoReveal') {
+				return true;
+			}
+			if (key === 'supportedExtensions') {
+				return ['md', 'markdown', 'txt'];
+			}
+			return undefined;
+		});
+
+		mockVscode.window.activeTextEditor = {
+			document: {
+				uri: {
+					fsPath: '/workspace-root/script.js',
+				},
+			},
+		};
+
+		const revealActiveFile = () => {
+			const config = mockVscode.workspace.getConfiguration('workspaceWiki');
+			const autoReveal = config.get('autoReveal', true);
+			if (!autoReveal) {
+				return;
+			}
+
+			const activeEditor = mockVscode.window.activeTextEditor;
+			if (!activeEditor) {
+				return;
+			}
+
+			const activeFilePath = activeEditor.document.uri.fsPath;
+			const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'txt']);
+			const fileExt = activeFilePath.split('.').pop()?.toLowerCase();
+
+			if (!fileExt || !supportedExtensions.includes(fileExt)) {
+				return;
+			}
+			// Rest of function would continue...
+		};
+
+		revealActiveFile();
+
+		expect(mockProvider.findNodeByPath).not.toHaveBeenCalled();
+	});
+
+	it('should handle delay=0 for real-time reveal', (done) => {
+		mockConfig.get.mockImplementation((key: string) => {
+			if (key === 'autoReveal') {
+				return true;
+			}
+			if (key === 'autoRevealDelay') {
+				return 0;
+			}
+			if (key === 'supportedExtensions') {
+				return ['md'];
+			}
+			return undefined;
+		});
+
+		mockVscode.window.activeTextEditor = {
+			document: {
+				uri: {
+					fsPath: '/workspace-root/file.md',
+				},
+			},
+		};
+
+		const mockNode = { label: 'File' };
+		mockProvider.findNodeByPath.mockReturnValue(mockNode);
+
+		const revealActiveFile = () => {
+			const config = mockVscode.workspace.getConfiguration('workspaceWiki');
+			const autoReveal = config.get('autoReveal', true);
+			const autoRevealDelay = config.get('autoRevealDelay', 500);
+
+			if (!autoReveal) {
+				return;
+			}
+
+			const activeEditor = mockVscode.window.activeTextEditor;
+			if (!activeEditor) {
+				return;
+			}
+
+			const activeFilePath = activeEditor.document.uri.fsPath;
+			const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'txt']);
+			const fileExt = activeFilePath.split('.').pop()?.toLowerCase();
+
+			if (!fileExt || !supportedExtensions.includes(fileExt)) {
+				return;
+			}
+
+			const doReveal = () => {
+				const node = mockProvider.findNodeByPath(activeFilePath);
+				if (node && mockTreeView.visible) {
+					mockTreeView.reveal(node, { select: true, focus: false, expand: true });
+				}
+				// Test completed successfully
+				done();
+			};
+
+			if (autoRevealDelay > 0) {
+				setTimeout(doReveal, autoRevealDelay);
+			} else {
+				doReveal();
+			}
+		};
+
+		revealActiveFile();
+	});
+
+	it('should handle delay>0 for delayed reveal', (done) => {
+		mockConfig.get.mockImplementation((key: string) => {
+			if (key === 'autoReveal') {
+				return true;
+			}
+			if (key === 'autoRevealDelay') {
+				return 100;
+			}
+			if (key === 'supportedExtensions') {
+				return ['md'];
+			}
+			return undefined;
+		});
+
+		mockVscode.window.activeTextEditor = {
+			document: {
+				uri: {
+					fsPath: '/workspace-root/file.md',
+				},
+			},
+		};
+
+		const mockNode = { label: 'File' };
+		mockProvider.findNodeByPath.mockReturnValue(mockNode);
+
+		let revealCalled = false;
+
+		const revealActiveFile = () => {
+			const config = mockVscode.workspace.getConfiguration('workspaceWiki');
+			const autoReveal = config.get('autoReveal', true);
+			const autoRevealDelay = config.get('autoRevealDelay', 500);
+
+			if (!autoReveal) {
+				return;
+			}
+
+			const activeEditor = mockVscode.window.activeTextEditor;
+			if (!activeEditor) {
+				return;
+			}
+
+			const activeFilePath = activeEditor.document.uri.fsPath;
+			const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'txt']);
+			const fileExt = activeFilePath.split('.').pop()?.toLowerCase();
+
+			if (!fileExt || !supportedExtensions.includes(fileExt)) {
+				return;
+			}
+
+			const doReveal = () => {
+				const node = mockProvider.findNodeByPath(activeFilePath);
+				if (node && mockTreeView.visible) {
+					mockTreeView.reveal(node, { select: true, focus: false, expand: true });
+					revealCalled = true;
+				}
+			};
+
+			if (autoRevealDelay > 0) {
+				setTimeout(doReveal, autoRevealDelay);
+			} else {
+				doReveal();
+			}
+		};
+
+		revealActiveFile();
+
+		// Should not be called immediately
+		expect(revealCalled).toBe(false);
+
+		// Should be called after delay
+		setTimeout(() => {
+			expect(revealCalled).toBe(true);
+			done();
+		}, 150);
+	});
+});

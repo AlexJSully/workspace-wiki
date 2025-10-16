@@ -15,12 +15,18 @@ The TreeDataProvider is implemented in [`src/extension.ts`](../../src/extension.
     - Folders (with `index.md` as folder node)
     - Files inside folders (alphabetical, with `README.md` at top)
 - Normalizes file names to human-friendly titles.
+- Supports sync functionality with active editor
+- Provides efficient file path lookups via node mapping
+- Handles tree view enhancements (collapse all, inline actions)
 
 ## Key Methods
 
 - `getTreeItem()` - Converts tree nodes to VS Code TreeItem objects
 - `getChildren()` - Returns child nodes for tree expansion
+- `getParent()` - Returns parent node for sync and reveal functionality
 - `createTreeItem()` - Creates tree items with proper commands and icons
+- `findNodeByPath()` - Efficient file path lookups for sync module
+- `refresh()` - Triggers tree data change event; node map is cleared and rebuilt lazily on next `getChildren()` call
 
 ## Example
 

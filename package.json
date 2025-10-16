@@ -7,11 +7,20 @@
 	"engines": {
 		"vscode": "^1.105.0"
 	},
+	"homepage": "https://github.com/AlexJSully/workspace-wiki",
 	"categories": [
 		"Other"
 	],
+	"contributors": [
+		{
+			"name": "Alexander Sullivan",
+			"email": "alexjsully.connect@outlook.com",
+			"url": "https://alexjsully.me/"
+		}
+	],
 	"activationEvents": [],
 	"main": "./dist/extension.js",
+	"browser": "./dist/extension.js",
 	"icon": "media/icon.png",
 	"galleryBanner": {
 		"color": "#2B5797",
@@ -183,6 +192,16 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Show hidden files and folders (those starting with a dot, e.g. .github, .env) in the Workspace Wiki tree, unless excluded by .gitignore or excludeGlobs. Default is false (hidden files are not shown)."
+				},
+				"workspaceWiki.autoReveal": {
+					"type": "boolean",
+					"default": true,
+					"description": "Automatically reveal the active file in the Workspace Wiki tree when the editor changes."
+				},
+				"workspaceWiki.autoRevealDelay": {
+					"type": "number",
+					"default": 500,
+					"description": "Delay in milliseconds before revealing the active file in the tree. Set to 0 for real-time reveal."
 				}
 			}
 		}

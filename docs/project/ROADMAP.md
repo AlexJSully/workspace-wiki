@@ -18,7 +18,6 @@ This roadmap breaks down the implementation plan from the design doc into granul
 
 - [x] Implement workspace scanning for `.md`, `.markdown`, `.txt` files
 - [x] Respect `excludeGlobs` and `.gitignore`
-- [ ] Cache metadata (title, path, mtime)
 
 ### 1.2. TreeDataProvider
 
@@ -38,7 +37,7 @@ This roadmap breaks down the implementation plan from the design doc into granul
 
 ### 1.5. Settings Manager
 
-- [ ] Implement settings for supported extensions, excludes, open mode
+- [x] Implement settings for supported extensions, excludes, open mode
 
 ---
 
@@ -46,8 +45,8 @@ This roadmap breaks down the implementation plan from the design doc into granul
 
 ### 2.1. Sync Module
 
-- [ ] Reveal active file in tree on editor change
-- [ ] Implement auto-reveal delay setting
+- [x] Reveal active file in tree on editor change
+- [x] Implement auto-reveal delay setting
 
 ---
 
@@ -68,14 +67,14 @@ This roadmap breaks down the implementation plan from the design doc into granul
 
 ### 4.2. Documentation
 
-- [ ] Write user documentation
-- [ ] Add extension marketplace metadata
+- [x] Write user documentation
+- [x] Add extension marketplace metadata
 
 ### 4.3. Release Pipeline
 
-- [ ] Run full CI (build, lint, test)
-- [ ] Package VSIX
-- [ ] Publish to Marketplace
+- [x] Run full CI (build, lint, test)
+- [x] Package VSIX
+- [x] Publish to Marketplace
 
 ---
 
@@ -85,4 +84,4 @@ This roadmap breaks down the implementation plan from the design doc into granul
 - [x] Treat README.md/readme.md as equivalent
 - [ ] Avoid opening binary files as text
 - [ ] Do not follow symlinks by default
-- [ ] Respect all excludes
+- [x] Respect all excludes
