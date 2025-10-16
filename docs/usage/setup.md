@@ -12,12 +12,6 @@ This guide explains how to install and configure the Workspace Wiki extension.
 
 **Direct Link:** [VS Code Marketplace - Workspace Wiki](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
 
-### From Command Line
-
-```bash
-code --install-extension alexjsully.workspace-wiki
-```
-
 ## Configuration
 
 The extension works out-of-the-box, but you can customize it via settings:
@@ -45,7 +39,3 @@ To change settings:
 	"workspaceWiki.showHiddenFiles": true
 }
 ```
-
-## Screenshots
-
-[INSERT SCREENSHOT HERE]

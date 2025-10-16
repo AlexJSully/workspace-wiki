@@ -43,13 +43,6 @@ The `example/` directory contains a variety of files and folders used to test an
 
 You can toggle extension settings (such as `showHiddenFiles`) and observe how the Workspace Wiki tree updates to reflect these changes using the files in `example/`.
 
-## Testing Hidden File Visibility
-
-- The `workspaceWiki.showHiddenFiles` setting controls whether hidden files/folders (those starting with a dot, e.g. `.github`, `.env`) are shown in the Workspace Wiki tree.
-- When `showHiddenFiles` is `false` (default), hidden files/folders are excluded from the tree (unless explicitly included by other settings).
-- When `showHiddenFiles` is `true`, hidden files/folders are included in the tree unless excluded by `.gitignore` or `excludeGlobs`.
-- Unit and E2E tests should verify that toggling this setting correctly includes/excludes hidden files and folders in the tree view.
-
 ## Example Unit Test
 
 ```ts
@@ -88,7 +81,3 @@ sequenceDiagram
 ```
 
 This diagram shows the flow for running both unit and E2E tests.
-
-## Screenshots
-
-[INSERT SCREENSHOT HERE]

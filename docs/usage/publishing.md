@@ -46,7 +46,3 @@ This guide explains how to package and publish the Workspace Wiki extension to t
     ```sh
     vsce publish
     ```
-
-## Screenshots
-
-[INSERT SCREENSHOT HERE]

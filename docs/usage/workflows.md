@@ -36,7 +36,7 @@ The project uses GitHub Actions for continuous integration and code quality assu
 - **Extension E2E Tests:** Tests extension behavior in VS Code environment
 - **Build Validation:** Ensures the extension bundles correctly with esbuild
 
-**Node.js Version:** 22.x (latest LTS)
+**Node.js Version:** 22.x
 
 ### Markdown Quality Assurance
 
@@ -63,7 +63,7 @@ The project uses GitHub Actions for continuous integration and code quality assu
 - **Link Validation:** Ensures internal links work correctly
 - **Formatting Consistency:** Enforces uniform style across documentation
 
-**Node.js Version:** 22.x (latest LTS)
+**Node.js Version:** 22.x
 
 ## Workflow Integration
 

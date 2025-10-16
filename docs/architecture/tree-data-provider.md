@@ -47,15 +47,15 @@ See also: [Scanner/Indexer](./scanner.md)
 
 ```mermaid
 flowchart TD
-    A[All Files] --> B{Root?}
-    B -- Yes --> C[README.md First]
-    B -- No --> D[Folder Node]
-    C --> E[Other Root Docs (A-Z)]
-    D --> F{index.md?}
-    F -- Yes --> G[Folder Named by index.md]
-    F -- No --> H[Folder Name]
+    A[All Files] --> B{Is Root?}
+    B -->|Yes| C[README.md First]
+    B -->|No| D[Folder Node]
+    C --> E[Other Root Docs A-Z]
+    D --> F{index.md Exists?}
+    F -->|Yes| G[Folder Named by index.md]
+    F -->|No| H[Folder Name]
     G --> I[README.md in Folder]
-    I --> J[Other Files (A-Z)]
+    G --> J[Other Files A-Z]
     H --> J
 ```
 

@@ -1,16 +1,18 @@
 # Workspace Wiki
 
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/alexjsully.workspace-wiki?label=VS%20Code%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
+[![Follow on Twitter](https://img.shields.io/twitter/follow/alexjsully?style=social)](https://twitter.com/alexjsully)
+[![GitHub repo size](https://img.shields.io/github/repo-size/AlexJSully/alexjsully-portfolio)](https://github.com/AlexJSully/alexjsully-portfolio)
+[![GitHub](https://img.shields.io/github/license/AlexJSully/alexjsully-portfolio)](https://github.com/AlexJSully/alexjsully-portfolio)
 
 Workspace Wiki is a VS Code extension that scans your workspace for documentation files (Markdown and plain text by default) and presents them in a sidebar tree view for fast preview and editing. It emphasizes readability, predictable ordering (README/index handling, alphabetical directories), and fast access via preview or edit. All operations are local-first and privacy-friendly.
 
 ## Features
 
 - **Workspace Wiki Tree View:** Discover all documentation files in a single sidebar tree.
-- **Smart Title Display**: Automatically converts file names (e.g., `user-guide.md`) to readable titles (`User Guide`)
-- **Flexible File Types**: Supports `.md`, `.txt`, `.html`, `.pdf` files with configurable extension filtering
+- **Smart and Human Readable Title Display**: Automatically converts file names (e.g., `user-guide.md`) to readable titles (`User Guide`)
+- **Flexible File Types**: Supports `.md`, `.txt` and other files with configurable extension filtering
 - **Intelligent Ordering**: README files appear first, index files represent their folders, alphabetical sorting for others
-- **Human-Friendly Titles:** File names are normalized to readable titles (e.g., "test-htm.htm" → "Test Htm").
 - **Acronym Case Preservation:** Technical terms like HTML, CSS, API maintain proper casing in titles.
 - **Intelligent File Exclusion:** Respects .gitignore patterns and configurable exclude globs to hide unwanted files.
 - **Preview & Edit:** Single-click to preview, double-click to edit in full editor.
