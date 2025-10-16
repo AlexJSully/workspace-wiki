@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import { WorkspaceWikiTreeProvider, buildTree, normalizeTitle, scanWorkspaceDocs } from './extension';
+import { WorkspaceWikiTreeProvider, buildTree, handleFileClick, normalizeTitle, scanWorkspaceDocs } from './extension';
+import { createHiddenFilesMockWorkspace } from './test/mocks';
 
 class MockEventEmitter {
 	public event = () => {};
@@ -211,28 +212,7 @@ describe('scanWorkspaceDocs', () => {
 	});
 
 	it('should include hidden files if showHiddenFiles is true', async () => {
-		const mockWorkspace = {
-			findFiles: async (_pattern: string, _exclude?: string) => [
-				{ fsPath: '/workspace-wiki/.github/agents.md' },
-				{ fsPath: '/workspace-wiki/docs/visible.md' },
-				{ fsPath: '/workspace-wiki/.env' },
-				{ fsPath: '/workspace-wiki/visible.txt' },
-			],
-			getConfiguration: (_section: string) => ({
-				get: (key: string) => {
-					if (key === 'showHiddenFiles') {
-						return true;
-					}
-					if (key === 'excludeGlobs') {
-						return [];
-					}
-					if (key === 'supportedExtensions') {
-						return ['md', 'txt'];
-					}
-					return undefined;
-				},
-			}),
-		};
+		const mockWorkspace = createHiddenFilesMockWorkspace(true);
 		const docs = await scanWorkspaceDocs(mockWorkspace);
 		// Should include hidden files
 		assert.ok(docs.some((uri) => uri.fsPath.endsWith('.github/agents.md')));
@@ -242,28 +222,7 @@ describe('scanWorkspaceDocs', () => {
 	});
 
 	it('should exclude hidden files if showHiddenFiles is false', async () => {
-		const mockWorkspace = {
-			findFiles: async (_pattern: string, _exclude?: string) => [
-				{ fsPath: '/workspace-wiki/.github/agents.md' },
-				{ fsPath: '/workspace-wiki/docs/visible.md' },
-				{ fsPath: '/workspace-wiki/.env' },
-				{ fsPath: '/workspace-wiki/visible.txt' },
-			],
-			getConfiguration: (_section: string) => ({
-				get: (key: string) => {
-					if (key === 'showHiddenFiles') {
-						return false;
-					}
-					if (key === 'excludeGlobs') {
-						return [];
-					}
-					if (key === 'supportedExtensions') {
-						return ['md', 'txt'];
-					}
-					return undefined;
-				},
-			}),
-		};
+		const mockWorkspace = createHiddenFilesMockWorkspace(false);
 		const docs = await scanWorkspaceDocs(mockWorkspace);
 		// Should exclude hidden files
 		assert.ok(!docs.some((uri) => uri.fsPath.endsWith('.github/agents.md')));
@@ -425,8 +384,8 @@ describe('WorkspaceWikiTreeProvider', () => {
 		assert.strictEqual(children[0].label, 'README'); // normalizeTitle removes .md extension
 		assert.strictEqual(children[1].label, 'Docs'); // normalizeTitle converts to Title Case
 		assert.ok(children[0].command);
-		// Command should be markdown preview since we have preview mode enabled for .md files
-		assert.strictEqual(children[0].command.command, 'markdown.showPreview');
+		// Command should be handleClick command which delegates to appropriate handlers
+		assert.strictEqual(children[0].command.command, 'workspace-wiki.handleClick');
 	});
 
 	it('should set resourceUri for proper icon display', async () => {
@@ -705,12 +664,20 @@ describe('WorkspaceWikiTreeProvider', () => {
 
 		if (mdFile) {
 			assert.ok(mdFile.command, 'Markdown file should have command');
-			assert.strictEqual(mdFile.command.command, 'markdown.showPreview', 'MD files should use preview command');
+			assert.strictEqual(
+				mdFile.command.command,
+				'workspace-wiki.handleClick',
+				'MD files should use handleClick command',
+			);
 		}
 
 		if (txtFile) {
 			assert.ok(txtFile.command, 'Text file should have command');
-			assert.strictEqual(txtFile.command.command, 'vscode.open', 'TXT files should use editor command');
+			assert.strictEqual(
+				txtFile.command.command,
+				'workspace-wiki.handleClick',
+				'TXT files should use handleClick command',
+			);
 		}
 	});
 
@@ -786,5 +753,84 @@ describe('WorkspaceWikiTreeProvider', () => {
 
 		const children = await provider.getChildren();
 		assert.ok(Array.isArray(children));
+	});
+});
+
+describe('handleFileClick', () => {
+	// Mock vscode commands
+	const mockCommands: { [key: string]: any[] } = {};
+	let originalVscode: any;
+
+	beforeEach(() => {
+		// Reset mock commands before each test
+		Object.keys(mockCommands).forEach((key) => delete mockCommands[key]);
+
+		// Store original vscode if it exists
+		originalVscode = (global as any).vscode;
+
+		// Mock vscode.commands.executeCommand
+		(global as any).vscode = {
+			commands: {
+				executeCommand: (command: string, ...args: any[]) => {
+					if (!mockCommands[command]) {
+						mockCommands[command] = [];
+					}
+					mockCommands[command].push(args);
+					return Promise.resolve();
+				},
+			},
+		};
+	});
+
+	afterEach(() => {
+		// Restore original vscode
+		(global as any).vscode = originalVscode;
+	});
+
+	it('should execute default command on single click', () => {
+		const mockUri = { fsPath: '/test/file.md' };
+		const defaultCommand = 'markdown.showPreview';
+
+		handleFileClick(mockUri as any, defaultCommand);
+
+		// Should execute the default command immediately
+		assert.ok(mockCommands[defaultCommand]);
+		assert.strictEqual(mockCommands[defaultCommand].length, 1);
+		assert.deepStrictEqual(mockCommands[defaultCommand][0], [mockUri]);
+	});
+
+	it('should open in editor on double click', () => {
+		const mockUri = { fsPath: '/test/file.md' };
+		const defaultCommand = 'markdown.showPreview';
+
+		// First click
+		handleFileClick(mockUri as any, defaultCommand);
+
+		// Second click within threshold
+		handleFileClick(mockUri as any, defaultCommand);
+
+		// Should execute default command once (first click) and vscode.open once (second click)
+		assert.ok(mockCommands[defaultCommand]);
+		assert.strictEqual(mockCommands[defaultCommand].length, 1);
+		assert.ok(mockCommands['vscode.open']);
+		assert.strictEqual(mockCommands['vscode.open'].length, 1);
+		assert.deepStrictEqual(mockCommands['vscode.open'][0], [mockUri]);
+	});
+
+	it('should handle different files independently', () => {
+		const mockUri1 = { fsPath: '/test/file1.md' };
+		const mockUri2 = { fsPath: '/test/file2.md' };
+		const defaultCommand = 'markdown.showPreview';
+
+		// Click file1
+		handleFileClick(mockUri1 as any, defaultCommand);
+
+		// Click file2 (should not be treated as double-click)
+		handleFileClick(mockUri2 as any, defaultCommand);
+
+		// Should execute default command twice (one for each file)
+		assert.ok(mockCommands[defaultCommand]);
+		assert.strictEqual(mockCommands[defaultCommand].length, 2);
+		assert.ok(!mockCommands['vscode.open']);
 	});
 });

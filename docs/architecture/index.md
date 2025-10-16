@@ -1,33 +1,24 @@
 # Architecture Overview
 
-**_Update File: /Users/joohyun/Documents/code/workspace-wiki/docs/architecture/scanner.md
 This section explains the overall architecture of the Workspace Wiki extension, including its main modules, data flow, and integration points with VS Code.
-_** Update File: /Users/joohyun/Documents/code/workspace-wiki/docs/architecture/treedataprovider.md
 
 ## Main Components
-
-\*\*\* Update File: /Users/joohyun/Documents/code/workspace-wiki/docs/architecture/preview-controller.md
 
 - **Scanner/Indexer**: Discovers documentation files in the workspace, caches metadata, and watches for changes.
 - **TreeDataProvider**: Renders the documentation tree in the sidebar, applying ordering and title normalization.
 - **Preview/Open Controller**: Handles file opening (preview/editor) and user interactions.
 - **Settings Manager**: Reads and applies extension settings.
 - **Sync Module**: Keeps the tree in sync with the active editor.
-- **Utilities**: Helpers for title normalization, frontmatter parsing, and file type detection.
-  **_Update File: /Users/joohyun/Documents/code/workspace-wiki/docs/architecture/settings.md
-  _** Update File: /Users/joohyun/Documents/code/workspace-wiki/docs/architecture/sync.md
+- **Utilities**: Helpers for title normalization and file type detection.
 
 ## Subpages
 
-\*\*\* Update File: /Users/joohyun/Documents/code/workspace-wiki/docs/architecture/utilities.md
-
 - [Scanner/Indexer](./scanner.md)
-- [TreeDataProvider](./treedataprovider.md)
+- [TreeDataProvider](./tree-data-provider.md)
 - [Preview/Open Controller](./preview-controller.md)
 - [Settings Manager](./settings.md)
 - [Sync Module](./sync.md)
 - [Utilities](./utilities.md)
-  \*\*\* End Patch
 
 ## Architecture Overview Diagram
 

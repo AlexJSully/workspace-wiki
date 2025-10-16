@@ -35,7 +35,7 @@ This guide enables AI coding agents to be immediately productive in the Workspac
     - **Preview/Open Controller:** Handles user interactions, opens files in preview/editor modes.
     - **Settings Manager:** Reads extension config from `workspaceWiki` namespace.
     - **Sync Module:** Reveals active file in the tree.
-    - **Utilities:** Title normalization, frontmatter parsing, mime-type detection.
+    - **Utilities:** Title normalization, mime-type detection.
 
 ## Developer Workflows
 
@@ -80,15 +80,17 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 
 **Path Handling:**
 
-- Never use developer-specific paths (e.g., usernames, home directories, or absolute paths like `/Users/user/...`) in code, comments, or documentation.
-- Always use generic workspace root examples (e.g., `/workspace-root/...` or `/project-root/...`).
-- All code, comments, and tests must be portable and not reference any developer's local system.
+- **NEVER use developer-specific paths** (e.g., usernames, home directories, or absolute paths like `/Users/joohyun/...` or `/Users/user/...`) in code, comments, documentation, or anywhere in the codebase.
+- **ALWAYS use generic workspace root examples** (e.g., `/workspace-root/...` or `/project-root/...`) in all documentation and examples.
+- All code, comments, tests, and documentation must be portable and not reference any developer's local system.
+- Use relative paths in documentation when linking to files within the project.
+- When providing examples, use placeholder paths that are clearly generic and environment-agnostic.
+- **This rule applies to ALL content including comments, test data, documentation, and code examples.**
 
 ## Integration Points
 
 - **VS Code API:** TreeDataProvider, commands, workspace, window, configuration.
 - **External Libraries:**
-    - `gray-matter` for frontmatter parsing (optional).
     - `esbuild` for bundling.
     - `@vscode/test-electron` for integration tests.
 - **Extension Settings:**

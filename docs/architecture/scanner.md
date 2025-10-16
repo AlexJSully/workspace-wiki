@@ -2,6 +2,10 @@
 
 The Scanner/Indexer is responsible for discovering documentation files in the workspace, caching their metadata, and watching for changes.
 
+## Implementation
+
+The Scanner/Indexer is implemented in [`src/extension.ts`](../../src/extension.ts) with the main function `scanWorkspaceDocs()`.
+
 ## How It Works
 
 - Uses `workspace.findFiles` to locate files matching supported extensions (e.g., `.md`, `.markdown`, `.txt`).

@@ -133,7 +133,7 @@ Notes:
     - Listens to `window.onDidChangeActiveTextEditor` and reveals the active file in the tree.
 
 - **Utilities**
-    - Title normalizer, frontmatter parser (`gray-matter`), mime-type detection, extension-to-handler mapping.
+    - Title normalizer, mime-type detection, extension-to-handler mapping.
 
 ---
 

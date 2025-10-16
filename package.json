@@ -1,6 +1,6 @@
 {
 	"name": "workspace-wiki",
-	"displayName": "workspace-wiki",
+	"displayName": "Workspace Wiki",
 	"description": "Workspace Wiki",
 	"version": "0.1.0",
 	"publisher": "alexjsully",
@@ -191,7 +191,7 @@
 		"audit:fix": "npm i && npm audit fix",
 		"check-types": "tsc --noEmit",
 		"compile": "npm run check-types && node esbuild.js",
-		"compile:tests": "rm -rf out && npm run compile && mkdir -p out/test/suite && tsc src/extension.e2e.test.ts --outDir out --module commonjs --target ES2020 --moduleResolution node --esModuleInterop true --types vscode,node,mocha && mv out/extension.e2e.test.js out/test/suite/",
+		"compile:tests": "rm -rf out && npm run compile && mkdir -p out/test/suite && npx tsc src/extension.e2e.test.ts --outDir out --module commonjs --target ES2020 --moduleResolution node --esModuleInterop true --types vscode,node,mocha && mv out/extension.e2e.test.js out/test/suite/",
 		"lint": "eslint src",
 		"lint:markdown": "markdownlint \"**/*.md\"",
 		"package": "node esbuild.js --production",

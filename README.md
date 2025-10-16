@@ -1,12 +1,16 @@
 # Workspace Wiki
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/alexjsully.workspace-wiki?label=VS%20Code%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
+
 Workspace Wiki is a VS Code extension that scans your workspace for documentation files (Markdown and plain text by default) and presents them in a sidebar tree view for fast preview and editing. It emphasizes readability, predictable ordering (README/index handling, alphabetical directories), and fast access via preview or edit. All operations are local-first and privacy-friendly.
 
 ## Features
 
 - **Workspace Wiki Tree View:** Discover all documentation files in a single sidebar tree.
-- **Smart Ordering:** README at root is always top; index.md in folders replaces folder name; alphabetical sorting elsewhere.
-- **Human-Friendly Titles:** File names are normalized to readable titles (e.g., "test-htm.htm" → "Test Htm"); frontmatter titles supported.
+- **Smart Title Display**: Automatically converts file names (e.g., `user-guide.md`) to readable titles (`User Guide`)
+- **Flexible File Types**: Supports `.md`, `.txt`, `.html`, `.pdf` files with configurable extension filtering
+- **Intelligent Ordering**: README files appear first, index files represent their folders, alphabetical sorting for others
+- **Human-Friendly Titles:** File names are normalized to readable titles (e.g., "test-htm.htm" → "Test Htm").
 - **Acronym Case Preservation:** Technical terms like HTML, CSS, API maintain proper casing in titles.
 - **Intelligent File Exclusion:** Respects .gitignore patterns and configurable exclude globs to hide unwanted files.
 - **Preview & Edit:** Single-click to preview, double-click to edit in full editor.

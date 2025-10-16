@@ -429,9 +429,9 @@ export class WorkspaceWikiTreeProvider {
 			}
 
 			item.command = {
-				command: defaultCommand,
-				title: defaultOpenMode === 'preview' ? 'Open in Preview' : 'Open Document',
-				arguments: [node.uri],
+				command: 'workspace-wiki.handleClick',
+				title: 'Open Document',
+				arguments: [node.uri, defaultCommand],
 			};
 		} else if (node.type === 'folder') {
 			item.contextValue = 'folder';
@@ -500,6 +500,65 @@ export function openInEditor(uri: vscode.Uri): void {
 	vscode.commands.executeCommand('vscode.open', uri);
 }
 
+// Track last click times for double-click detection
+const lastClickTimes: Map<string, number> = new Map();
+const DOUBLE_CLICK_THRESHOLD = 500; // milliseconds
+
+/**
+ * Handles file clicks with double-click detection
+ */
+export function handleFileClick(uri: vscode.Uri, defaultCommand: string): void {
+	// Handle case when vscode is not available (e.g., in tests)
+	if (typeof vscode === 'undefined' || !vscode.commands) {
+		// In test environment, use the global mock
+		const globalVscode = (global as any).vscode;
+		if (globalVscode?.commands?.executeCommand) {
+			const now = Date.now();
+			const path = uri.fsPath;
+			const lastClick = lastClickTimes.get(path) || 0;
+
+			if (now - lastClick < DOUBLE_CLICK_THRESHOLD) {
+				// Double-click detected - open in editor
+				globalVscode.commands.executeCommand('vscode.open', uri);
+				lastClickTimes.delete(path);
+			} else {
+				// Single click - execute default command (preview)
+				globalVscode.commands.executeCommand(defaultCommand, uri);
+				lastClickTimes.set(path, now);
+
+				// Clear old entries to prevent memory leaks
+				setTimeout(() => {
+					if (lastClickTimes.get(path) === now) {
+						lastClickTimes.delete(path);
+					}
+				}, DOUBLE_CLICK_THRESHOLD + 100);
+			}
+		}
+		return;
+	}
+
+	const now = Date.now();
+	const path = uri.fsPath;
+	const lastClick = lastClickTimes.get(path) || 0;
+
+	if (now - lastClick < DOUBLE_CLICK_THRESHOLD) {
+		// Double-click detected - open in editor
+		openInEditor(uri);
+		lastClickTimes.delete(path); // Clear to prevent triple-click issues
+	} else {
+		// Single click - execute default command (preview)
+		vscode.commands.executeCommand(defaultCommand, uri);
+		lastClickTimes.set(path, now);
+
+		// Clear old entries to prevent memory leaks
+		setTimeout(() => {
+			if (lastClickTimes.get(path) === now) {
+				lastClickTimes.delete(path);
+			}
+		}, DOUBLE_CLICK_THRESHOLD + 100);
+	}
+}
+
 // VS Code extension activation: register WorkspaceWikiTreeProvider for 'workspaceWiki' view
 
 export function activate(context: vscode.ExtensionContext) {
@@ -535,6 +594,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 	vscode.window.registerTreeDataProvider('workspaceWiki', treeProvider);
 
+	const handleClickCommand = vscode.commands.registerCommand('workspace-wiki.handleClick', (uri, defaultCommand) => {
+		handleFileClick(uri, defaultCommand);
+	});
+
 	const openPreviewCommand = vscode.commands.registerCommand('workspace-wiki.openPreview', (item) => {
 		if (item && item.treeNode && item.treeNode.uri) {
 			openInPreview(item.treeNode.uri);
@@ -554,17 +617,14 @@ export function activate(context: vscode.ExtensionContext) {
 	// Listen for configuration changes to auto-refresh tree and sync extensions
 	const configurationChangeListener = vscode.workspace.onDidChangeConfiguration((event) => {
 		// Refresh tree and sync extensions on any workspaceWiki.* setting change
-		if (
-			Object.keys(vscode.workspace.getConfiguration('workspaceWiki')).some((key) =>
-				event.affectsConfiguration(`workspaceWiki.${key}`),
-			)
-		) {
+		if (event.affectsConfiguration('workspaceWiki')) {
 			syncOpenWithToSupportedExtensions();
 			treeProvider.refresh();
 		}
 	});
 
 	context.subscriptions.push(treeProvider);
+	context.subscriptions.push(handleClickCommand);
 	context.subscriptions.push(openPreviewCommand);
 	context.subscriptions.push(openEditorCommand);
 	context.subscriptions.push(refreshCommand);

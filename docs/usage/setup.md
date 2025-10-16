@@ -4,9 +4,19 @@ This guide explains how to install and configure the Workspace Wiki extension.
 
 ## Installation
 
+### From VS Code Marketplace
+
 1. Open VS Code and go to the Extensions view (`Ctrl+Shift+X` or `Cmd+Shift+X`).
 2. Search for `Workspace Wiki` and click Install.
 3. Reload VS Code if prompted.
+
+**Direct Link:** [VS Code Marketplace - Workspace Wiki](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
+
+### From Command Line
+
+```bash
+code --install-extension alexjsully.workspace-wiki
+```
 
 ## Configuration
 

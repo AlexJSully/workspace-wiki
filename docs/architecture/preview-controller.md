@@ -2,12 +2,30 @@
 
 This module manages how files are opened from the Workspace Wiki tree.
 
+## Implementation
+
+The Preview/Open Controller is implemented in [`src/extension.ts`](../../src/extension.ts) with the following key functions:
+
+- `handleFileClick()` - Handles file clicks with double-click detection
+- `openInPreview()` - Opens files in preview mode
+- `openInEditor()` - Opens files in editor mode
+
 ## Features
 
 - Single-click: Opens file in preview mode.
 - Double-click: Opens file in full editor mode.
 - Context menu: Additional actions (e.g., open to the side).
 - Uses VS Code commands like `vscode.openWith` and `window.showTextDocument`.
+
+## Double-Click Detection
+
+The controller includes sophisticated double-click detection with a 500ms threshold:
+
+```typescript
+// Track last click times for double-click detection
+const lastClickTimes: Map<string, number> = new Map();
+const DOUBLE_CLICK_THRESHOLD = 500; // milliseconds
+```
 
 ## Example
 
