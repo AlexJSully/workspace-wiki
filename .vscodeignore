@@ -64,6 +64,13 @@ example/**
 # Logs
 *.log
 
+# Environment variables
+.env*
+!.env.example
+!.env.project
+!.env.vault
+.staging_db_url
+
 # Test files
 **/*.test.*
 **/*.spec.*
