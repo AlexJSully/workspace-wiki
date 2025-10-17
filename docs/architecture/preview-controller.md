@@ -4,7 +4,7 @@ This module manages how files are opened from the Workspace Wiki tree.
 
 ## Implementation
 
-The Preview/Open Controller is implemented in [`src/extension.ts`](../../src/extension.ts) with the following key functions:
+The Preview/Open Controller is implemented in [`src/controllers/previewController.ts`](../../src/controllers/previewController.ts) with the following key functions:
 
 - `handleFileClick()` - Handles file clicks with double-click detection
 - `openInPreview()` - Opens files in preview mode

@@ -16,6 +16,15 @@
 		"baseUrl": "src",
 		"paths": {
 			"@/*": ["./*"],
+			"@types": ["./types"],
+			"@scanner": ["./scanner"],
+			"@scanner/*": ["./scanner/*"],
+			"@controllers": ["./controllers"],
+			"@controllers/*": ["./controllers/*"],
+			"@tree": ["./tree"],
+			"@tree/*": ["./tree/*"],
+			"@utils": ["./utils"],
+			"@utils/*": ["./utils/*"]
 		},
 		"strict": true,
 		"types": ["node", "vscode"],

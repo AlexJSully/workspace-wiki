@@ -4,7 +4,7 @@ The Scanner/Indexer is responsible for discovering documentation files in the wo
 
 ## Implementation
 
-The Scanner/Indexer is implemented in [`src/extension.ts`](../../src/extension.ts) with the main function `scanWorkspaceDocs()`.
+The Scanner/Indexer is implemented in [`src/scanner/workspaceScanner.ts`](../../src/scanner/workspaceScanner.ts) with the main function `scanWorkspaceDocs()`.
 
 ## How It Works
 
