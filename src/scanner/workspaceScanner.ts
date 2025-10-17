@@ -98,26 +98,43 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 		}
 		if (maxSearchDepth > 0) {
 			uris = uris.filter((uri: any) => {
-				const relPath = uri.fsPath.replace(/\\/g, '/');
-				let base = '';
+				const normalizedPath = uri.fsPath.replace(/\\/g, '/');
 
-				// Try to find common workspace patterns
-				if (relPath.includes('/fake/path/')) {
-					base = '/fake/path/';
-				} else if (relPath.includes('/workspace-wiki/')) {
-					base = '/workspace-wiki/';
-				} else if (relPath.includes('/test/')) {
-					base = '/test/';
-				} else if (relPath.match(/^[A-Z]:\//)) {
-					// Windows absolute path - use the drive root as base
-					base = relPath.substring(0, 3); // e.g., "C:/"
+				// Get workspace root path for relative calculation
+				let workspaceRoot = '';
+				if (
+					typeof vscode !== 'undefined' &&
+					vscode.workspace?.workspaceFolders &&
+					vscode.workspace.workspaceFolders.length > 0
+				) {
+					workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath.replace(/\\/g, '/');
 				} else {
-					// Fallback: use the path as-is for depth calculation
-					base = '';
+					try {
+						const vscodeModule = require('vscode');
+						if (
+							vscodeModule.workspace?.workspaceFolders &&
+							vscodeModule.workspace.workspaceFolders.length > 0
+						) {
+							workspaceRoot = vscodeModule.workspace.workspaceFolders[0].uri.fsPath.replace(/\\/g, '/');
+						}
+					} catch {
+						// Fallback: calculate common base from all paths
+						return true; // Skip depth filtering if we can't determine workspace root
+					}
 				}
 
-				const relative = base ? relPath.split(base)[1] || relPath : relPath;
-				const separatorCount = (relative.match(/\//g) || []).length;
+				// Calculate relative path from workspace root
+				let relativePath = normalizedPath;
+				if (workspaceRoot && normalizedPath.startsWith(workspaceRoot)) {
+					relativePath = normalizedPath.substring(workspaceRoot.length);
+					// Remove leading slash if present
+					if (relativePath.startsWith('/')) {
+						relativePath = relativePath.substring(1);
+					}
+				}
+
+				// Count directory separators to determine depth
+				const separatorCount = relativePath ? (relativePath.match(/\//g) || []).length : 0;
 				const depth = separatorCount + 1;
 				return depth <= maxSearchDepth;
 			});

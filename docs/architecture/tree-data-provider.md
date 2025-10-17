@@ -24,9 +24,19 @@ The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tr
     - Folders (with `index.md` as folder node)
     - Files inside folders (alphabetical, with `README.md` at top)
 - Normalizes file names to human-friendly titles.
+- Handles cross-platform path compatibility by normalizing path separators
 - Supports sync functionality with active editor
 - Provides efficient file path lookups via node mapping
 - Handles tree view enhancements (collapse all, inline actions)
+
+## Path Handling
+
+The tree builder includes robust path handling for cross-platform compatibility:
+
+- **Path Normalization**: All file paths are normalized to use forward slashes (`/`) regardless of platform
+- **Common Base Path Calculation**: Automatically determines shared directory structure
+- **Windows Compatibility**: Converts backslashes (`\`) to forward slashes before processing
+- **Mixed Path Support**: Handles scenarios where URIs contain different path separator styles
 
 ## Key Methods
 

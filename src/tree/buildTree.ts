@@ -68,8 +68,14 @@ export function buildTree(
 	const tree: TreeNode[] = [];
 	const folders = new Map<string, TreeNode>();
 
+	// Normalize path separators for cross-platform compatibility
+	const normalizedUris = uris.map((uri) => ({
+		...uri,
+		fsPath: uri.fsPath.replace(/\\/g, '/'),
+	}));
+
 	// Find common base path (directories only, not including filenames)
-	const allPaths = uris.map((uri) => uri.fsPath.split('/').filter((part: string) => part));
+	const allPaths = normalizedUris.map((uri) => uri.fsPath.split('/').filter((part: string) => part));
 
 	// Calculate common directory path only (exclude the filename)
 	const allDirectoryPaths = allPaths.map((path) => path.slice(0, -1)); // Remove filename from each path
@@ -87,8 +93,10 @@ export function buildTree(
 	}
 
 	// First pass: collect all files and create folder structure
-	for (const uri of uris) {
-		const pathParts = uri.fsPath.split('/').filter((part: string) => part);
+	for (let i = 0; i < uris.length; i++) {
+		const originalUri = uris[i];
+		const normalizedUri = normalizedUris[i];
+		const pathParts = normalizedUri.fsPath.split('/').filter((part: string) => part);
 
 		// Make path relative to common base (but keep the directory structure)
 		const relativeParts = pathParts.slice(commonBase.length);
@@ -131,8 +139,8 @@ export function buildTree(
 			type: 'file',
 			name: relativeFileName,
 			title: normalizeTitle(relativeFileName, acronyms),
-			path: uri.fsPath,
-			uri,
+			path: originalUri.fsPath,
+			uri: originalUri,
 			isIndex: relativeFileName.toLowerCase() === 'index.md',
 			isReadme: relativeFileName.toLowerCase().startsWith('readme.'),
 		};

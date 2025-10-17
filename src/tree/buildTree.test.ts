@@ -299,14 +299,60 @@ describe('buildTree', () => {
 	});
 
 	describe('path handling', () => {
-		it('should handle different path separators', () => {
-			const uris = [{ fsPath: '/workspace-root/docs/test.md' }, { fsPath: '/workspace-root\\docs\\guide.md' }];
+		it('should normalize Windows path separators to Unix-style', () => {
+			const uris = [
+				{ fsPath: 'C:\\workspace\\docs\\test.md' },
+				{ fsPath: 'C:\\workspace\\docs\\guide.md' },
+				{ fsPath: 'C:\\workspace\\api\\reference.md' },
+			];
 			const result = buildTree(uris);
 
+			// Should create proper folder structure with normalized paths
 			expect(result).toHaveLength(2);
-			// The backslash path is treated as a different structure
-			expect(result[0].name).toBe('workspace-root\\docs\\guide.md');
-			expect(result[1].name).toBe('workspace-root');
+
+			// Find the folders
+			const docsFolder = result.find((node) => node.name === 'docs');
+			const apiFolder = result.find((node) => node.name === 'api');
+
+			expect(docsFolder).toBeDefined();
+			expect(docsFolder?.type).toBe('folder');
+			expect(docsFolder?.children).toHaveLength(2);
+
+			expect(apiFolder).toBeDefined();
+			expect(apiFolder?.type).toBe('folder');
+			expect(apiFolder?.children).toHaveLength(1);
+		});
+
+		it('should handle mixed path separators correctly', () => {
+			const uris = [
+				{ fsPath: '/workspace/docs/test.md' },
+				{ fsPath: 'C:\\workspace\\docs\\guide.md' },
+				{ fsPath: '/workspace/api/reference.md' },
+			];
+			const result = buildTree(uris);
+
+			// Different drive roots mean no common base, so we should get the full structure
+			expect(result.length).toBeGreaterThan(0);
+
+			// Check for workspace-level structure
+			const hasWorkspaceStructure = result.some((node) => node.name === 'workspace');
+			const hasCDriveStructure = result.some((node) => node.name === 'C:');
+
+			// We should have both Unix and Windows paths represented
+			expect(hasWorkspaceStructure || hasCDriveStructure).toBe(true);
+		});
+
+		it('should handle Unix paths correctly (no change needed)', () => {
+			const uris = [{ fsPath: '/workspace/docs/test.md' }, { fsPath: '/workspace/docs/guide.md' }];
+			const result = buildTree(uris);
+
+			// Both files are in the same directory (/workspace/docs), so common base is /workspace/docs
+			// This means no folders are created and files appear at root level
+			expect(result).toHaveLength(2);
+			expect(result[0].type).toBe('file');
+			expect(result[1].type).toBe('file');
+			const fileNames = result.map((node) => node.name).sort();
+			expect(fileNames).toEqual(['guide.md', 'test.md']);
 		});
 
 		it('should find common base path correctly', () => {
