@@ -9,6 +9,8 @@
 
 Workspace Wiki is a VS Code extension that scans your workspace for documentation files (Markdown and plain text by default) and presents them in a sidebar tree view for fast preview and editing. It emphasizes readability, predictable ordering (README/index handling, alphabetical directories), and fast access via preview or edit. All operations are local-first and privacy-friendly.
 
+![Example gif and user flow of the Workspace Wiki extension](./media/example.gif)
+
 ## Features
 
 - **Workspace Wiki Tree View:** Discover all documentation files in a single sidebar tree.
@@ -33,21 +35,133 @@ This extension contributes the following settings under the `workspaceWiki` name
 
 ### File Discovery & Filtering
 
-- `workspaceWiki.supportedExtensions`: Array of file extensions to include (default: ["md", "markdown", "txt"])
-- `workspaceWiki.excludeGlobs`: Glob patterns to exclude from scanning (default: ["**/node_modules/**", "**/.git/**"])
-- `workspaceWiki.maxSearchDepth`: Maximum folder depth to scan (default: 10)
-- `workspaceWiki.showIgnoredFiles`: Show files listed in .gitignore and excludeGlobs (default: false)
-- `workspaceWiki.showHiddenFiles`: Show hidden files and folders (those starting with a dot, e.g. .github, .env) in the Workspace Wiki tree (default: false)
+#### `workspaceWiki.supportedExtensions`
+
+Array of file extensions to include in the workspace wiki.
+
+```json
+{
+	"workspaceWiki.supportedExtensions": ["md", "markdown", "txt", "html", "pdf"]
+}
+```
+
+#### `workspaceWiki.excludeGlobs`
+
+Glob patterns to exclude from scanning.
+
+```json
+{
+	"workspaceWiki.excludeGlobs": [
+		"**/node_modules/**",
+		"**/.git/**",
+		"**/dist/**",
+		"**/build/**",
+		"**/coverage/**",
+		"**/.next/**"
+	]
+}
+```
+
+#### `workspaceWiki.maxSearchDepth`
+
+Maximum folder depth to scan (default: 10). If you have a large repository, you may want to adjust this value to best suit your performance needs and workspace/codebase structure.
+
+```json
+{
+	"workspaceWiki.maxSearchDepth": 15
+}
+```
+
+#### `workspaceWiki.showIgnoredFiles`
+
+Show files listed in .gitignore and excludeGlobs (default: false).
+
+#### `workspaceWiki.showHiddenFiles`
+
+Show hidden files and folders (those starting with a dot, e.g. .github, .env) in the Workspace Wiki tree (default: false).
 
 ### File Opening & Display
 
-- `workspaceWiki.defaultOpenMode`: "preview" or "editor" (default: "preview")
-- `workspaceWiki.openWith`: Commands to use for opening different file types (default: md/markdown → markdown.showPreview, txt → vscode.open)
-- `workspaceWiki.directorySort`: How to sort files and folders - "files-first", "folders-first", or "alphabetical" (default: "files-first")
+#### `workspaceWiki.defaultOpenMode`
+
+Default mode for opening files: "preview" or "editor" (default: "preview").
+
+#### `workspaceWiki.openWith`
+
+Commands to use for opening different file types. This supports adding other extensions' commands for specialized previews.
+
+```json
+{
+	"workspaceWiki.openWith": {
+		"md": "markdown.showPreview",
+		"markdown": "markdown.showPreview",
+		"txt": "vscode.open",
+		"pdf": "vscode.open",
+		"html": "otherExtension.preview"
+	}
+}
+```
+
+#### `workspaceWiki.directorySort`
+
+How to sort files and folders within directories. Options are:
+
+- `files-first`: Show files before folders
+- `folders-first`: Show folders before files
+- `alphabetical`: Sort files and folders alphabetically
+
+```json
+{
+	"workspaceWiki.directorySort": "folders-first"
+}
+```
 
 ### Title Formatting
 
-- `workspaceWiki.acronymCasing`: Array of acronyms to preserve proper casing in file titles (default: ["HTML", "CSS", "JS", "TS", "API", "URL", "JSON", "XML", "HTTP", "HTTPS", "REST", "SQL", "CSV", "FHIR"])
+#### `workspaceWiki.acronymCasing`
+
+Array of acronyms to preserve proper casing in file titles.
+
+```json
+{
+	"workspaceWiki.acronymCasing": [
+		"HTML",
+		"CSS",
+		"JS",
+		"TS",
+		"API",
+		"URL",
+		"JSON",
+		"XML",
+		"HTTP",
+		"HTTPS",
+		"REST",
+		"SQL",
+		"CSV",
+		"FHIR",
+		"BFF",
+		"MFE",
+		"PDF",
+		"VSC"
+	]
+}
+```
+
+### Sync & Auto-Reveal
+
+#### `workspaceWiki.autoReveal`
+
+Automatically reveal the active file in the Workspace Wiki tree when the editor changes (default: true).
+
+#### `workspaceWiki.autoRevealDelay`
+
+Delay in milliseconds before revealing the active file in the tree (default: 500).
+
+```json
+{
+	"workspaceWiki.autoRevealDelay": 1000
+}
+```
 
 ## File Exclusion
 
@@ -58,10 +172,5 @@ The extension automatically excludes files based on:
 3. **GitIgnore patterns:** Files and folders listed in your workspace's `.gitignore` file
 
 To show ignored files in the tree, set `workspaceWiki.showIgnoredFiles` to `true`.
-
-## Known Issues
-
-- Large repos may require tuning `maxSearchDepth` for performance.
-- Binary files are not supported for text preview.
 
 **Enjoy using Workspace Wiki!**
