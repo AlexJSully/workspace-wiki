@@ -4,7 +4,7 @@ The Scanner/Indexer is responsible for discovering documentation files in the wo
 
 ## Implementation
 
-The Scanner/Indexer is implemented in [`src/extension.ts`](../../src/extension.ts) with the main function `scanWorkspaceDocs()`.
+The Scanner/Indexer is implemented in [`src/scanner/workspaceScanner.ts`](../../src/scanner/workspaceScanner.ts) with the main function `scanWorkspaceDocs()`.
 
 ## How It Works
 
@@ -21,7 +21,17 @@ The Scanner/Indexer is implemented in [`src/extension.ts`](../../src/extension.t
 2. **Exclude Pattern Filtering**: Applies `excludeGlobs` and `.gitignore` patterns
 3. **Hidden File Filtering**: Excludes files/folders starting with `.` unless `showHiddenFiles` is true
 4. **Ignored File Filtering**: Excludes files in `.gitignore` unless `showIgnoredFiles` is true
-5. **Depth Limiting**: Respects `maxSearchDepth` setting
+5. **Depth Limiting**: Respects `maxSearchDepth` setting by calculating depth relative to workspace root
+
+## Depth Calculation
+
+The scanner calculates file depth relative to the workspace root for the `maxSearchDepth` feature:
+
+- Uses `vscode.workspace.workspaceFolders[0]` to determine workspace root
+- Normalizes all paths to use forward slashes for cross-platform compatibility
+- Calculates relative path by removing workspace root prefix
+- Counts directory separators to determine depth level
+- Falls back gracefully when workspace root cannot be determined (skips depth filtering)
 
 ## Example
 

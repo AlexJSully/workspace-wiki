@@ -4,7 +4,10 @@ The Utilities module provides helper functions for title normalization and file 
 
 ## Implementation
 
-The utilities are implemented in [`src/extension.ts`](../../src/extension.ts) with key functions like `normalizeTitle()` and `buildTree()`.
+The utilities are implemented across multiple modules:
+
+- [`src/utils/textUtils.ts`](../../src/utils/textUtils.ts) - Text processing functions like `normalizeTitle()`
+- [`src/tree/buildTree.ts`](../../src/tree/buildTree.ts) - Tree building and processing functions like `buildTree()`, `sortNodes()`, `processNode()`
 
 ## Title Normalization
 

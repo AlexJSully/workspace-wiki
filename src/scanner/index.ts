@@ -1,0 +1,1 @@
+export { scanWorkspaceDocs } from './workspaceScanner';

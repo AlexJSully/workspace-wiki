@@ -27,11 +27,36 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
     npm run watch-tests
     ```
 
+- **All tests (validation):**
+
+    ```sh
+    npm run validate
+    ```
+
 ## Test Locations
 
-- Unit tests: `src/*.test.ts`
-- E2E tests: `src/*.e2e.test.ts`
+- Unit tests: `src/**/*.test.ts`
+- E2E tests: `src/**/*.e2e.test.ts`
 - Test utilities: `src/test/`
+
+## Unit Test Coverage
+
+**Tree Module Tests:**
+
+- [`src/tree/buildTree.test.ts`](../../src/tree/buildTree.test.ts): Tests for file name normalization and tree building logic
+- [`src/tree/treeProvider.test.ts`](../../src/tree/treeProvider.test.ts): Tests for WorkspaceWikiTreeProvider class methods
+
+**Scanner Module Tests:**
+
+- [`src/scanner/workspaceScanner.test.ts`](../../src/scanner/workspaceScanner.test.ts): Tests for workspace file scanning and filtering
+
+**Extension Tests:**
+
+- [`src/extension.test.ts`](../../src/extension.test.ts): Tests for main extension functionality and integration
+
+**E2E Tests:**
+
+- [`src/extension.e2e.test.ts`](../../src/extension.e2e.test.ts): End-to-end tests for extension behavior in VS Code
 
 ## Example Directory for Testing
 
@@ -46,10 +71,11 @@ You can toggle extension settings (such as `showHiddenFiles`) and observe how th
 ## Example Unit Test
 
 ```ts
-import { normalizeTitle } from './utils/title';
+import { normalizeTitle } from '@tree';
 
 test('normalizeTitle converts file names to titles', () => {
 	expect(normalizeTitle('userGuide.md')).toBe('User Guide');
+	expect(normalizeTitle('api-reference.md')).toBe('Api Reference');
 });
 ```
 

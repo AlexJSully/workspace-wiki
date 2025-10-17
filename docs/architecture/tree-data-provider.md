@@ -4,7 +4,16 @@ The TreeDataProvider module powers the Workspace Wiki sidebar tree, converting f
 
 ## Implementation
 
-The TreeDataProvider is implemented in [`src/extension.ts`](../../src/extension.ts) as the `WorkspaceWikiTreeProvider` class, along with the `buildTree()` helper function.
+The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tree/treeProvider.ts) as the `WorkspaceWikiTreeProvider` class, along with the `buildTree()` helper function in [`src/tree/buildTree.ts`](../../src/tree/buildTree.ts). The TreeNode interface is defined in [`src/types/treeNode.ts`](../../src/types/treeNode.ts).
+
+## Architecture Changes
+
+**Recent Improvements:**
+
+- **Modular Structure**: TreeDataProvider moved from `src/extension.ts` to dedicated `src/tree/` module
+- **Type Organization**: `TreeNode` interface moved to `src/types/` for better type organization
+- **Path Imports**: Updated to support `@tree` imports via index.ts for cleaner imports
+- **Comprehensive Testing**: Added full unit test coverage for all tree functionality
 
 ## Responsibilities
 
@@ -15,9 +24,19 @@ The TreeDataProvider is implemented in [`src/extension.ts`](../../src/extension.
     - Folders (with `index.md` as folder node)
     - Files inside folders (alphabetical, with `README.md` at top)
 - Normalizes file names to human-friendly titles.
+- Handles cross-platform path compatibility by normalizing path separators
 - Supports sync functionality with active editor
 - Provides efficient file path lookups via node mapping
 - Handles tree view enhancements (collapse all, inline actions)
+
+## Path Handling
+
+The tree builder includes robust path handling for cross-platform compatibility:
+
+- **Path Normalization**: All file paths are normalized to use forward slashes (`/`) regardless of platform
+- **Common Base Path Calculation**: Automatically determines shared directory structure
+- **Windows Compatibility**: Converts backslashes (`\`) to forward slashes before processing
+- **Mixed Path Support**: Handles scenarios where URIs contain different path separator styles
 
 ## Key Methods
 
@@ -28,12 +47,35 @@ The TreeDataProvider is implemented in [`src/extension.ts`](../../src/extension.
 - `findNodeByPath()` - Efficient file path lookups for sync module
 - `refresh()` - Triggers tree data change event; node map is cleared and rebuilt lazily on next `getChildren()` call
 
+## Testing
+
+**Unit Tests:**
+
+- [`src/tree/buildTree.test.ts`](../../src/tree/buildTree.test.ts) - Tests for title normalization and tree building logic
+- [`src/tree/treeProvider.test.ts`](../../src/tree/treeProvider.test.ts) - Tests for WorkspaceWikiTreeProvider class methods
+
+**Test Coverage:**
+
+- Tree building with various folder structures
+- Title normalization including acronym handling
+- File and folder sorting behaviors
+- Node mapping and path lookups
+- Tree refresh and state management
+- Edge cases and error handling
+
 ## Example
 
 ```ts
-class WikiTreeDataProvider implements vscode.TreeDataProvider<WikiNode> {
-	// ...
-}
+// Import the tree provider
+import { WorkspaceWikiTreeProvider } from '@tree';
+
+// Initialize the provider
+const treeProvider = new WorkspaceWikiTreeProvider(
+	vscode.workspace,
+	vscode.TreeItem,
+	vscode.TreeItemCollapsibleState,
+	vscode.EventEmitter,
+);
 ```
 
 ## Example Tree
