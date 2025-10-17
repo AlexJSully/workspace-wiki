@@ -2,7 +2,7 @@
 	"name": "workspace-wiki",
 	"displayName": "Workspace Wiki",
 	"description": "Workspace Wiki",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"publisher": "alexjsully",
 	"engines": {
 		"vscode": "^1.105.0"
@@ -234,7 +234,7 @@
 		"@trivago/prettier-plugin-sort-imports": "^5.2.2",
 		"@types/jest": "^30.0.0",
 		"@types/mocha": "^10.0.10",
-		"@types/node": "^24.8.0",
+		"@types/node": "^24.8.1",
 		"@types/vscode": "^1.105.0",
 		"@typescript-eslint/eslint-plugin": "^8.46.1",
 		"@typescript-eslint/parser": "^8.46.1",
