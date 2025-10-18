@@ -173,4 +173,6 @@ The extension automatically excludes files based on:
 
 To show ignored files in the tree, set `workspaceWiki.showIgnoredFiles` to `true`.
 
+To show hidden files (those starting with a dot), set `workspaceWiki.showHiddenFiles` to `true`.
+
 **Enjoy using Workspace Wiki!**

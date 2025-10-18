@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 To see tags and releases, please go to [Tags](https://github.com/AlexJSully/workspace-wiki/tags) on [GitHub](https://github.com/AlexJSully/workspace-wiki).
 
+## [1.0.1] - 2025-10-17
+
+Minor update to README documentation.
+
 ## [1.0.0] - 2025-10-17
 
 **The first stable release of the Workspace Wiki VS Code extension is here!**
