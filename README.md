@@ -2,7 +2,7 @@
 
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/alexjsully.workspace-wiki?label=VS%20Code%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
 [![Downloads](https://img.shields.io/visual-studio-marketplace/d/alexjsully.workspace-wiki)](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
-![Open VSX Version](https://img.shields.io/open-vsx/v/alexjsully/workspace-wiki)
+[![Open VSX Version](https://img.shields.io/open-vsx/v/alexjsully/workspace-wiki)](https://open-vsx.org/extension/alexjsully/workspace-wiki)
 [![Follow on Twitter](https://img.shields.io/twitter/follow/alexjsully?style=social)](https://twitter.com/alexjsully)
 [![GitHub repo size](https://img.shields.io/github/repo-size/AlexJSully/alexjsully-portfolio)](https://github.com/AlexJSully/alexjsully-portfolio)
 [![GitHub](https://img.shields.io/github/license/AlexJSully/alexjsully-portfolio)](https://github.com/AlexJSully/alexjsully-portfolio)
