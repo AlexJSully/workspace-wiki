@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: 'Workspace Wiki'
+message: >-
+    Open-source code for Workspace Wiki, a Visual Studio Code extension for easy access to workspace documentation.
+type: software
+authors:
+    - given-names: Alexander
+      family-names: Sullivan
+      orcid: 'https://orcid.org/0000-0002-4463-4473'
+      email: alexjsully.connect@outlook.com
+contact:
+    - email: alexjsully.connect@outlook.com
+      family-names: Sullivan
+      given-names: Alexander
+      country: CA
+      orcid: 'https://orcid.org/0000-0002-4463-4473'
+      website: 'https://alexjsully.me/'
+repository-code: 'https://github.com/AlexJSully/workspace-wiki'
+abstract: |
+    Workspace Wiki is a Visual Studio Code extension that scans your workspace for documentation files (Markdown and plain text by default, fully customizable) and presents them in a sidebar tree view for fast preview and editing. It emphasizes readability, predictable ordering (README/index handling, alphabetical directories), and easy access via preview or edit. All operations are local-first and privacy-friendly.
+keywords:
+    - 'VS Code Extension'
+    - 'Documentation'
+    - 'Markdown'
+    - 'Sidebar'
+    - 'Workspace'
+license: 'GPL-3.0'
+date-released: '2025-10-13'
+version: 'main'
