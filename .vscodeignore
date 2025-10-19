@@ -80,3 +80,6 @@ media/*.gif
 
 # GitHub
 _config.yaml
+
+# Citation files
+citation.cff
