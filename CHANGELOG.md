@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 To see tags and releases, please go to [Tags](https://github.com/AlexJSully/workspace-wiki/tags) on [GitHub](https://github.com/AlexJSully/workspace-wiki).
 
+## [1.0.2] - 2025-10-18
+
+Optimization:
+
+- Made extension smaller (from 1.7mb to 40kb)
+- Optimized SVG icon to be smaller and made PNG icon white instead of black for better visibility
+
 ## [1.0.1] - 2025-10-17
 
 Minor update to README documentation.
