@@ -74,3 +74,9 @@ example/**
 # Test files
 **/*.test.*
 **/*.spec.*
+
+# Markdown readme files
+media/*.gif
+
+# GitHub
+_config.yaml
