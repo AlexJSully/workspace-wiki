@@ -25,5 +25,6 @@ keywords:
     - 'Sidebar'
     - 'Workspace'
 license: 'GPL-3.0'
-date-released: '2025-10-13'
-version: 'main'
+date-released: '2025-10-18'
+version: 'v1.0.2'
+commit: 75f096c5e46cb70e80bf64c3515493a9b37a783b
