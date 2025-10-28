@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 To see tags and releases, please go to [Tags](https://github.com/AlexJSully/workspace-wiki/tags) on [GitHub](https://github.com/AlexJSully/workspace-wiki).
 
+## [1.0.3] - 2025-10-28
+
+Features:
+
+- Reduce VS Code engine requirements to v1.99.3 to make the Workspace Wiki extension compatible with Cursor
+
 ## [1.0.2] - 2025-10-18
 
 Optimization:
