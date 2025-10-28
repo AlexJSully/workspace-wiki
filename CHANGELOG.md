@@ -10,7 +10,7 @@ To see tags and releases, please go to [Tags](https://github.com/AlexJSully/work
 
 Features:
 
-- Reduce VSCode engine requirements to v1.99.3 to make the Workspace Wiki extension compatible with Cursor
+- Reduce VS Code engine requirements to v1.99.3 to make the Workspace Wiki extension compatible with Cursor
 
 ## [1.0.2] - 2025-10-18
 
