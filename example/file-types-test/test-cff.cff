@@ -1,0 +1,7 @@
+cff-version: 1.2.0
+authors:
+  - family-names: Doe
+    given-names: Jane
+title: "Test CFF File for Workspace Wiki"
+message: "If you use this file, please cite it as below."
+year: 2025

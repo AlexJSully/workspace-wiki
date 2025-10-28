@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- test-xml.xml: Simple XML file for Workspace Wiki file type testing -->
+<root>
+    <message>Hello, XML World!</message>
+    <value>123</value>
+</root>
