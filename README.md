@@ -28,7 +28,7 @@ Workspace Wiki is a VS Code extension that scans your workspace for documentatio
 
 ## Requirements
 
-- VS Code 1.105+
+- VS Code 1.99.3+
 
 ## Extension Settings
 
