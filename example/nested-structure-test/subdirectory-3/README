@@ -1,0 +1,5 @@
+# README
+
+This is a README file with no extension, for testing Workspace Wiki support for extension-less Markdown files.
+
+It should be detected and treated as a Markdown file if Markdown is supported in the extension settings.

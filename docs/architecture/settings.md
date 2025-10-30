@@ -7,6 +7,7 @@ The Settings Manager reads and applies user configuration for the Workspace Wiki
 ### File Discovery & Filtering
 
 - `workspaceWiki.supportedExtensions`: File types to scan (default: `md`, `markdown`, `txt`).
+    - If `md` or `markdown` is included, files named `README` (no extension, case-insensitive) are also included and treated as Markdown.
 - `workspaceWiki.excludeGlobs`: Patterns to exclude (e.g., `**/node_modules/**`).
 - `workspaceWiki.maxSearchDepth`: Limit scan depth for large repos.
 - `workspaceWiki.showIgnoredFiles`: Show files listed in .gitignore and excludeGlobs (default: false).

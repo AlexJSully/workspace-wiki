@@ -11,6 +11,7 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 	let maxSearchDepth = 10;
 	let showIgnoredFiles = false;
 	let showHiddenFiles = false;
+
 	if (workspace.getConfiguration) {
 		const config = workspace.getConfiguration('workspaceWiki');
 		supportedExtensions = config.get('supportedExtensions') || supportedExtensions;
@@ -71,7 +72,18 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 		supportedExtensions = ['md', 'markdown', 'txt']; // Fallback to defaults
 	}
 
-	const patterns = supportedExtensions.map((ext) => `**/*.${ext}`);
+	// Add README (no extension) support if Markdown is enabled
+	let patterns = supportedExtensions.map((ext) => `**/*.${ext}`);
+
+	const markdownExts = ['md', 'markdown'];
+	const hasMarkdown = supportedExtensions.some((ext) => markdownExts.includes(ext.toLowerCase()));
+
+	if (hasMarkdown) {
+		// README (no extension) at any depth, case-insensitive
+		patterns.push('**/README');
+		patterns.push('**/readme');
+	}
+
 	const exclude = !showIgnoredFiles && excludeGlobs.length > 0 ? `{${excludeGlobs.join(',')}}` : undefined;
 
 	const results: any[] = [];
@@ -80,6 +92,15 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 		if (!uris) {
 			uris = [];
 		}
+
+		// For README (no extension), filter to only files named exactly 'README' (case-insensitive, no extension)
+		if (pattern === '**/README' || pattern === '**/readme') {
+			uris = uris.filter((uri: any) => {
+				const fileName = uri.fsPath.split(/[\\/]/).pop() || '';
+				return /^readme$/i.test(fileName);
+			});
+		}
+
 		if (!showIgnoredFiles && excludeGlobs.length > 0) {
 			uris = uris.filter((uri: any) => {
 				const shouldExclude = excludeGlobs.some((glob) => {
@@ -90,12 +111,14 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 				return !shouldExclude;
 			});
 		}
+
 		if (!showHiddenFiles) {
 			uris = uris.filter((uri: any) => {
 				const segments = uri.fsPath.split(/[\\/]/);
 				return !segments.some((seg: string) => seg.startsWith('.') && seg.length > 1);
 			});
 		}
+
 		if (maxSearchDepth > 0) {
 			uris = uris.filter((uri: any) => {
 				const normalizedPath = uri.fsPath.replace(/\\/g, '/');
@@ -141,5 +164,6 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 		}
 		results.push(...uris);
 	}
+
 	return results;
 }

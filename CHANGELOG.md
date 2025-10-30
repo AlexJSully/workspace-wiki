@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 To see tags and releases, please go to [Tags](https://github.com/AlexJSully/workspace-wiki/tags) on [GitHub](https://github.com/AlexJSully/workspace-wiki).
 
+## [1.0.4] - 2025-10-30
+
+Bug Fix:
+
+- Fixed a bug where README files with no extension were not appearing in the Workspace Wiki tree even when Markdown was a supported extension.
+
 ## [1.0.3] - 2025-10-28
 
 Features:

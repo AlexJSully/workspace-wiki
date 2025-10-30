@@ -40,6 +40,8 @@ This extension contributes the following settings under the `workspaceWiki` name
 
 Array of file extensions to include in the workspace wiki.
 
+**Special Case:** If `md` or `markdown` is included, files named `README` (with no extension, case-insensitive) are also included and treated as Markdown.
+
 ```json
 {
 	"workspaceWiki.supportedExtensions": ["md", "markdown", "txt", "html", "pdf"]

@@ -35,6 +35,67 @@ describe('workspaceScanner', () => {
 		});
 
 		describe('Supported Extensions', () => {
+			it('should include README (no extension) if Markdown is supported', async () => {
+				let calledPatterns: string[] = [];
+				const mockWorkspace: WorkspaceLike = {
+					findFiles: async (pattern: string) => {
+						calledPatterns.push(pattern);
+						// Simulate README (no extension) file
+						if (pattern === '**/README' || pattern === '**/readme') {
+							return [
+								{ fsPath: '/project-root/README' },
+								{ fsPath: '/project-root/docs/README' },
+								{ fsPath: '/project-root/docs/readme' },
+							];
+						}
+						return [];
+					},
+					getConfiguration: () => ({
+						get: (key: string) => {
+							if (key === 'supportedExtensions') {
+								return ['md', 'markdown', 'txt'];
+							}
+							return undefined;
+						},
+					}),
+				};
+
+				const result = await scanWorkspaceDocs(mockWorkspace);
+				// Should include all README (no extension) files
+				const readmeFiles = result.filter((uri: any) => /README$/i.test(uri.fsPath));
+				assert.ok(readmeFiles.length >= 3, 'Should detect README files with no extension');
+				// Should call the README patterns
+				assert.ok(calledPatterns.includes('**/README'));
+				assert.ok(calledPatterns.includes('**/readme'));
+			});
+
+			it('should NOT include README (no extension) if Markdown is NOT supported', async () => {
+				let calledPatterns: string[] = [];
+				const mockWorkspace: WorkspaceLike = {
+					findFiles: async (pattern: string) => {
+						calledPatterns.push(pattern);
+						if (pattern === '**/README' || pattern === '**/readme') {
+							// Should not be called
+							throw new Error('README pattern should not be called if Markdown is not supported');
+						}
+						return [];
+					},
+					getConfiguration: () => ({
+						get: (key: string) => {
+							if (key === 'supportedExtensions') {
+								return ['txt', 'html'];
+							}
+							return undefined;
+						},
+					}),
+				};
+
+				await scanWorkspaceDocs(mockWorkspace);
+				// Should NOT call the README patterns
+				assert.ok(!calledPatterns.includes('**/README'));
+				assert.ok(!calledPatterns.includes('**/readme'));
+			});
+
 			it('should scan default extensions (md, markdown, txt)', async () => {
 				const patterns: string[] = [];
 				const mockWorkspace: WorkspaceLike = {
