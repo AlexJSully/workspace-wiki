@@ -2,7 +2,7 @@
 	"name": "workspace-wiki",
 	"displayName": "Workspace Wiki",
 	"description": "Workspace Wiki",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"publisher": "alexjsully",
 	"engines": {
 		"vscode": "^1.99.3"

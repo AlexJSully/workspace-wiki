@@ -9,6 +9,7 @@ The Scanner/Indexer is implemented in [`src/scanner/workspaceScanner.ts`](../../
 ## How It Works
 
 - Uses `workspace.findFiles` to locate files matching supported extensions (e.g., `.md`, `.markdown`, `.txt`).
+- If Markdown is a supported extension, also scans for files named `README` (with no extension, case-insensitive) and treats them as Markdown.
 - Applies exclude patterns from settings and `.gitignore`.
 - Filters hidden files/folders (starting with dot) based on `showHiddenFiles` setting.
 - Filters ignored files based on `showIgnoredFiles` setting and exclude patterns.
@@ -18,10 +19,11 @@ The Scanner/Indexer is implemented in [`src/scanner/workspaceScanner.ts`](../../
 ## File Filtering Logic
 
 1. **Extension Matching**: Only includes files with supported extensions
-2. **Exclude Pattern Filtering**: Applies `excludeGlobs` and `.gitignore` patterns
-3. **Hidden File Filtering**: Excludes files/folders starting with `.` unless `showHiddenFiles` is true
-4. **Ignored File Filtering**: Excludes files in `.gitignore` unless `showIgnoredFiles` is true
-5. **Depth Limiting**: Respects `maxSearchDepth` setting by calculating depth relative to workspace root
+2. **README (no extension) Matching**: If Markdown is supported, also includes files named `README` (no extension, case-insensitive) as Markdown
+3. **Exclude Pattern Filtering**: Applies `excludeGlobs` and `.gitignore` patterns
+4. **Hidden File Filtering**: Excludes files/folders starting with `.` unless `showHiddenFiles` is true
+5. **Ignored File Filtering**: Excludes files in `.gitignore` unless `showIgnoredFiles` is true
+6. **Depth Limiting**: Respects `maxSearchDepth` setting by calculating depth relative to workspace root
 
 ## Depth Calculation
 
@@ -36,7 +38,10 @@ The scanner calculates file depth relative to the workspace root for the `maxSea
 ## Example
 
 ```ts
+// Standard scan for supported extensions
 const files = await vscode.workspace.findFiles('**/*.{md,markdown,txt}', '**/node_modules/**');
+// Additionally, if Markdown is supported, scan for README (no extension)
+const readmes = await vscode.workspace.findFiles('**/README', '**/node_modules/**');
 ```
 
 ## Edge Cases

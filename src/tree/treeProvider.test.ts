@@ -208,6 +208,113 @@ describe('WorkspaceWikiTreeProvider', () => {
 	});
 
 	describe('createTreeItem', () => {
+		it('should set preview command for README (no extension) using md openWith', async () => {
+			const mockConfig = {
+				defaultOpenMode: 'preview',
+				openWith: {
+					md: 'markdown.showPreview',
+					txt: 'vscode.open',
+				},
+			};
+			mockWorkspace = createMockWorkspace(mockConfig);
+			provider = new WorkspaceWikiTreeProvider(
+				mockWorkspace,
+				mockTreeItem,
+				mockCollapsibleState,
+				mockEventEmitter,
+			);
+
+			const mockNode: MockTreeNode = {
+				type: 'file',
+				name: 'README',
+				title: 'README',
+				path: '/workspace-root/README',
+				uri: createMockUri('/workspace-root/README'),
+			};
+
+			mockScanWorkspaceDocs.mockResolvedValue([]);
+			mockBuildTree.mockReturnValue([mockNode]);
+
+			await provider.getChildren();
+
+			// The created tree item should use markdown.showPreview as the command
+			expect(mockTreeItem).toHaveBeenCalledWith('README', mockCollapsibleState.None);
+			const createdItem = mockTreeItem.mock.results[0].value;
+			expect(createdItem.command).toBeDefined();
+			expect(createdItem.command.arguments[1]).toBe('markdown.showPreview');
+		});
+
+		it('should set preview command for README (no extension) using markdown openWith if md missing', async () => {
+			const mockConfig = {
+				defaultOpenMode: 'preview',
+				openWith: {
+					markdown: 'markdown.customPreview',
+					txt: 'vscode.open',
+				},
+			};
+			mockWorkspace = createMockWorkspace(mockConfig);
+			provider = new WorkspaceWikiTreeProvider(
+				mockWorkspace,
+				mockTreeItem,
+				mockCollapsibleState,
+				mockEventEmitter,
+			);
+
+			const mockNode: MockTreeNode = {
+				type: 'file',
+				name: 'README',
+				title: 'README',
+				path: '/workspace-root/README',
+				uri: createMockUri('/workspace-root/README'),
+			};
+
+			mockScanWorkspaceDocs.mockResolvedValue([]);
+			mockBuildTree.mockReturnValue([mockNode]);
+
+			await provider.getChildren();
+
+			// The created tree item should use markdown.customPreview as the command
+			expect(mockTreeItem).toHaveBeenCalledWith('README', mockCollapsibleState.None);
+			const createdItem = mockTreeItem.mock.results[0].value;
+			expect(createdItem.command).toBeDefined();
+			expect(createdItem.command.arguments[1]).toBe('markdown.customPreview');
+		});
+
+		it('should fallback to markdown.showPreview for README (no extension) if no openWith entry', async () => {
+			const mockConfig = {
+				defaultOpenMode: 'preview',
+				openWith: {
+					txt: 'vscode.open',
+				},
+			};
+			mockWorkspace = createMockWorkspace(mockConfig);
+			provider = new WorkspaceWikiTreeProvider(
+				mockWorkspace,
+				mockTreeItem,
+				mockCollapsibleState,
+				mockEventEmitter,
+			);
+
+			const mockNode: MockTreeNode = {
+				type: 'file',
+				name: 'README',
+				title: 'README',
+				path: '/workspace-root/README',
+				uri: createMockUri('/workspace-root/README'),
+			};
+
+			mockScanWorkspaceDocs.mockResolvedValue([]);
+			mockBuildTree.mockReturnValue([mockNode]);
+
+			await provider.getChildren();
+
+			// The created tree item should fallback to markdown.showPreview
+			expect(mockTreeItem).toHaveBeenCalledWith('README', mockCollapsibleState.None);
+			const createdItem = mockTreeItem.mock.results[0].value;
+			expect(createdItem.command).toBeDefined();
+			expect(createdItem.command.arguments[1]).toBe('markdown.showPreview');
+		});
+
 		it('should create tree item for file nodes', async () => {
 			const mockNode: MockTreeNode = {
 				type: 'file',

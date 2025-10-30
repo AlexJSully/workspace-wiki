@@ -114,11 +114,16 @@ export class WorkspaceWikiTreeProvider {
 			}
 
 			// Determine which command to use for default click
-			const fileExt = node.name.split('.').pop()?.toLowerCase();
+			let fileExt = node.name.split('.').pop()?.toLowerCase();
 			let defaultCommand = 'vscode.open';
 
-			if (defaultOpenMode === 'preview' && fileExt && openWith[fileExt]) {
-				defaultCommand = openWith[fileExt];
+			// Special case: README (no extension) should always use md/markdown preview if in preview mode
+			if (defaultOpenMode === 'preview') {
+				if (!node.name.includes('.') && node.name.toLowerCase() === 'readme') {
+					defaultCommand = openWith['md'] || openWith['markdown'] || 'markdown.showPreview';
+				} else if (fileExt && openWith[fileExt]) {
+					defaultCommand = openWith[fileExt];
+				}
 			}
 
 			item.command = {

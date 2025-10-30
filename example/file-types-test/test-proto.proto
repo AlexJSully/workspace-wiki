@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+// test-proto.proto for file type support testing
+message TestProto {
+  string id = 1;
+  string name = 2;
+}
