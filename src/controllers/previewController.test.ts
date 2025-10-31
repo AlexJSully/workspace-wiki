@@ -1,6 +1,3 @@
-/**
- * Unit tests for preview controller
- */
 import { jest } from '@jest/globals';
 import * as vscode from 'vscode';
 import {
@@ -11,22 +8,6 @@ import {
 	openInEditor,
 	openInPreview,
 } from './previewController';
-
-// Create the mock object before using it
-jest.mock(
-	'vscode',
-	() => ({
-		workspace: {
-			getConfiguration: jest.fn(() => ({
-				get: jest.fn(),
-			})),
-		},
-		commands: {
-			executeCommand: jest.fn(),
-		},
-	}),
-	{ virtual: true },
-);
 
 describe('previewController', () => {
 	const mockVscode = require('vscode') as any;
