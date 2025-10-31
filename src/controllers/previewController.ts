@@ -38,8 +38,13 @@ function getOpenWithConfig(): Record<string, string> {
 	const config = vscode.workspace.getConfiguration('workspaceWiki');
 
 	const userValue = config.get('openWith') as unknown;
-	if (userValue && typeof userValue === 'object') {
-		return userValue as Record<string, string>;
+
+	if (userValue && typeof userValue === 'object' && !Array.isArray(userValue)) {
+		const entries = Object.entries(userValue);
+
+		if (entries.every(([k, v]) => typeof k === 'string' && typeof v === 'string')) {
+			return userValue as Record<string, string>;
+		}
 	}
 
 	return DEFAULT_OPEN_WITH;
@@ -107,7 +112,7 @@ export function getOpenCommand(uri: vscode.Uri, mode: 'preview' | 'editor' = 'pr
 	const openWith = getOpenWithConfig();
 	const fileExt = getFileExtension(uri);
 
-	return fileExt && Object.prototype.hasOwnProperty.call(openWith, fileExt) ? openWith[fileExt] : 'vscode.open';
+	return fileExt && fileExt in openWith ? openWith[fileExt] : 'vscode.open';
 }
 
 /** Clears all stored click times (useful for testing) */
