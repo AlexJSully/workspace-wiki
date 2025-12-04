@@ -1,0 +1,20 @@
+// test-fhirpath.fhirpath
+// This is a FHIRPath expression file for testing Workspace Wiki file type support
+
+// FHIRPath is a navigation and extraction language for FHIR resources
+// Used in healthcare interoperability to query and filter FHIR data
+
+// Example: Get patient's first name
+Patient.name.first().given.first()
+
+// Example: Check if patient is active
+Patient.active = true
+
+// Example: Get all observations with a specific code
+Observation.where(code.coding.exists(system = 'http://loinc.org' and code = '29463-7'))
+
+// Example: Calculate age from birthDate
+(today() - Patient.birthDate).years()
+
+// Example: Filter medications by status
+MedicationRequest.where(status = 'active')
