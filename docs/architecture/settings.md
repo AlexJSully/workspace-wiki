@@ -8,25 +8,25 @@ The Settings Manager reads and applies user configuration for the Workspace Wiki
 
 - `workspaceWiki.supportedExtensions`: File types to scan (default: `md`, `markdown`, `txt`).
     - If `md` or `markdown` is included, files named `README` (no extension, case-insensitive) are also included and treated as Markdown.
-- `workspaceWiki.excludeGlobs`: Patterns to exclude (e.g., `**/node_modules/**`).
-- `workspaceWiki.maxSearchDepth`: Limit scan depth for large repos.
-- `workspaceWiki.showIgnoredFiles`: Show files listed in .gitignore and excludeGlobs (default: false).
-- `workspaceWiki.showHiddenFiles`: Show hidden files/folders starting with a dot (default: false).
+- `workspaceWiki.excludeGlobs`: Glob patterns to exclude files and folders (default: `**/node_modules/**`, `**/.git/**`).
+- `workspaceWiki.maxSearchDepth`: Maximum directory depth to search for documentation files (default: `10`).
+- `workspaceWiki.showIgnoredFiles`: Show files listed in `.gitignore` and matched by `excludeGlobs` patterns (default: `false`).
+- `workspaceWiki.showHiddenFiles`: Show hidden files and folders starting with a dot (e.g., `.github`, `.env`) (default: `false`).
 
 ### File Opening & Display
 
-- `workspaceWiki.defaultOpenMode`: `preview` or `editor`.
-- `workspaceWiki.openWith`: Commands to use for opening different file types.
-- `workspaceWiki.directorySort`: How to sort files and folders (default: "files-first").
+- `workspaceWiki.defaultOpenMode`: `preview` or `editor` (default: `preview`).
+- `workspaceWiki.openWith`: Commands to use for opening different file types (default: `markdown.showPreview` for `.md`/`.markdown`, `vscode.open` for `.txt`).
+- `workspaceWiki.directorySort`: How to sort files and folders: `files-first`, `folders-first`, or `alphabetical` (default: `files-first`).
 
 ### Title Formatting
 
-- `workspaceWiki.acronymCasing`: Acronyms to preserve proper casing in file titles.
+- `workspaceWiki.acronymCasing`: Acronyms to preserve proper casing in file titles (default: `HTML`, `CSS`, `JS`, `TS`, `API`, `URL`, `JSON`, `XML`, `HTTP`, `HTTPS`, `REST`, `SQL`, `CSV`, `FHIR`).
 
 ### Sync & Auto-Reveal
 
-- `workspaceWiki.autoReveal`: Enable automatic file revelation in tree (default: `true`).
-- `workspaceWiki.autoRevealDelay`: Delay in milliseconds before revealing (default: `500`).
+- `workspaceWiki.autoReveal`: Automatically reveal the active file in the Workspace Wiki tree when the editor changes (default: `true`).
+- `workspaceWiki.autoRevealDelay`: Delay in milliseconds before revealing the active file (default: `500`). Set to `0` for immediate reveal.
 
 ## Example
 
