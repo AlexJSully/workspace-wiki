@@ -79,12 +79,28 @@ See also: [Tree Data Provider](./tree-data-provider.md), [Settings](./settings.m
 
 ```mermaid
 sequenceDiagram
-	participant VSCode as VS Code
-	participant User as User
-	participant Tree as Workspace Wiki Tree
-	User->>VSCode: Change active editor
-	VSCode->>Tree: Notify active file
-	Tree->>Tree: Reveal file in tree
+	participant VSCode as VS Code Editor
+	participant Listener as Editor Change Listener
+	participant Config as Config Manager
+	participant Tree as Tree Provider
+	participant View as Tree View
+	VSCode->>Listener: onDidChangeActiveTextEditor
+	activate Listener
+	Listener->>Config: Get autoReveal Setting
+	alt autoReveal disabled
+		Listener-->>VSCode: Return
+	else autoReveal enabled
+		Listener->>Config: Get autoRevealDelay
+		alt autoRevealDelay > 0
+			Listener->>Listener: Wait (setTimeout)
+		end
+		Listener->>Tree: findNodeByPath
+		alt Node Found & Tree Visible
+			Listener->>View: reveal(node)
+			View->>VSCode: Highlight & Expand
+		end
+	end
+	deactivate Listener
 ```
 
-This diagram shows how the sync module listens for editor changes and reveals the corresponding file in the tree.
+This diagram shows how the sync module listens for active editor changes, checks configuration, and reveals the corresponding file in the tree with optional delay.

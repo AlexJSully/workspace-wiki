@@ -91,20 +91,28 @@ Workspace Wiki
 
 See also: [Scanner/Indexer](./scanner.md)
 
-## TreeDataProvider Ordering Logic
+## Ordering Logic
 
 ```mermaid
 flowchart TD
-    A[All Files] --> B{Is Root?}
-    B -->|Yes| C[README.md First]
-    B -->|No| D[Folder Node]
-    C --> E[Other Root Docs A-Z]
-    D --> F{index.md Exists?}
-    F -->|Yes| G[Folder Named by index.md]
-    F -->|No| H[Folder Name]
-    G --> I[README.md in Folder]
-    G --> J[Other Files A-Z]
-    H --> J
+	A[All Nodes] --> B{Is README?}
+	B -->|Yes| C[Rank First]
+	B -->|No| D{Root Level?}
+	D -->|Yes| E[Apply Sort Mode]
+	D -->|No| F[Subfolder Node]
+	E -->|Get directorySort| G{Sort Mode}
+	G -->|files-first| H[Files before Folders]
+	G -->|folders-first| I[Folders before Files]
+	G -->|alphabetical| J[Alphabetical Order]
+	H --> K[Then Alphabetical]
+	I --> K
+	J --> K
+	K --> L[Final Sorted List]
+	F -->|index.md Exists| M[Folder Named by index]
+	F -->|No index.md| N[Use Folder Name]
+	M --> O[Children Sorted]
+	N --> O
+	O --> L
 ```
 
-This diagram shows how files are ordered and displayed in the tree.
+This diagram shows the node ordering logic: README files rank first, then root-level files/folders are sorted according to `directorySort` setting, then alphabetically by title within each type.

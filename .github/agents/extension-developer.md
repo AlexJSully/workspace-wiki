@@ -104,9 +104,7 @@ class WikiTreeDataProvider implements vscode.TreeDataProvider<WikiItem> {
 
 ```typescript
 const disposables: vscode.Disposable[] = [];
-disposables.push(
-  vscode.commands.registerCommand('workspaceWiki.refreshTree', () => provider.refresh())
-);
+disposables.push(vscode.commands.registerCommand('workspaceWiki.refreshTree', () => provider.refresh()));
 return vscode.Disposable.from(...disposables);
 ```
 

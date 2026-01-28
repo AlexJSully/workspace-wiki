@@ -56,11 +56,30 @@ See also: [Settings Manager](./settings.md)
 
 ```mermaid
 flowchart TD
-	A[Start Scan] --> B{Find Files}
-	B -->|Supported Extensions| C[Collect Metadata]
-	C --> D[Cache Metadata]
-	D --> E[Watch for Changes]
-	E -->|File Changed| B
+	A[Start Scan] --> B[Read Config]
+	B -->|Get supportedExtensions| C[Set Extension Patterns]
+	B -->|Get excludeGlobs| D[Set Exclude Patterns]
+	B -->|Check showIgnoredFiles| E{Read .gitignore?}
+	E -->|Yes| F[Parse .gitignore]
+	E -->|No| G[Find Files]
+	F --> H[Merge Exclude Patterns]
+	H --> G
+	C --> G
+	D --> G
+	G -->|Pattern Matching| I[Get File URIs]
+	I -->|README Filter| J[Handle README Matching]
+	I -->|Hidden Files Filter| K{showHiddenFiles?}
+	K -->|No| L[Exclude Dot Files]
+	K -->|Yes| M[Include All Files]
+	J --> N{Depth OK?}
+	N -->|Yes| O[Return Files]
+	N -->|No| P[Skip Deep Files]
+	P --> O
+	L --> N
+	M --> N
+	O --> Q[Setup File Watcher]
+	Q --> R[Watch for Changes]
+	R -->|File Changed| G
 ```
 
-This diagram shows the scanning process: finding files, collecting and caching metadata, and watching for changes.
+This diagram shows the core scanning process: reading configuration, matching file patterns, filtering by various rules, and watching for changes.

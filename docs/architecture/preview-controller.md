@@ -45,12 +45,21 @@ See also: [Settings Manager](./settings.md)
 ```mermaid
 sequenceDiagram
 	participant User as User
-	participant Tree as Workspace Wiki Tree
-	participant Controller as Preview/Open Controller
-	participant Editor as VS Code Editor
-	User->>Tree: Click file
-	Tree->>Controller: Request open (preview/editor)
-	Controller->>Editor: Open file (preview or editor)
+	participant Tree as Tree View
+	participant Handler as handleFileClick
+	participant Command as VS Code
+	User->>Tree: Single Click
+	Tree->>Handler: Trigger Click Handler
+	activate Handler
+	Handler->>Handler: Check Click Time
+	alt Single Click (< 500ms)
+		Handler->>Command: Execute Default Command
+		Command->>User: Open Preview
+	else Double Click (< 500ms apart)
+		Handler->>Command: Execute vscode.open
+		Command->>User: Open in Editor
+	end
+	deactivate Handler
 ```
 
-This diagram shows how user actions in the tree trigger file opening in preview or editor mode.
+This diagram shows the double-click detection flow: single clicks open files in preview mode (using the configured `openWith` command), while double clicks within 500ms open files in the full editor.
