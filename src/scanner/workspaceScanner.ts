@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
  * Scans the workspace for documentation files (.md, .markdown, .txt)
  * Returns a list of file URIs matching supported extensions, respecting excludes and settings.
  */
-export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]> {
+export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<vscode.Uri[]> {
 	let supportedExtensions = ['md', 'markdown', 'txt'];
 	let excludeGlobs: string[] = ['**/node_modules/**', '**/.git/**'];
 	let maxSearchDepth = 10;
@@ -27,8 +27,8 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 				const fs = require('fs');
 				const path = require('path');
 				let workspaceFolders;
-				if (typeof vscode !== 'undefined' && (vscode as any).workspace?.workspaceFolders) {
-					workspaceFolders = (vscode as any).workspace.workspaceFolders;
+				if (typeof vscode !== 'undefined' && vscode.workspace?.workspaceFolders) {
+					workspaceFolders = vscode.workspace.workspaceFolders;
 				} else {
 					try {
 						const vscodeModule = require('vscode');
@@ -86,23 +86,23 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 
 	const exclude = !showIgnoredFiles && excludeGlobs.length > 0 ? `{${excludeGlobs.join(',')}}` : undefined;
 
-	const results: any[] = [];
+	const results: vscode.Uri[] = [];
 	for (const pattern of patterns) {
-		let uris = await Promise.resolve(workspace.findFiles(pattern, exclude, undefined));
+		let uris = (await workspace.findFiles(pattern, exclude, undefined)) as vscode.Uri[];
 		if (!uris) {
 			uris = [];
 		}
 
 		// For README (no extension), filter to only files named exactly 'README' (case-insensitive, no extension)
 		if (pattern === '**/README' || pattern === '**/readme') {
-			uris = uris.filter((uri: any) => {
-				const fileName = uri.fsPath.split(/[\\/]/).pop() || '';
+			uris = uris.filter((uri: vscode.Uri) => {
+				const fileName = uri.fsPath.split(/[\\\/]/).pop() || '';
 				return /^readme$/i.test(fileName);
 			});
 		}
 
 		if (!showIgnoredFiles && excludeGlobs.length > 0) {
-			uris = uris.filter((uri: any) => {
+			uris = uris.filter((uri: vscode.Uri) => {
 				const shouldExclude = excludeGlobs.some((glob) => {
 					const globPart = glob.replace(/\*\*/g, '').replace(/\*/g, '').replace(/^\//, '').replace(/\/$/, '');
 					const matches = uri.fsPath.includes(globPart) || uri.fsPath.endsWith(globPart);
@@ -113,14 +113,14 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<any[]
 		}
 
 		if (!showHiddenFiles) {
-			uris = uris.filter((uri: any) => {
-				const segments = uri.fsPath.split(/[\\/]/);
+			uris = uris.filter((uri: vscode.Uri) => {
+				const segments = uri.fsPath.split(/[\\\/]/);
 				return !segments.some((seg: string) => seg.startsWith('.') && seg.length > 1);
 			});
 		}
 
 		if (maxSearchDepth > 0) {
-			uris = uris.filter((uri: any) => {
+			uris = uris.filter((uri: vscode.Uri) => {
 				const normalizedPath = uri.fsPath.replace(/\\/g, '/');
 
 				// Get workspace root path for relative calculation
