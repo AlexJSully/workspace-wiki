@@ -115,8 +115,8 @@ Notes:
 ### High-level components
 
 - **Scanner / Indexer Module**
-    - Uses `workspace.findFiles` and a file system watcher (FileSystemWatcher / chokidar) to discover docs.
-    - Caches metadata (title, path, mtime) for performance.
+    - Uses `workspace.findFiles` to discover documentation files.
+        - Caches metadata (title, path, mtime) for performance.
 
 - **TreeDataProvider**
     - Implements VS Code `TreeDataProvider` to populate the `Workspace Wiki` tree view.
@@ -159,12 +159,10 @@ Use `contributes.configuration` to add these settings under `workspaceWiki` name
 {
 	"workspaceWiki.supportedExtensions": ["md", "markdown", "txt"],
 	"workspaceWiki.defaultOpenMode": "preview",
-	"workspaceWiki.syncWithActiveEditor": true,
 	"workspaceWiki.openWith": {
 		"pdf": "my-pdf-viewer-extension-id",
 		"md": "vscode.markdown.preview"
 	},
-	"workspaceWiki.scanOnStartup": true,
 	"workspaceWiki.maxSearchDepth": 10,
 	"workspaceWiki.excludeGlobs": ["**/node_modules/**", "**/.git/**"]
 }
