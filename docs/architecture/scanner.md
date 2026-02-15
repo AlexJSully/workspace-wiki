@@ -1,6 +1,6 @@
-# Scanner and Indexer
+# Scanner
 
-The Scanner/Indexer is responsible for discovering documentation files in the workspace, caching their metadata, and watching for changes.
+The scanner discovers documentation files in the workspace and returns matching URIs. It does not cache metadata or watch for changes.
 
 ## Implementation
 
@@ -13,8 +13,7 @@ The Scanner/Indexer is implemented in [`src/scanner/workspaceScanner.ts`](../../
 - Applies exclude patterns from settings and `.gitignore`.
 - Filters hidden files/folders (starting with dot) based on `showHiddenFiles` setting.
 - Filters ignored files based on `showIgnoredFiles` setting and exclude patterns.
-- Caches metadata: file path, title (normalized), and modification time.
-- Sets up a file system watcher to auto-refresh the tree on changes.
+- Returns matching URIs to the tree provider, which rebuilds the tree on refresh.
 
 ## File Filtering Logic
 
@@ -77,9 +76,7 @@ flowchart TD
 	P --> O
 	L --> N
 	M --> N
-	O --> Q[Setup File Watcher]
-	Q --> R[Watch for Changes]
-	R -->|File Changed| G
+	O --> Q[Return Results]
 ```
 
-This diagram shows the core scanning process: reading configuration, matching file patterns, filtering by various rules, and watching for changes.
+This diagram shows the core scanning process: reading configuration, matching file patterns, filtering by various rules, and returning results.
