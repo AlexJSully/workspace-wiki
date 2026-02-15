@@ -74,6 +74,10 @@ export async function buildTree(
 		fsPath: uri.fsPath.replace(/\\/g, '/'),
 	}));
 
+	// Extract front matter for all files in parallel for better performance
+	const frontMatterPromises = uris.map((uri) => extractFrontMatter(uri.fsPath));
+	const frontMatters = await Promise.all(frontMatterPromises);
+
 	// Find common base path (directories only, not including filenames)
 	const allPaths = normalizedUris.map((uri) => uri.fsPath.split('/').filter((part: string) => part));
 
@@ -134,8 +138,8 @@ export async function buildTree(
 			}
 		}
 
-		// Try to extract title and description from YAML front matter for markdown files
-		const frontMatter = await extractFrontMatter(originalUri.fsPath);
+		// Use pre-extracted front matter data (extracted in parallel before the loop)
+		const frontMatter = frontMatters[i];
 		const displayTitle = frontMatter.title || normalizeTitle(relativeFileName, acronyms);
 
 		// Add file to appropriate parent

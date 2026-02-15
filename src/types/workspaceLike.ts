@@ -6,10 +6,6 @@ import * as vscode from 'vscode';
  * - getConfiguration: Used to read extension settings (optional).
  */
 export interface WorkspaceLike {
-	findFiles: (
-		pattern: string,
-		exclude?: string,
-		maxResults?: number,
-	) => Thenable<Array<vscode.Uri | { fsPath: string }>>;
+	findFiles: (pattern: string, exclude?: string, maxResults?: number) => Thenable<vscode.Uri[]>;
 	getConfiguration?: (section: string) => { get: (key: string) => any };
 }

@@ -1,6 +1,4 @@
-/**
- * Unit tests for buildTree.ts
- */
+import { createMockUri } from '../test/mocks';
 import { buildTree, processNode, sortNodes } from '../tree/buildTree';
 import { normalizeTitle } from '../utils';
 
@@ -15,16 +13,6 @@ interface MockTreeNode {
 	isIndex?: boolean;
 	isReadme?: boolean;
 }
-
-// Mock URI objects for testing
-const createMockUri = (fsPath: string) => ({
-	fsPath,
-	scheme: 'file',
-	authority: '',
-	path: fsPath,
-	query: '',
-	fragment: '',
-});
 
 describe('normalizeTitle', () => {
 	describe('basic functionality', () => {
@@ -301,9 +289,9 @@ describe('buildTree', () => {
 	describe('path handling', () => {
 		it('should normalize Windows path separators to Unix-style', async () => {
 			const uris = [
-				{ fsPath: 'C:\\workspace\\docs\\test.md' },
-				{ fsPath: 'C:\\workspace\\docs\\guide.md' },
-				{ fsPath: 'C:\\workspace\\api\\reference.md' },
+				createMockUri('C:\\workspace\\docs\\test.md'),
+				createMockUri('C:\\workspace\\docs\\guide.md'),
+				createMockUri('C:\\workspace\\api\\reference.md'),
 			];
 			const result = await buildTree(uris);
 
@@ -325,9 +313,9 @@ describe('buildTree', () => {
 
 		it('should handle mixed path separators correctly', async () => {
 			const uris = [
-				{ fsPath: '/workspace/docs/test.md' },
-				{ fsPath: 'C:\\workspace\\docs\\guide.md' },
-				{ fsPath: '/workspace/api/reference.md' },
+				createMockUri('/workspace/docs/test.md'),
+				createMockUri('C:\\workspace\\docs\\guide.md'),
+				createMockUri('/workspace/api/reference.md'),
 			];
 			const result = await buildTree(uris);
 
@@ -343,7 +331,7 @@ describe('buildTree', () => {
 		});
 
 		it('should handle Unix paths correctly (no change needed)', async () => {
-			const uris = [{ fsPath: '/workspace/docs/test.md' }, { fsPath: '/workspace/docs/guide.md' }];
+			const uris = [createMockUri('/workspace/docs/test.md'), createMockUri('/workspace/docs/guide.md')];
 			const result = await buildTree(uris);
 
 			// Both files are in the same directory (/workspace/docs), so common base is /workspace/docs
@@ -378,7 +366,7 @@ describe('buildTree', () => {
 
 	describe('edge cases', () => {
 		it('should handle files with empty names gracefully', async () => {
-			const uris = [{ fsPath: '/workspace-root/' }, createMockUri('/workspace-root/valid.md')];
+			const uris = [createMockUri('/workspace-root/'), createMockUri('/workspace-root/valid.md')];
 			const result = await buildTree(uris);
 
 			// The buildTree function filters out files with empty relative names
@@ -618,5 +606,198 @@ describe('processNode', () => {
 		expect(folderNode.children![0].type).toBe('file');
 		expect(folderNode.children![1].type).toBe('file');
 		expect(folderNode.children![2].type).toBe('folder');
+	});
+});
+
+describe('Front Matter Integration', () => {
+	const fs = require('fs');
+	const path = require('path');
+	const tempDir = path.join(__dirname, '../../.test-temp-frontmatter');
+
+	beforeEach(() => {
+		// Create temporary directory for test files
+		if (!fs.existsSync(tempDir)) {
+			fs.mkdirSync(tempDir, { recursive: true });
+		}
+	});
+
+	afterEach(() => {
+		// Clean up temporary files
+		if (fs.existsSync(tempDir)) {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test.each([
+		{
+			description: 'extract both title and description from YAML front matter',
+			filename: 'with-frontmatter.md',
+			content: `---
+title: Custom Title from Front Matter
+description: This is a description from YAML front matter
+---
+
+# Heading
+
+Some content.`,
+			expectedTitle: 'Custom Title from Front Matter',
+			expectedDescription: 'This is a description from YAML front matter',
+		},
+		{
+			description: 'extract title but not description when description is absent',
+			filename: 'title-only.md',
+			content: `---
+title: Only Title Here
+---
+
+# Content`,
+			expectedTitle: 'Only Title Here',
+			expectedDescription: undefined,
+		},
+		{
+			description: 'extract description but use normalized filename as title when title is absent',
+			filename: 'description-only.md',
+			content: `---
+description: This is only a description
+---
+
+# Content`,
+			expectedTitle: 'Description Only',
+			expectedDescription: 'This is only a description',
+		},
+		{
+			description: 'use normalized filename when no front matter exists',
+			filename: 'no-frontmatter.md',
+			content: `# Just a regular markdown file
+
+No front matter here.`,
+			expectedTitle: 'No Frontmatter',
+			expectedDescription: undefined,
+		},
+	])('should $description', async ({ filename, content, expectedTitle, expectedDescription }) => {
+		const filePath = path.join(tempDir, filename);
+		fs.writeFileSync(filePath, content, 'utf-8');
+
+		const nodes = await buildTree([createMockUri(filePath)], 'alphabetical', []);
+
+		expect(nodes).toHaveLength(1);
+		expect(nodes[0].title).toBe(expectedTitle);
+		if (expectedDescription === undefined) {
+			expect(nodes[0].description).toBeUndefined();
+		} else {
+			expect(nodes[0].description).toBe(expectedDescription);
+		}
+	});
+
+	it('should handle multiple files with and without front matter', async () => {
+		const file1Path = path.join(tempDir, 'with-fm.md');
+		const file2Path = path.join(tempDir, 'without-fm.md');
+
+		fs.writeFileSync(
+			file1Path,
+			`---
+title: File With Front Matter
+description: Has description
+---
+Content`,
+			'utf-8',
+		);
+
+		fs.writeFileSync(file2Path, `# Regular File\nNo front matter`, 'utf-8');
+
+		const nodes = await buildTree([createMockUri(file1Path), createMockUri(file2Path)], 'alphabetical', []);
+
+		expect(nodes).toHaveLength(2);
+
+		// File with front matter
+		const withFm = nodes.find((n) => n.name === 'with-fm.md');
+		expect(withFm?.title).toBe('File With Front Matter');
+		expect(withFm?.description).toBe('Has description');
+
+		// File without front matter
+		const withoutFm = nodes.find((n) => n.name === 'without-fm.md');
+		expect(withoutFm?.title).toBe('Without Fm');
+		expect(withoutFm?.description).toBeUndefined();
+	});
+
+	test.each([
+		{
+			description: 'trim whitespace from both title and description',
+			filename: 'whitespace-test.md',
+			content: `---
+title:   Title With Spaces
+description:   Description With Spaces
+---
+
+Content`,
+			expectedTitle: 'Title With Spaces',
+			expectedDescription: 'Description With Spaces',
+		},
+		{
+			description: 'trim leading whitespace from title',
+			filename: 'leading-space.md',
+			content: `---
+title:   Leading Space Title
+---
+
+Content`,
+			expectedTitle: 'Leading Space Title',
+			expectedDescription: undefined,
+		},
+		{
+			description: 'trim trailing whitespace from description',
+			filename: 'trailing-space.md',
+			content: `---
+description: Trailing Space Description
+---
+
+Content`,
+			expectedTitle: 'Trailing Space',
+			expectedDescription: 'Trailing Space Description',
+		},
+	])('should $description', async ({ filename, content, expectedTitle, expectedDescription }) => {
+		const filePath = path.join(tempDir, filename);
+		fs.writeFileSync(filePath, content, 'utf-8');
+
+		const nodes = await buildTree([createMockUri(filePath)], 'alphabetical', []);
+
+		expect(nodes).toHaveLength(1);
+		expect(nodes[0].title).toBe(expectedTitle);
+		if (expectedDescription === undefined) {
+			expect(nodes[0].description).toBeUndefined();
+		} else {
+			expect(nodes[0].description).toBe(expectedDescription);
+		}
+	});
+
+	it('should handle multiple files with and without front matter', async () => {
+		const file1Path = path.join(tempDir, 'with-fm.md');
+		const file2Path = path.join(tempDir, 'without-fm.md');
+
+		fs.writeFileSync(
+			file1Path,
+			`---
+title: File With Front Matter
+description: Has description
+---
+Content`,
+			'utf-8',
+		);
+
+		fs.writeFileSync(file2Path, `# Regular File\nNo front matter`, 'utf-8');
+
+		const nodes = await buildTree([createMockUri(file1Path), createMockUri(file2Path)], 'alphabetical', []);
+
+		expect(nodes).toHaveLength(2);
+
+		// File with front matter
+		const withFm = nodes.find((n) => n.name === 'with-fm.md');
+		expect(withFm?.title).toBe('File With Front Matter');
+		expect(withFm?.description).toBe('Has description');
+
+		// File without front matter
+		const withoutFm = nodes.find((n) => n.name === 'without-fm.md');
+		expect(withoutFm?.title).toBe('Without Fm');
+		expect(withoutFm?.description).toBeUndefined();
 	});
 });

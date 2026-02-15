@@ -1,5 +1,5 @@
-import type * as vscode from 'vscode';
 import { scanWorkspaceDocs } from '../scanner';
+import { createMockUri } from '../test/mocks';
 import { buildTree } from '../tree/buildTree';
 import { WorkspaceWikiTreeProvider } from '../tree/treeProvider';
 
@@ -26,20 +26,10 @@ interface MockTreeNode {
 	children?: MockTreeNode[];
 	isIndex?: boolean;
 	isReadme?: boolean;
+	description?: string;
 }
 
 // Mock implementations
-const createMockUri = (fsPath: string): vscode.Uri => ({
-	fsPath,
-	scheme: 'file',
-	authority: '',
-	path: fsPath,
-	query: '',
-	fragment: '',
-	with: () => createMockUri(fsPath),
-	toJSON: () => ({}),
-});
-
 const createMockTreeItem = (label: string, collapsibleState: any) => ({
 	label,
 	collapsibleState,
@@ -399,6 +389,64 @@ describe('WorkspaceWikiTreeProvider', () => {
 			expect(mockTreeItem).toHaveBeenCalled();
 			const createdItem = mockTreeItem.mock.results[0].value;
 			expect(createdItem.treeNode).toBe(mockNode);
+		});
+
+		test.each([
+			{
+				scenario: 'set tooltip to description when node has front matter description',
+				nodeType: 'file' as const,
+				name: 'test.md',
+				title: 'Test File',
+				path: '/workspace-root/test.md',
+				description: 'This is a test file description from YAML front matter',
+				expectedTooltip: 'This is a test file description from YAML front matter',
+			},
+			{
+				scenario: 'set tooltip to path when file node has no description',
+				nodeType: 'file' as const,
+				name: 'test.md',
+				title: 'Test File',
+				path: '/workspace-root/test.md',
+				description: undefined,
+				expectedTooltip: '/workspace-root/test.md',
+			},
+			{
+				scenario: 'handle tooltip for folder nodes with description',
+				nodeType: 'folder' as const,
+				name: 'docs',
+				title: 'Documentation',
+				path: '/workspace-root/docs',
+				description: 'Project documentation folder',
+				expectedTooltip: 'Project documentation folder',
+			},
+			{
+				scenario: 'handle tooltip for folder nodes without description',
+				nodeType: 'folder' as const,
+				name: 'docs',
+				title: 'Documentation',
+				path: '/workspace-root/docs',
+				description: undefined,
+				expectedTooltip: '/workspace-root/docs',
+			},
+		])('should $scenario', async ({ nodeType, name, title, path, description, expectedTooltip }) => {
+			const mockNode: MockTreeNode = {
+				type: nodeType,
+				name,
+				title,
+				path,
+				...(description && { description }),
+				...(nodeType === 'file' && { uri: createMockUri(path) }),
+				...(nodeType === 'folder' && { children: [] }),
+			};
+
+			mockScanWorkspaceDocs.mockResolvedValue(nodeType === 'file' ? [mockNode.uri!] : []);
+			mockBuildTree.mockResolvedValue([mockNode]);
+
+			await provider.getChildren();
+
+			expect(mockTreeItem).toHaveBeenCalled();
+			const createdItem = mockTreeItem.mock.results[0].value;
+			expect(createdItem.tooltip).toBe(expectedTooltip);
 		});
 	});
 

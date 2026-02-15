@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { createMockUri } from '../test/mocks';
 import { WorkspaceLike } from '../types';
 import { scanWorkspaceDocs } from './workspaceScanner';
 
@@ -7,7 +8,7 @@ describe('workspaceScanner', () => {
 		describe('Basic Functionality', () => {
 			it('should return an array of file URIs', async () => {
 				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => [{ fsPath: `/test/doc.${pattern.split('.').pop()}` }],
+					findFiles: async (pattern: string) => [createMockUri(`/test/doc.${pattern.split('.').pop()}`)],
 				};
 				const result = await scanWorkspaceDocs(mockWorkspace);
 				assert.ok(Array.isArray(result));
@@ -43,9 +44,9 @@ describe('workspaceScanner', () => {
 						// Simulate README (no extension) file
 						if (pattern === '**/README' || pattern === '**/readme') {
 							return [
-								{ fsPath: '/project-root/README' },
-								{ fsPath: '/project-root/docs/README' },
-								{ fsPath: '/project-root/docs/readme' },
+								createMockUri('/project-root/README'),
+								createMockUri('/project-root/docs/README'),
+								createMockUri('/project-root/docs/readme'),
 							];
 						}
 						return [];
@@ -101,7 +102,7 @@ describe('workspaceScanner', () => {
 				const mockWorkspace: WorkspaceLike = {
 					findFiles: async (pattern: string) => {
 						patterns.push(pattern);
-						return [{ fsPath: `/test/file.${pattern.split('.').pop()}` }];
+						return [createMockUri(`/test/file.${pattern.split('.').pop()}`)];
 					},
 				};
 
@@ -117,7 +118,7 @@ describe('workspaceScanner', () => {
 				const mockWorkspace: WorkspaceLike = {
 					findFiles: async (pattern: string) => {
 						patterns.push(pattern);
-						return [{ fsPath: `/test/file.${pattern.split('.').pop()}` }];
+						return [createMockUri(`/test/file.${pattern.split('.').pop()}`)];
 					},
 					getConfiguration: () => ({
 						get: (key: string) => {
@@ -146,9 +147,9 @@ describe('workspaceScanner', () => {
 						assert.ok(exclude?.includes('node_modules'));
 						assert.ok(exclude?.includes('.git'));
 						return [
-							{ fsPath: '/test/valid.md' },
-							{ fsPath: '/test/node_modules/invalid.md' },
-							{ fsPath: '/test/.git/invalid.md' },
+							createMockUri('/test/valid.md'),
+							createMockUri('/test/node_modules/invalid.md'),
+							createMockUri('/test/.git/invalid.md'),
 						];
 					},
 				};
@@ -163,7 +164,7 @@ describe('workspaceScanner', () => {
 				const mockWorkspace: WorkspaceLike = {
 					findFiles: async (pattern: string, exclude?: string) => {
 						assert.ok(exclude?.includes('custom-exclude'));
-						return [{ fsPath: '/test/valid.md' }, { fsPath: '/test/custom-exclude/invalid.md' }];
+						return [createMockUri('/test/valid.md'), createMockUri('/test/custom-exclude/invalid.md')];
 					},
 					getConfiguration: () => ({
 						get: (key: string) => {
@@ -185,7 +186,7 @@ describe('workspaceScanner', () => {
 					findFiles: async (pattern: string) => {
 						// Return files for each extension pattern
 						if (pattern.includes('md')) {
-							return [{ fsPath: '/test/normal.md' }, { fsPath: '/test/node_modules/excluded.md' }];
+							return [createMockUri('/test/normal.md'), createMockUri('/test/node_modules/excluded.md')];
 						}
 						return [];
 					},
@@ -209,10 +210,10 @@ describe('workspaceScanner', () => {
 			it('should exclude hidden files by default', async () => {
 				const mockWorkspace: WorkspaceLike = {
 					findFiles: async () => [
-						{ fsPath: '/test/visible.md' },
-						{ fsPath: '/test/.hidden.md' },
-						{ fsPath: '/test/.hidden/file.md' },
-						{ fsPath: '/test/folder/.dotfile.md' },
+						createMockUri('/test/visible.md'),
+						createMockUri('/test/.hidden.md'),
+						createMockUri('/test/.hidden/file.md'),
+						createMockUri('/test/folder/.dotfile.md'),
 					],
 				};
 
@@ -225,9 +226,9 @@ describe('workspaceScanner', () => {
 			it('should include hidden files when showHiddenFiles=true', async () => {
 				const mockWorkspace: WorkspaceLike = {
 					findFiles: async () => [
-						{ fsPath: '/test/visible.md' },
-						{ fsPath: '/test/.hidden.md' },
-						{ fsPath: '/test/.hidden/file.md' },
+						createMockUri('/test/visible.md'),
+						createMockUri('/test/.hidden.md'),
+						createMockUri('/test/.hidden/file.md'),
 					],
 					getConfiguration: () => ({
 						get: (key: string) => {
@@ -248,10 +249,10 @@ describe('workspaceScanner', () => {
 			it('should not exclude single dots or files ending with dot', async () => {
 				const mockWorkspace: WorkspaceLike = {
 					findFiles: async () => [
-						{ fsPath: '/test/file.md' },
-						{ fsPath: '/test/file.' },
-						{ fsPath: '/test/.' },
-						{ fsPath: '/test/..' },
+						createMockUri('/test/file.md'),
+						createMockUri('/test/file.'),
+						createMockUri('/test/.'),
+						createMockUri('/test/..'),
 					],
 				};
 
@@ -266,10 +267,10 @@ describe('workspaceScanner', () => {
 			it('should respect maxSearchDepth configuration', async () => {
 				const mockWorkspace: WorkspaceLike = {
 					findFiles: async () => [
-						{ fsPath: '/project-root/level1.md' },
-						{ fsPath: '/project-root/sub/level2.md' },
-						{ fsPath: '/project-root/sub/deep/level3.md' },
-						{ fsPath: '/project-root/sub/deep/deeper/level4.md' },
+						createMockUri('/project-root/level1.md'),
+						createMockUri('/project-root/sub/level2.md'),
+						createMockUri('/project-root/sub/deep/level3.md'),
+						createMockUri('/project-root/sub/deep/deeper/level4.md'),
 					],
 					getConfiguration: () => ({
 						get: (key: string) => {
@@ -292,8 +293,8 @@ describe('workspaceScanner', () => {
 			it('should handle maxSearchDepth=0 to disable depth filtering', async () => {
 				const mockWorkspace: WorkspaceLike = {
 					findFiles: async () => [
-						{ fsPath: '/project-root/level1.md' },
-						{ fsPath: '/project-root/very/deep/nested/structure/file.md' },
+						createMockUri('/project-root/level1.md'),
+						createMockUri('/project-root/very/deep/nested/structure/file.md'),
 					],
 					getConfiguration: () => ({
 						get: (key: string) => {
@@ -313,9 +314,9 @@ describe('workspaceScanner', () => {
 			it('should handle workspace root relative paths correctly', async () => {
 				const mockWorkspace: WorkspaceLike = {
 					findFiles: async () => [
-						{ fsPath: '/workspace-root/level1.md' },
-						{ fsPath: '/workspace-root/sub/level2.md' },
-						{ fsPath: '/workspace-root/sub/deep/level3.md' },
+						createMockUri('/workspace-root/level1.md'),
+						createMockUri('/workspace-root/sub/level2.md'),
+						createMockUri('/workspace-root/sub/deep/level3.md'),
 					],
 					getConfiguration: () => ({
 						get: (key: string) => {
@@ -336,9 +337,9 @@ describe('workspaceScanner', () => {
 			it('should fallback gracefully when workspace root cannot be determined', async () => {
 				const mockWorkspace: WorkspaceLike = {
 					findFiles: async () => [
-						{ fsPath: '/some/path/level1.md' },
-						{ fsPath: '/some/path/sub/level2.md' },
-						{ fsPath: '/some/path/sub/deep/level3.md' },
+						createMockUri('/some/path/level1.md'),
+						createMockUri('/some/path/sub/level2.md'),
+						createMockUri('/some/path/sub/deep/level3.md'),
 					],
 					getConfiguration: () => ({
 						get: (key: string) => {
@@ -376,7 +377,7 @@ describe('workspaceScanner', () => {
 				delete (global as any).process;
 
 				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [{ fsPath: '/test/file.md' }],
+					findFiles: async () => [createMockUri('/test/file.md')],
 				};
 
 				const result = await scanWorkspaceDocs(mockWorkspace);
@@ -395,13 +396,13 @@ describe('workspaceScanner', () => {
 						return { join: (...args: string[]) => args.join('/') };
 					}
 					if (module === 'vscode') {
-						return { workspace: { workspaceFolders: [{ uri: { fsPath: '/test' } }] } };
+						return { workspace: { workspaceFolders: [{ uri: createMockUri('/test') }] } };
 					}
 					throw new Error(`Module ${module} not found`);
 				};
 
 				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [{ fsPath: '/test/file.md' }],
+					findFiles: async () => [createMockUri('/test/file.md')],
 				};
 
 				const result = await scanWorkspaceDocs(mockWorkspace);
@@ -416,7 +417,7 @@ describe('workspaceScanner', () => {
 				};
 
 				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [{ fsPath: '/test/file.md' }],
+					findFiles: async () => [createMockUri('/test/file.md')],
 				};
 
 				const result = await scanWorkspaceDocs(mockWorkspace);
@@ -426,9 +427,7 @@ describe('workspaceScanner', () => {
 
 		describe('Performance Edge Cases', () => {
 			it('should handle large numbers of files efficiently', async () => {
-				const largeFileList = Array.from({ length: 1000 }, (_, i) => ({
-					fsPath: `/test/file${i}.md`,
-				}));
+				const largeFileList = Array.from({ length: 1000 }, (_, i) => createMockUri(`/test/file${i}.md`));
 
 				const mockWorkspace: WorkspaceLike = {
 					findFiles: async (pattern: string) => {
@@ -451,10 +450,7 @@ describe('workspaceScanner', () => {
 
 			it('should handle complex exclude patterns efficiently', async () => {
 				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () =>
-						Array.from({ length: 100 }, (_, i) => ({
-							fsPath: `/test/file${i}.md`,
-						})),
+					findFiles: async () => Array.from({ length: 100 }, (_, i) => createMockUri(`/test/file${i}.md`)),
 					getConfiguration: () => ({
 						get: (key: string) => {
 							if (key === 'excludeGlobs') {
@@ -478,12 +474,12 @@ describe('workspaceScanner', () => {
 		describe('Security Edge Cases', () => {
 			it('should handle malicious file paths safely', async () => {
 				const maliciousPaths = [
-					{ fsPath: '../../../etc/passwd.md' },
-					{ fsPath: '..\\..\\..\\windows\\system32.md' },
-					{ fsPath: '/test/normal.md' },
-					{ fsPath: 'test/../../../sensitive.md' },
-					{ fsPath: '/test/file\x00injection.md' },
-					{ fsPath: '/test/file\n\r.md' },
+					createMockUri('../../../etc/passwd.md'),
+					createMockUri('..\\..\\..\\windows\\system32.md'),
+					createMockUri('/test/normal.md'),
+					createMockUri('test/../../../sensitive.md'),
+					createMockUri('/test/file\x00injection.md'),
+					createMockUri('/test/file\n\r.md'),
 				];
 
 				const mockWorkspace: WorkspaceLike = {
@@ -517,7 +513,7 @@ describe('workspaceScanner', () => {
 					findFiles: async (pattern: string) => {
 						// Return path only for .md pattern to avoid triplication
 						if (pattern.includes('.md')) {
-							return [{ fsPath: longPath }];
+							return [createMockUri(longPath)];
 						}
 						return [];
 					},
@@ -531,11 +527,11 @@ describe('workspaceScanner', () => {
 
 			it('should handle special characters in file paths', async () => {
 				const specialPaths = [
-					{ fsPath: '/test/file with spaces.md' },
-					{ fsPath: '/test/файл.md' },
-					{ fsPath: '/test/文件.md' },
-					{ fsPath: '/test/file-with-émojis-🚀.md' },
-					{ fsPath: '/test/file&with%special$chars.md' },
+					createMockUri('/test/file with spaces.md'),
+					createMockUri('/test/файл.md'),
+					createMockUri('/test/文件.md'),
+					createMockUri('/test/file-with-émojis-🚀.md'),
+					createMockUri('/test/file&with%special$chars.md'),
 				];
 
 				const mockWorkspace: WorkspaceLike = {
@@ -561,7 +557,7 @@ describe('workspaceScanner', () => {
 		describe('Configuration Edge Cases', () => {
 			it('should handle missing getConfiguration method', async () => {
 				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [{ fsPath: '/test/file.md' }],
+					findFiles: async () => [createMockUri('/test/file.md')],
 					// No getConfiguration method
 				};
 
@@ -572,7 +568,7 @@ describe('workspaceScanner', () => {
 
 			it('should handle null/undefined configuration values', async () => {
 				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [{ fsPath: '/test/file.md' }],
+					findFiles: async () => [createMockUri('/test/file.md')],
 					getConfiguration: () => ({
 						get: () => null,
 					}),
@@ -584,7 +580,7 @@ describe('workspaceScanner', () => {
 
 			it('should handle invalid configuration types', async () => {
 				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [{ fsPath: '/test/file.md' }],
+					findFiles: async () => [createMockUri('/test/file.md')],
 					getConfiguration: () => ({
 						get: (key: string) => {
 							if (key === 'supportedExtensions') {
@@ -620,8 +616,8 @@ describe('workspaceScanner', () => {
 						// Return paths only for .md pattern to avoid triplication
 						if (pattern.includes('.md')) {
 							return [
-								{ fsPath: 'C:\\Users\\test\\Documents\\file.md' },
-								{ fsPath: 'C:\\Users\\test\\Documents\\sub\\nested.md' },
+								createMockUri('C:\\Users\\test\\Documents\\file.md'),
+								createMockUri('C:\\Users\\test\\Documents\\sub\\nested.md'),
 							];
 						}
 						return [];
@@ -647,8 +643,8 @@ describe('workspaceScanner', () => {
 						// Return paths only for .md pattern to avoid triplication
 						if (pattern.includes('.md')) {
 							return [
-								{ fsPath: '/test\\mixed/path\\separators.md' },
-								{ fsPath: 'C:/Windows\\Style/Mixed.md' },
+								createMockUri('/test\\mixed/path\\separators.md'),
+								createMockUri('C:/Windows\\Style/Mixed.md'),
 							];
 						}
 						return [];

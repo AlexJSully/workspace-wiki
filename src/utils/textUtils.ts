@@ -45,7 +45,9 @@ export async function extractFrontMatter(filePath: string): Promise<FrontMatterD
 				: null;
 
 		return { title, description };
-	} catch {
+	} catch (error) {
+		// Log at error level to aid troubleshooting without disrupting extension behavior
+		console.error('[WorkspaceWiki] Failed to extract front matter for file:', filePath, error);
 		// If file can't be read or parsed, return nulls
 		return { title: null, description: null };
 	}
