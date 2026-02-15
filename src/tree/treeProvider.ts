@@ -50,7 +50,7 @@ export class WorkspaceWikiTreeProvider {
 			acronyms = config.get('acronymCasing') || [];
 		}
 
-		this.treeData = buildTree(uris, directorySort, acronyms);
+		this.treeData = await buildTree(uris, directorySort, acronyms);
 
 		// Clear existing map and rebuild immediately for consistency
 		this.nodeMap.clear();

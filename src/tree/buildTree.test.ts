@@ -135,14 +135,14 @@ describe('normalizeTitle', () => {
 
 describe('buildTree', () => {
 	describe('basic functionality', () => {
-		it('should return empty array for empty input', () => {
-			const result = buildTree([]);
+		it('should return empty array for empty input', async () => {
+			const result = await buildTree([]);
 			expect(result).toEqual([]);
 		});
 
-		it('should handle single file at root level', () => {
+		it('should handle single file at root level', async () => {
 			const uris = [createMockUri('/workspace-root/test.md')];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			expect(result).toHaveLength(1);
 			expect(result[0]).toMatchObject({
@@ -155,9 +155,9 @@ describe('buildTree', () => {
 			});
 		});
 
-		it('should handle multiple files at root level', () => {
+		it('should handle multiple files at root level', async () => {
 			const uris = [createMockUri('/workspace-root/first.md'), createMockUri('/workspace-root/second.md')];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			expect(result).toHaveLength(2);
 			expect(result[0].name).toBe('first.md');
@@ -166,12 +166,12 @@ describe('buildTree', () => {
 	});
 
 	describe('folder structure', () => {
-		it('should create folder structure for nested files', () => {
+		it('should create folder structure for nested files', async () => {
 			const uris = [
 				createMockUri('/workspace-root/docs/getting-started.md'),
 				createMockUri('/workspace-root/docs/api/reference.md'),
 			];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			expect(result).toHaveLength(2);
 			// First item should be the file at docs level
@@ -190,12 +190,12 @@ describe('buildTree', () => {
 			expect(result[1].children).toHaveLength(1);
 		});
 
-		it('should handle deeply nested folder structures', () => {
+		it('should handle deeply nested folder structures', async () => {
 			const uris = [
 				createMockUri('/workspace-root/docs/api/v1/users.md'),
 				createMockUri('/workspace-root/docs/api/v2/users.md'),
 			];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			expect(result).toHaveLength(2);
 			const v1Folder = result[0];
@@ -208,18 +208,18 @@ describe('buildTree', () => {
 	});
 
 	describe('special files', () => {
-		it('should identify README files correctly', () => {
+		it('should identify README files correctly', async () => {
 			const uris = [createMockUri('/workspace-root/README.md'), createMockUri('/workspace-root/readme.txt')];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			expect(result).toHaveLength(2);
 			expect(result[0].isReadme).toBe(true);
 			expect(result[1].isReadme).toBe(true);
 		});
 
-		it('should identify index files correctly', () => {
+		it('should identify index files correctly', async () => {
 			const uris = [createMockUri('/workspace-root/index.md'), createMockUri('/workspace-root/docs/index.md')];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			expect(result).toHaveLength(2);
 			expect(result[0].isIndex).toBe(true);
@@ -231,26 +231,26 @@ describe('buildTree', () => {
 	});
 
 	describe('sorting functionality', () => {
-		it('should sort README files first by default', () => {
+		it('should sort README files first by default', async () => {
 			const uris = [
 				createMockUri('/workspace-root/zebra.md'),
 				createMockUri('/workspace-root/README.md'),
 				createMockUri('/workspace-root/alpha.md'),
 			];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			expect(result).toHaveLength(3);
 			expect(result[0].name).toBe('README.md');
 			expect(result[0].isReadme).toBe(true);
 		});
 
-		it('should sort files first when directorySort is "files-first"', () => {
+		it('should sort files first when directorySort is "files-first"', async () => {
 			const uris = [
 				createMockUri('/workspace-root/docs/guide.md'),
 				createMockUri('/workspace-root/test.md'),
 				createMockUri('/workspace-root/nested/file.md'),
 			];
-			const result = buildTree(uris, 'files-first');
+			const result = await buildTree(uris, 'files-first');
 
 			expect(result).toHaveLength(3);
 			expect(result[0].type).toBe('file'); // test.md
@@ -258,13 +258,13 @@ describe('buildTree', () => {
 			expect(result[2].type).toBe('folder'); // nested
 		});
 
-		it('should sort folders first when directorySort is "folders-first"', () => {
+		it('should sort folders first when directorySort is "folders-first"', async () => {
 			const uris = [
 				createMockUri('/workspace-root/docs/guide.md'),
 				createMockUri('/workspace-root/test.md'),
 				createMockUri('/workspace-root/nested/file.md'),
 			];
-			const result = buildTree(uris, 'folders-first');
+			const result = await buildTree(uris, 'folders-first');
 
 			expect(result).toHaveLength(3);
 			expect(result[0].type).toBe('folder'); // docs
@@ -272,13 +272,13 @@ describe('buildTree', () => {
 			expect(result[2].type).toBe('file'); // test.md
 		});
 
-		it('should sort alphabetically when directorySort is "alphabetical"', () => {
+		it('should sort alphabetically when directorySort is "alphabetical"', async () => {
 			const uris = [
 				createMockUri('/workspace-root/zebra.md'),
 				createMockUri('/workspace-root/alpha.md'),
 				createMockUri('/workspace-root/beta/file.md'),
 			];
-			const result = buildTree(uris, 'alphabetical');
+			const result = await buildTree(uris, 'alphabetical');
 
 			expect(result).toHaveLength(3);
 			expect(result[0].title).toBe('Alpha');
@@ -288,10 +288,10 @@ describe('buildTree', () => {
 	});
 
 	describe('acronym integration', () => {
-		it('should apply acronyms to file and folder titles', () => {
+		it('should apply acronyms to file and folder titles', async () => {
 			const acronyms = ['API', 'REST'];
 			const uris = [createMockUri('/workspace-root/api-docs/rest-guide.md')];
-			const result = buildTree(uris, 'files-first', acronyms);
+			const result = await buildTree(uris, 'files-first', acronyms);
 
 			expect(result).toHaveLength(1);
 			expect(result[0].title).toBe('REST Guide');
@@ -299,13 +299,13 @@ describe('buildTree', () => {
 	});
 
 	describe('path handling', () => {
-		it('should normalize Windows path separators to Unix-style', () => {
+		it('should normalize Windows path separators to Unix-style', async () => {
 			const uris = [
 				{ fsPath: 'C:\\workspace\\docs\\test.md' },
 				{ fsPath: 'C:\\workspace\\docs\\guide.md' },
 				{ fsPath: 'C:\\workspace\\api\\reference.md' },
 			];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			// Should create proper folder structure with normalized paths
 			expect(result).toHaveLength(2);
@@ -323,13 +323,13 @@ describe('buildTree', () => {
 			expect(apiFolder?.children).toHaveLength(1);
 		});
 
-		it('should handle mixed path separators correctly', () => {
+		it('should handle mixed path separators correctly', async () => {
 			const uris = [
 				{ fsPath: '/workspace/docs/test.md' },
 				{ fsPath: 'C:\\workspace\\docs\\guide.md' },
 				{ fsPath: '/workspace/api/reference.md' },
 			];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			// Different drive roots mean no common base, so we should get the full structure
 			expect(result.length).toBeGreaterThan(0);
@@ -342,9 +342,9 @@ describe('buildTree', () => {
 			expect(hasWorkspaceStructure || hasCDriveStructure).toBe(true);
 		});
 
-		it('should handle Unix paths correctly (no change needed)', () => {
+		it('should handle Unix paths correctly (no change needed)', async () => {
 			const uris = [{ fsPath: '/workspace/docs/test.md' }, { fsPath: '/workspace/docs/guide.md' }];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			// Both files are in the same directory (/workspace/docs), so common base is /workspace/docs
 			// This means no folders are created and files appear at root level
@@ -355,21 +355,21 @@ describe('buildTree', () => {
 			expect(fileNames).toEqual(['guide.md', 'test.md']);
 		});
 
-		it('should find common base path correctly', () => {
+		it('should find common base path correctly', async () => {
 			const uris = [
 				createMockUri('/very/long/common/path/docs/test.md'),
 				createMockUri('/very/long/common/path/guides/guide.md'),
 			];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			expect(result).toHaveLength(2);
 			expect(result[0].name).toBe('docs');
 			expect(result[1].name).toBe('guides');
 		});
 
-		it('should handle files with no common base path', () => {
+		it('should handle files with no common base path', async () => {
 			const uris = [createMockUri('/different/path/test.md'), createMockUri('/another/path/guide.md')];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			// Should create appropriate folder structure
 			expect(result.length).toBeGreaterThan(0);
@@ -377,9 +377,9 @@ describe('buildTree', () => {
 	});
 
 	describe('edge cases', () => {
-		it('should handle files with empty names gracefully', () => {
+		it('should handle files with empty names gracefully', async () => {
 			const uris = [{ fsPath: '/workspace-root/' }, createMockUri('/workspace-root/valid.md')];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			// The buildTree function filters out files with empty relative names
 			// so we should only get the valid file
@@ -395,12 +395,12 @@ describe('buildTree', () => {
 			expect(hasValidFile).toBe(true);
 		});
 
-		it('should handle complex folder nesting', () => {
+		it('should handle complex folder nesting', async () => {
 			const uris = [
 				createMockUri('/workspace-root/a/b/c/d/e/file.md'),
 				createMockUri('/workspace-root/a/b/x/y/z/other.md'),
 			];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			expect(result).toHaveLength(2);
 			const cFolder = result[0];
@@ -418,12 +418,12 @@ describe('buildTree', () => {
 			expect(current.children![0].name).toBe('file.md');
 		});
 
-		it('should maintain correct parent-child relationships', () => {
+		it('should maintain correct parent-child relationships', async () => {
 			const uris = [
 				createMockUri('/workspace-root/docs/api/users.md'),
 				createMockUri('/workspace-root/docs/guides/intro.md'),
 			];
-			const result = buildTree(uris);
+			const result = await buildTree(uris);
 
 			expect(result).toHaveLength(2);
 			const apiFolder = result[0];

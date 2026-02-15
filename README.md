@@ -16,6 +16,7 @@ Workspace Wiki is a VS Code extension that scans your workspace for documentatio
 
 - **Workspace Wiki Tree View:** Discover all documentation files in a single sidebar tree.
 - **Smart and Human Readable Title Display**: Automatically converts file names (e.g., `user-guide.md`) to readable titles (`User Guide`)
+- **YAML Front Matter Support**: Markdown files with YAML front matter `title` fields display that title instead of the filename
 - **Flexible File Types**: Supports `.md`, `.txt` and other files with configurable extension filtering
 - **Intelligent Ordering**: README files appear first, index files represent their folders, alphabetical sorting for others
 - **Acronym Case Preservation:** Technical terms like HTML, CSS, API maintain proper casing in titles.

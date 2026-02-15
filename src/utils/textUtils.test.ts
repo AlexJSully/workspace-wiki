@@ -1,9 +1,114 @@
 /**
  * Unit tests for text utilities
  */
-import { getFileExtension, isIndexFile, isReadmeFile, normalizeTitle } from './textUtils';
+import * as fs from 'fs';
+import * as path from 'path';
+import { extractFrontMatterTitle, getFileExtension, isIndexFile, isReadmeFile, normalizeTitle } from './textUtils';
 
 describe('textUtils', () => {
+	describe('extractFrontMatterTitle', () => {
+		const testFilesDir = path.join(__dirname, '../../.test-temp');
+
+		beforeAll(() => {
+			// Create test directory if it doesn't exist
+			if (!fs.existsSync(testFilesDir)) {
+				fs.mkdirSync(testFilesDir, { recursive: true });
+			}
+		});
+
+		afterAll(() => {
+			// Clean up test directory
+			if (fs.existsSync(testFilesDir)) {
+				fs.rmSync(testFilesDir, { recursive: true, force: true });
+			}
+		});
+
+		it('should extract title from YAML front matter', async () => {
+			const testFile = path.join(testFilesDir, 'test-frontmatter.md');
+			const content = `---
+title: "Introduction to Accessibility"
+description: "Guidance for creating more accessible code"
+---
+# Accessibility
+
+This document provides guidance on creating accessible software.`;
+			fs.writeFileSync(testFile, content);
+
+			const title = await extractFrontMatterTitle(testFile);
+			expect(title).toBe('Introduction to Accessibility');
+
+			fs.unlinkSync(testFile);
+		});
+
+		it('should return null for files without front matter', async () => {
+			const testFile = path.join(testFilesDir, 'test-no-frontmatter.md');
+			const content = `# Regular Markdown
+
+This is just regular markdown without front matter.`;
+			fs.writeFileSync(testFile, content);
+
+			const title = await extractFrontMatterTitle(testFile);
+			expect(title).toBeNull();
+
+			fs.unlinkSync(testFile);
+		});
+
+		it('should return null for files with front matter but no title', async () => {
+			const testFile = path.join(testFilesDir, 'test-no-title.md');
+			const content = `---
+description: "A file without title"
+tags: ["test"]
+---
+# Content`;
+			fs.writeFileSync(testFile, content);
+
+			const title = await extractFrontMatterTitle(testFile);
+			expect(title).toBeNull();
+
+			fs.unlinkSync(testFile);
+		});
+
+		it('should handle non-markdown files by returning null', async () => {
+			const testFile = path.join(testFilesDir, 'test.txt');
+			const content = `---
+title: "Should Not Parse"
+---
+This is a text file`;
+			fs.writeFileSync(testFile, content);
+
+			const title = await extractFrontMatterTitle(testFile);
+			expect(title).toBeNull();
+
+			fs.unlinkSync(testFile);
+		});
+
+		it('should handle empty or invalid file paths', async () => {
+			expect(await extractFrontMatterTitle('')).toBeNull();
+			expect(await extractFrontMatterTitle(null as any)).toBeNull();
+			expect(await extractFrontMatterTitle(undefined as any)).toBeNull();
+		});
+
+		it('should handle non-existent files gracefully', async () => {
+			const nonExistentFile = path.join(testFilesDir, 'does-not-exist.md');
+			const title = await extractFrontMatterTitle(nonExistentFile);
+			expect(title).toBeNull();
+		});
+
+		it('should trim whitespace from title', async () => {
+			const testFile = path.join(testFilesDir, 'test-whitespace.md');
+			const content = `---
+title: "  Whitespace Title  "
+---
+# Content`;
+			fs.writeFileSync(testFile, content);
+
+			const title = await extractFrontMatterTitle(testFile);
+			expect(title).toBe('Whitespace Title');
+
+			fs.unlinkSync(testFile);
+		});
+	});
+
 	describe('normalizeTitle', () => {
 		it('should handle empty or invalid input', () => {
 			expect(normalizeTitle('')).toBe('');

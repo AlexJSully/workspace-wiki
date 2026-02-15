@@ -1,3 +1,8 @@
+---
+title: "Test Markdown `.md` File"
+description: "This is a test Markdown file to verify the extension's handling of .md files."
+---
+
 # Test Document
 
 This is a test Markdown document with `.md` extension.

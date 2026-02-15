@@ -1,6 +1,43 @@
+import matter from 'gray-matter';
+
 /**
- * Text and string normalization utilities for workspace wiki
+ * Extracts title from YAML front matter in a markdown file
+ *
+ * @param filePath - The path to the markdown file
+ * @returns The title from front matter if exists, otherwise null
  */
+export async function extractFrontMatterTitle(filePath: string): Promise<string | null> {
+	if (!filePath || typeof filePath !== 'string') {
+		return null;
+	}
+
+	try {
+		// Only process markdown files
+		const ext = getFileExtension(filePath);
+		if (!['md', 'markdown'].includes(ext.toLowerCase())) {
+			return null;
+		}
+
+		// Read file content
+		// In VS Code extension context, we need to use VS Code's file system API
+		// This function will be called from extension context with proper VS Code imports
+		const fs = require('fs');
+		const content = fs.readFileSync(filePath, 'utf8');
+
+		// Parse front matter
+		const parsed = matter(content);
+
+		// Return title if exists in front matter data
+		if (parsed.data && typeof parsed.data.title === 'string' && parsed.data.title.trim()) {
+			return parsed.data.title.trim();
+		}
+
+		return null;
+	} catch {
+		// If file can't be read or parsed, return null
+		return null;
+	}
+}
 
 /**
  * Convert file name to human-readable title
