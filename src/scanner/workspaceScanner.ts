@@ -88,9 +88,7 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<vscod
 
 	const results: vscode.Uri[] = [];
 	for (const pattern of patterns) {
-		let uris = (await Promise.resolve(workspace.findFiles(pattern, exclude, undefined))) as
-			| vscode.Uri[]
-			| undefined;
+		let uris = (await workspace.findFiles(pattern, exclude, undefined)) as vscode.Uri[];
 		if (!uris) {
 			uris = [];
 		}

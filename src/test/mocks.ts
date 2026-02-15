@@ -1,3 +1,5 @@
+import * as vscode from 'vscode';
+
 /**
  * Shared mock utilities for Workspace Wiki tests
  */
@@ -35,7 +37,7 @@ export function createMockWorkspace(config: MockWorkspaceConfig = {}, files: Moc
 	];
 
 	return {
-		findFiles: async (_pattern: string, _exclude?: string) => files.files || defaultFiles,
+		findFiles: async (_pattern: string, _exclude?: string) => (files.files || defaultFiles) as vscode.Uri[],
 		getConfiguration: (_section: string) => ({
 			get: (key: string) => {
 				switch (key) {
