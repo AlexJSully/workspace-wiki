@@ -39,6 +39,12 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
 - E2E tests: `src/**/*.e2e.test.ts`
 - Test utilities: `src/test/`
 
+## Jest Types in TypeScript Tests
+
+Avoid triple-slash Jest references and extra `tsconfig` files. Jest globals are
+available via the root `tsconfig.json` `types` entry, so tests can use
+`describe`, `it`, `test`, and `expect` directly.
+
 ## Unit Test Coverage
 
 **Tree Module Tests:**

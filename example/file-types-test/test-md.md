@@ -1,5 +1,5 @@
 ---
-title: "Test Markdown `.md` File"
+title: 'Test Markdown `.md` File'
 description: "This is a test Markdown file to verify the extension's handling of .md files."
 ---
 

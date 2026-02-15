@@ -1,5 +1,8 @@
 {
 	"MD007": false,
 	"MD010": false,
-	"MD013": false
+	"MD013": false,
+	"MD025": {
+		"front_matter_title": "(^---\\s*$[^]*?^---\\s*$)(\\r\\n|\\r|\\n|$)"
+	}
 }

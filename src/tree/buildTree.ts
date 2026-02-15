@@ -1,5 +1,5 @@
 import type { TreeNode } from '@types';
-import { extractFrontMatterTitle, normalizeTitle } from '@utils';
+import { extractFrontMatter, normalizeTitle } from '@utils';
 
 /**
  * Sorts tree nodes based on directory sort setting
@@ -134,9 +134,9 @@ export async function buildTree(
 			}
 		}
 
-		// Try to extract title from YAML front matter for markdown files
-		const frontMatterTitle = await extractFrontMatterTitle(originalUri.fsPath);
-		const displayTitle = frontMatterTitle || normalizeTitle(relativeFileName, acronyms);
+		// Try to extract title and description from YAML front matter for markdown files
+		const frontMatter = await extractFrontMatter(originalUri.fsPath);
+		const displayTitle = frontMatter.title || normalizeTitle(relativeFileName, acronyms);
 
 		// Add file to appropriate parent
 		const fileNode: TreeNode = {
@@ -147,6 +147,7 @@ export async function buildTree(
 			uri: originalUri,
 			isIndex: relativeFileName.toLowerCase() === 'index.md',
 			isReadme: relativeFileName.toLowerCase().startsWith('readme.'),
+			description: frontMatter.description || undefined,
 		};
 
 		const folderPath = relativeParts.slice(0, -1).join('/');

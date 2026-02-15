@@ -92,7 +92,9 @@ export class WorkspaceWikiTreeProvider {
 				: this.CollapsibleState.None;
 
 		const item = new this.TreeItem(node.title, collapsibleState);
-		item.tooltip = node.path;
+
+		// Use description from front matter if available, otherwise fallback to path
+		item.tooltip = node.description || node.path;
 
 		// Set proper contextValue and resourceUri based on node type
 		if (node.type === 'file' && node.uri) {

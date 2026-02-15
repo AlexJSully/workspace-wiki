@@ -18,4 +18,6 @@ export interface TreeNode {
 	isIndex?: boolean;
 	/** Whether this node represents a README file */
 	isReadme?: boolean;
+	/** Description from front matter (for tooltips) */
+	description?: string;
 }
