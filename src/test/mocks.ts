@@ -1,8 +1,24 @@
 import * as vscode from 'vscode';
 
 /**
- * Shared mock utilities for Workspace Wiki tests
+ * Creates a properly typed mock vscode.Uri object for testing
+ *
+ * @param fsPath File system path for the mock URI
+ * @returns Mock vscode.Uri object with all required methods
  */
+export function createMockUri(fsPath: string): vscode.Uri {
+	const uri: vscode.Uri = {
+		fsPath,
+		scheme: 'file',
+		authority: '',
+		path: fsPath,
+		query: '',
+		fragment: '',
+		with: () => uri,
+		toJSON: () => ({ fsPath, scheme: 'file', authority: '', path: fsPath, query: '', fragment: '' }),
+	};
+	return uri;
+}
 
 export interface MockWorkspaceConfig {
 	showHiddenFiles?: boolean;
@@ -16,7 +32,7 @@ export interface MockWorkspaceConfig {
 }
 
 export interface MockWorkspaceFiles {
-	files?: Array<{ fsPath: string }>;
+	files?: vscode.Uri[];
 	pattern?: string;
 	exclude?: string;
 }
@@ -30,14 +46,14 @@ export interface MockWorkspaceFiles {
  */
 export function createMockWorkspace(config: MockWorkspaceConfig = {}, files: MockWorkspaceFiles = {}) {
 	const defaultFiles = [
-		{ fsPath: '/workspace-root/.github/agents.md' },
-		{ fsPath: '/workspace-root/docs/visible.md' },
-		{ fsPath: '/workspace-root/.env' },
-		{ fsPath: '/workspace-root/visible.txt' },
+		createMockUri('/workspace-root/.github/agents.md'),
+		createMockUri('/workspace-root/docs/visible.md'),
+		createMockUri('/workspace-root/.env'),
+		createMockUri('/workspace-root/visible.txt'),
 	];
 
 	return {
-		findFiles: async (_pattern: string, _exclude?: string) => (files.files || defaultFiles) as vscode.Uri[],
+		findFiles: async (_pattern: string, _exclude?: string) => files.files || defaultFiles,
 		getConfiguration: (_section: string) => ({
 			get: (key: string) => {
 				switch (key) {
@@ -157,10 +173,10 @@ export function createHiddenFilesMockWorkspace(showHiddenFiles: boolean) {
 		},
 		{
 			files: [
-				{ fsPath: '/workspace-root/.github/agents.md' },
-				{ fsPath: '/workspace-root/docs/visible.md' },
-				{ fsPath: '/workspace-root/.env' },
-				{ fsPath: '/workspace-root/visible.txt' },
+				createMockUri('/workspace-root/.github/agents.md'),
+				createMockUri('/workspace-root/docs/visible.md'),
+				createMockUri('/workspace-root/.env'),
+				createMockUri('/workspace-root/visible.txt'),
 			],
 		},
 	);

@@ -1,8 +1,5 @@
-/**
- * Unit tests for WorkspaceWikiTreeProvider
- */
-// Import mocked functions
 import { scanWorkspaceDocs } from '../scanner';
+import { createMockUri } from '../test/mocks';
 import { buildTree } from '../tree/buildTree';
 import { WorkspaceWikiTreeProvider } from '../tree/treeProvider';
 
@@ -29,18 +26,10 @@ interface MockTreeNode {
 	children?: MockTreeNode[];
 	isIndex?: boolean;
 	isReadme?: boolean;
+	description?: string;
 }
 
 // Mock implementations
-const createMockUri = (fsPath: string) => ({
-	fsPath,
-	scheme: 'file',
-	authority: '',
-	path: fsPath,
-	query: '',
-	fragment: '',
-});
-
 const createMockTreeItem = (label: string, collapsibleState: any) => ({
 	label,
 	collapsibleState,
@@ -134,7 +123,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			];
 
 			mockScanWorkspaceDocs.mockResolvedValue(mockUris);
-			mockBuildTree.mockReturnValue(mockTreeData);
+			mockBuildTree.mockResolvedValue(mockTreeData);
 
 			const result = await provider.getChildren();
 
@@ -158,7 +147,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 
 			const mockUris = [createMockUri('/workspace-root/test.md')];
 			mockScanWorkspaceDocs.mockResolvedValue(mockUris);
-			mockBuildTree.mockReturnValue([]);
+			mockBuildTree.mockResolvedValue([]);
 
 			await provider.getChildren();
 
@@ -178,7 +167,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 
 			const mockUris = [createMockUri('/workspace-root/test.md')];
 			mockScanWorkspaceDocs.mockResolvedValue(mockUris);
-			mockBuildTree.mockReturnValue([]);
+			mockBuildTree.mockResolvedValue([]);
 
 			await provider.getChildren();
 
@@ -197,7 +186,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			];
 
 			mockScanWorkspaceDocs.mockResolvedValue([]);
-			mockBuildTree.mockReturnValue(mockTreeData);
+			mockBuildTree.mockResolvedValue(mockTreeData);
 
 			await provider.getChildren();
 
@@ -233,7 +222,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			};
 
 			mockScanWorkspaceDocs.mockResolvedValue([]);
-			mockBuildTree.mockReturnValue([mockNode]);
+			mockBuildTree.mockResolvedValue([mockNode]);
 
 			await provider.getChildren();
 
@@ -269,7 +258,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			};
 
 			mockScanWorkspaceDocs.mockResolvedValue([]);
-			mockBuildTree.mockReturnValue([mockNode]);
+			mockBuildTree.mockResolvedValue([mockNode]);
 
 			await provider.getChildren();
 
@@ -304,7 +293,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			};
 
 			mockScanWorkspaceDocs.mockResolvedValue([]);
-			mockBuildTree.mockReturnValue([mockNode]);
+			mockBuildTree.mockResolvedValue([mockNode]);
 
 			await provider.getChildren();
 
@@ -326,7 +315,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 
 			// Build tree data first to initialize provider
 			mockScanWorkspaceDocs.mockResolvedValue([mockNode.uri]);
-			mockBuildTree.mockReturnValue([mockNode]);
+			mockBuildTree.mockResolvedValue([mockNode]);
 
 			// This will internally call createTreeItem for root level items
 			const result = await provider.getChildren();
@@ -353,7 +342,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 
 			// Build tree data first
 			mockScanWorkspaceDocs.mockResolvedValue([]);
-			mockBuildTree.mockReturnValue([mockNode]);
+			mockBuildTree.mockResolvedValue([mockNode]);
 			await provider.getChildren();
 
 			// Reset mock and test folder creation
@@ -391,7 +380,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			};
 
 			mockScanWorkspaceDocs.mockResolvedValue([]);
-			mockBuildTree.mockReturnValue([mockNode]);
+			mockBuildTree.mockResolvedValue([mockNode]);
 
 			// This will internally call createTreeItem
 			const _result = await provider.getChildren();
@@ -400,6 +389,64 @@ describe('WorkspaceWikiTreeProvider', () => {
 			expect(mockTreeItem).toHaveBeenCalled();
 			const createdItem = mockTreeItem.mock.results[0].value;
 			expect(createdItem.treeNode).toBe(mockNode);
+		});
+
+		test.each([
+			{
+				scenario: 'set tooltip to description when node has front matter description',
+				nodeType: 'file' as const,
+				name: 'test.md',
+				title: 'Test File',
+				path: '/workspace-root/test.md',
+				description: 'This is a test file description from YAML front matter',
+				expectedTooltip: 'This is a test file description from YAML front matter',
+			},
+			{
+				scenario: 'set tooltip to path when file node has no description',
+				nodeType: 'file' as const,
+				name: 'test.md',
+				title: 'Test File',
+				path: '/workspace-root/test.md',
+				description: undefined,
+				expectedTooltip: '/workspace-root/test.md',
+			},
+			{
+				scenario: 'handle tooltip for folder nodes with description',
+				nodeType: 'folder' as const,
+				name: 'docs',
+				title: 'Documentation',
+				path: '/workspace-root/docs',
+				description: 'Project documentation folder',
+				expectedTooltip: 'Project documentation folder',
+			},
+			{
+				scenario: 'handle tooltip for folder nodes without description',
+				nodeType: 'folder' as const,
+				name: 'docs',
+				title: 'Documentation',
+				path: '/workspace-root/docs',
+				description: undefined,
+				expectedTooltip: '/workspace-root/docs',
+			},
+		])('should $scenario', async ({ nodeType, name, title, path, description, expectedTooltip }) => {
+			const mockNode: MockTreeNode = {
+				type: nodeType,
+				name,
+				title,
+				path,
+				...(description && { description }),
+				...(nodeType === 'file' && { uri: createMockUri(path) }),
+				...(nodeType === 'folder' && { children: [] }),
+			};
+
+			mockScanWorkspaceDocs.mockResolvedValue(nodeType === 'file' ? [mockNode.uri!] : []);
+			mockBuildTree.mockResolvedValue([mockNode]);
+
+			await provider.getChildren();
+
+			expect(mockTreeItem).toHaveBeenCalled();
+			const createdItem = mockTreeItem.mock.results[0].value;
+			expect(createdItem.tooltip).toBe(expectedTooltip);
 		});
 	});
 
@@ -500,7 +547,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 		it('should reset nodeMapBuilt flag', async () => {
 			// Build initial tree to set the flag
 			mockScanWorkspaceDocs.mockResolvedValue([]);
-			mockBuildTree.mockReturnValue([]);
+			mockBuildTree.mockResolvedValue([]);
 			await provider.getChildren();
 
 			// Refresh should reset the flag
@@ -540,7 +587,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			];
 
 			mockScanWorkspaceDocs.mockResolvedValue([]);
-			mockBuildTree.mockReturnValue(mockTreeData);
+			mockBuildTree.mockResolvedValue(mockTreeData);
 			await provider.getChildren(); // Build the node map
 		});
 
@@ -612,7 +659,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			];
 
 			mockScanWorkspaceDocs.mockResolvedValue([]);
-			mockBuildTree.mockReturnValue(mockTreeData);
+			mockBuildTree.mockResolvedValue(mockTreeData);
 			await provider.getChildren();
 
 			// Check that nested file can find its parent
@@ -661,7 +708,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			];
 
 			mockScanWorkspaceDocs.mockResolvedValue([createMockUri('/workspace-root/test.md')]);
-			mockBuildTree.mockReturnValue(mockTreeData);
+			mockBuildTree.mockResolvedValue(mockTreeData);
 
 			// Build initial tree
 			const initialChildren = await provider.getChildren();
@@ -709,7 +756,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			];
 
 			mockScanWorkspaceDocs.mockResolvedValue([]);
-			mockBuildTree.mockReturnValue(mockTreeData);
+			mockBuildTree.mockResolvedValue(mockTreeData);
 
 			const children = await provider.getChildren();
 			expect(children).toHaveLength(2);

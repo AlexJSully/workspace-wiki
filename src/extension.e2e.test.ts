@@ -80,6 +80,20 @@ describe('File Discovery and Scanning E2E', () => {
 		}
 	});
 
+	it('should read markdown front matter via workspace fs', async () => {
+		const files = await vscode.workspace.findFiles('example/file-types-test/test-md.md', null, 1);
+		if (files.length === 0) {
+			console.log('Skipping front matter read test - file not found');
+			return;
+		}
+
+		const contentBytes = await vscode.workspace.fs.readFile(files[0]);
+		const content = Buffer.from(contentBytes).toString('utf8');
+
+		assert.ok(content.includes('title:'), 'Front matter title should be present in markdown file');
+		assert.ok(content.includes('description:'), 'Front matter description should be present in markdown file');
+	});
+
 	it('should respect exclude patterns', async () => {
 		// Test that excluded directories are not included
 		const allFiles = await vscode.workspace.findFiles('**/*.md', null, 1000);

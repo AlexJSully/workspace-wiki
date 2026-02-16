@@ -1,5 +1,5 @@
 import type { TreeNode } from '@types';
-import { normalizeTitle } from '@utils';
+import { extractFrontMatter, normalizeTitle } from '@utils';
 
 /**
  * Sorts tree nodes based on directory sort setting
@@ -53,14 +53,12 @@ export function processNode(
 	}
 }
 
-/**
- * Build hierarchical tree structure from flat file list
- */
-export function buildTree(
+/** Build hierarchical tree structure from flat file list */
+export async function buildTree(
 	uris: any[],
 	directorySort: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first',
 	acronyms: string[] = [],
-): TreeNode[] {
+): Promise<TreeNode[]> {
 	if (uris.length === 0) {
 		return [];
 	}
@@ -73,6 +71,10 @@ export function buildTree(
 		...uri,
 		fsPath: uri.fsPath.replace(/\\/g, '/'),
 	}));
+
+	// Extract front matter for all files in parallel for better performance
+	const frontMatterPromises = uris.map((uri) => extractFrontMatter(uri.fsPath));
+	const frontMatters = await Promise.all(frontMatterPromises);
 
 	// Find common base path (directories only, not including filenames)
 	const allPaths = normalizedUris.map((uri) => uri.fsPath.split('/').filter((part: string) => part));
@@ -134,15 +136,20 @@ export function buildTree(
 			}
 		}
 
+		// Use pre-extracted front matter data (extracted in parallel before the loop)
+		const frontMatter = frontMatters[i];
+		const displayTitle = frontMatter.title || normalizeTitle(relativeFileName, acronyms);
+
 		// Add file to appropriate parent
 		const fileNode: TreeNode = {
 			type: 'file',
 			name: relativeFileName,
-			title: normalizeTitle(relativeFileName, acronyms),
+			title: displayTitle,
 			path: originalUri.fsPath,
 			uri: originalUri,
 			isIndex: relativeFileName.toLowerCase() === 'index.md',
 			isReadme: relativeFileName.toLowerCase().startsWith('readme.'),
+			description: frontMatter.description || undefined,
 		};
 
 		const folderPath = relativeParts.slice(0, -1).join('/');

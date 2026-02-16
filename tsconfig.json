@@ -27,13 +27,11 @@
 			"@utils/*": ["./utils/*"]
 		},
 		"strict": true,
-		"types": ["node", "vscode"],
+		"types": ["node", "vscode", "jest"],
 	},
 	"exclude": [
 		"**/*.e2e.test.ts",
 		"**/*.spec.ts",
-		"**/*.test.ts",
-		"**/*.test.tsx",
 		"bin/**/*",
 		"node_modules/**/*",
 		"out/**/*",

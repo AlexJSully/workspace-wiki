@@ -1,13 +1,54 @@
 # Utilities
 
-The Utilities module provides helper functions for title normalization and file type detection.
+The Utilities module provides helper functions for title normalization, YAML front matter parsing, and file type detection.
 
 ## Implementation
 
 The utilities are implemented across multiple modules:
 
-- [`src/utils/textUtils.ts`](../../src/utils/textUtils.ts) - Text processing functions like `normalizeTitle()`
+- [`src/utils/textUtils.ts`](../../src/utils/textUtils.ts) - Text processing functions like `normalizeTitle()` and `extractFrontMatterTitle()`
 - [`src/tree/buildTree.ts`](../../src/tree/buildTree.ts) - Tree building and processing functions like `buildTree()`, `sortNodes()`, `processNode()`
+
+## YAML Front Matter Support
+
+The extension now supports parsing YAML front matter from Markdown files to extract custom titles.
+
+### How Front Matter Works
+
+When a Markdown file contains YAML front matter with a `title` field, that title will be used in the tree view instead of the normalized filename.
+
+#### Example
+
+**File: `accessibility.md`**
+
+```markdown
+---
+title: 'Introduction to Accessibility'
+description: 'Guidance for creating more accessible code'
+---
+
+# Accessibility
+
+This document provides guidance on creating accessible software.
+```
+
+**Tree View Display:** "Introduction to Accessibility" (instead of "Accessibility")
+
+### Supported Front Matter Formats
+
+The extension uses the [gray-matter](https://github.com/jonschlinkert/gray-matter) library, which supports:
+
+- **YAML** (default): Delimited by `---`
+- **TOML**: Delimited by `+++`
+- **JSON**: Delimited by `;;;`
+
+### Implementation Details
+
+1. **Markdown Files Only**: Front matter parsing only applies to `.md` and `.markdown` files
+2. **Title & Description Fields**: The `title` field is used for tree item display names, and the `description` field (when present) is extracted and shown as the tree item tooltip when hovering in the tree view
+3. **Fallback**: If no front matter title exists, falls back to filename-based normalization
+4. **Performance**: Files are read asynchronously via VS Code workspace FS when available (with Node fallback for tests) and parsed during tree building
+5. **Missing Files**: Missing file paths return null values without logging to avoid noisy errors during scans
 
 ## Title Normalization
 
@@ -45,7 +86,7 @@ const acronyms = ['HTML', 'CSS', 'JS', 'API', 'URL', 'JSON', 'XML'];
 normalizeTitle('htmlCssGuide.md', acronyms); // → 'HTML CSS Guide'
 ```
 
-### Implementation Details
+### Title Normalization Implementation
 
 ```typescript
 function normalizeTitle(fileName: string, acronyms: string[] = []): string {

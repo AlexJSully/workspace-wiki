@@ -50,7 +50,7 @@ export class WorkspaceWikiTreeProvider {
 			acronyms = config.get('acronymCasing') || [];
 		}
 
-		this.treeData = buildTree(uris, directorySort, acronyms);
+		this.treeData = await buildTree(uris, directorySort, acronyms);
 
 		// Clear existing map and rebuild immediately for consistency
 		this.nodeMap.clear();
@@ -92,7 +92,9 @@ export class WorkspaceWikiTreeProvider {
 				: this.CollapsibleState.None;
 
 		const item = new this.TreeItem(node.title, collapsibleState);
-		item.tooltip = node.path;
+
+		// Use description from front matter if available, otherwise fallback to path
+		item.tooltip = node.description || node.path;
 
 		// Set proper contextValue and resourceUri based on node type
 		if (node.type === 'file' && node.uri) {

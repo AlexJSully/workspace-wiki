@@ -1,155 +1,412 @@
-/**
- * Unit tests for text utilities
- */
-import { getFileExtension, isIndexFile, isReadmeFile, normalizeTitle } from './textUtils';
+import * as fs from 'fs';
+import * as path from 'path';
+import {
+	extractFrontMatter,
+	extractFrontMatterTitle,
+	getFileExtension,
+	isIndexFile,
+	isReadmeFile,
+	normalizeTitle,
+} from './textUtils';
 
 describe('textUtils', () => {
+	describe('extractFrontMatter', () => {
+		const testFilesDir = path.join(__dirname, '../../.test-temp');
+
+		beforeAll(() => {
+			// Create test directory if it doesn't exist
+			if (!fs.existsSync(testFilesDir)) {
+				fs.mkdirSync(testFilesDir, { recursive: true });
+			}
+		});
+
+		afterAll(() => {
+			// Clean up test directory
+			if (fs.existsSync(testFilesDir)) {
+				fs.rmSync(testFilesDir, { recursive: true, force: true });
+			}
+		});
+
+		test.each([
+			{
+				description: 'extract both title and description from YAML front matter',
+				fileName: 'test-full-frontmatter.md',
+				content: `---
+title: "Accessibility Best Practices"
+description: "Guidelines for creating accessible software"
+tags: ["accessibility", "a11y"]
+---
+This document provides accessibility guidance.`,
+				expectedTitle: 'Accessibility Best Practices',
+				expectedDescription: 'Guidelines for creating accessible software',
+			},
+			{
+				description: 'fall back to Node fs when VS Code APIs are unavailable',
+				fileName: 'test-node-fallback.md',
+				content: `---
+title: "Node Fallback"
+description: "Read via Node fs"
+---
+Content.`,
+				expectedTitle: 'Node Fallback',
+				expectedDescription: 'Read via Node fs',
+			},
+			{
+				description: 'extract only title when description is missing',
+				fileName: 'test-title-only.md',
+				content: `---
+title: "Title Only"
+tags: ["test"]
+---
+Content here.`,
+				expectedTitle: 'Title Only',
+				expectedDescription: null,
+			},
+			{
+				description: 'extract only description when title is missing',
+				fileName: 'test-description-only.md',
+				content: `---
+description: "Description without title"
+author: "Test Author"
+---
+Content here.`,
+				expectedTitle: null,
+				expectedDescription: 'Description without title',
+			},
+			{
+				description: 'return nulls for files without front matter',
+				fileName: 'test-no-fm.md',
+				content: `# Regular Markdown\n\nNo front matter here.`,
+				expectedTitle: null,
+				expectedDescription: null,
+			},
+			{
+				description: 'handle non-markdown files by returning nulls',
+				fileName: 'test.txt',
+				content: `---
+title: "Should Not Parse"
+description: "This is a text file"
+---
+Text content.`,
+				expectedTitle: null,
+				expectedDescription: null,
+			},
+			{
+				description: 'trim whitespace from title and description',
+				fileName: 'test-whitespace-fm.md',
+				content: `---
+title: "  Whitespace Title  "
+description: "  Whitespace Description  "
+---
+Content.`,
+				expectedTitle: 'Whitespace Title',
+				expectedDescription: 'Whitespace Description',
+			},
+		])('should $description', async ({ fileName, content, expectedTitle, expectedDescription }) => {
+			const testFile = path.join(testFilesDir, fileName);
+			fs.writeFileSync(testFile, content);
+
+			const result = await extractFrontMatter(testFile);
+			expect(result.title).toBe(expectedTitle);
+			expect(result.description).toBe(expectedDescription);
+
+			fs.unlinkSync(testFile);
+		});
+
+		it('should handle empty or invalid file paths', async () => {
+			const result1 = await extractFrontMatter('');
+			const result2 = await extractFrontMatter(null as any);
+			const result3 = await extractFrontMatter(undefined as any);
+
+			expect(result1).toEqual({ title: null, description: null });
+			expect(result2).toEqual({ title: null, description: null });
+			expect(result3).toEqual({ title: null, description: null });
+		});
+
+		it('should handle non-existent files gracefully', async () => {
+			const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+			const nonExistentFile = path.join(testFilesDir, 'does-not-exist.md');
+			const result = await extractFrontMatter(nonExistentFile);
+			expect(result).toEqual({ title: null, description: null });
+			expect(consoleErrorSpy).not.toHaveBeenCalled();
+			consoleErrorSpy.mockRestore();
+		});
+	});
+
+	describe('extractFrontMatterTitle', () => {
+		const testFilesDir = path.join(__dirname, '../../.test-temp');
+
+		beforeAll(() => {
+			// Create test directory if it doesn't exist
+			if (!fs.existsSync(testFilesDir)) {
+				fs.mkdirSync(testFilesDir, { recursive: true });
+			}
+		});
+
+		afterAll(() => {
+			// Clean up test directory
+			if (fs.existsSync(testFilesDir)) {
+				fs.rmSync(testFilesDir, { recursive: true, force: true });
+			}
+		});
+
+		it('should extract title from YAML front matter', async () => {
+			const testFile = path.join(testFilesDir, 'test-frontmatter.md');
+			const content = `---
+title: "Introduction to Accessibility"
+description: "Guidance for creating more accessible code"
+---
+# Accessibility
+
+This document provides guidance on creating accessible software.`;
+			fs.writeFileSync(testFile, content);
+
+			const title = await extractFrontMatterTitle(testFile);
+			expect(title).toBe('Introduction to Accessibility');
+
+			fs.unlinkSync(testFile);
+		});
+
+		it('should return null for files without front matter', async () => {
+			const testFile = path.join(testFilesDir, 'test-no-frontmatter.md');
+			const content = `# Regular Markdown
+
+This is just regular markdown without front matter.`;
+			fs.writeFileSync(testFile, content);
+
+			const title = await extractFrontMatterTitle(testFile);
+			expect(title).toBeNull();
+
+			fs.unlinkSync(testFile);
+		});
+
+		it('should return null for files with front matter but no title', async () => {
+			const testFile = path.join(testFilesDir, 'test-no-title.md');
+			const content = `---
+description: "A file without title"
+tags: ["test"]
+---
+# Content`;
+			fs.writeFileSync(testFile, content);
+
+			const title = await extractFrontMatterTitle(testFile);
+			expect(title).toBeNull();
+
+			fs.unlinkSync(testFile);
+		});
+
+		it('should handle non-markdown files by returning null', async () => {
+			const testFile = path.join(testFilesDir, 'test.txt');
+			const content = `---
+title: "Should Not Parse"
+---
+This is a text file`;
+			fs.writeFileSync(testFile, content);
+
+			const title = await extractFrontMatterTitle(testFile);
+			expect(title).toBeNull();
+
+			fs.unlinkSync(testFile);
+		});
+
+		it('should handle empty or invalid file paths', async () => {
+			expect(await extractFrontMatterTitle('')).toBeNull();
+			expect(await extractFrontMatterTitle(null as any)).toBeNull();
+			expect(await extractFrontMatterTitle(undefined as any)).toBeNull();
+		});
+
+		it('should handle non-existent files gracefully', async () => {
+			const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+			const nonExistentFile = path.join(testFilesDir, 'does-not-exist.md');
+			const title = await extractFrontMatterTitle(nonExistentFile);
+			expect(title).toBeNull();
+			expect(consoleErrorSpy).not.toHaveBeenCalled();
+			consoleErrorSpy.mockRestore();
+		});
+
+		it('should trim whitespace from title', async () => {
+			const testFile = path.join(testFilesDir, 'test-whitespace.md');
+			const content = `---
+title: "  Whitespace Title  "
+---
+# Content`;
+			fs.writeFileSync(testFile, content);
+
+			const title = await extractFrontMatterTitle(testFile);
+			expect(title).toBe('Whitespace Title');
+
+			fs.unlinkSync(testFile);
+		});
+	});
+
 	describe('normalizeTitle', () => {
-		it('should handle empty or invalid input', () => {
-			expect(normalizeTitle('')).toBe('');
-			expect(normalizeTitle(null as any)).toBe('');
-			expect(normalizeTitle(undefined as any)).toBe('');
-			expect(normalizeTitle(123 as any)).toBe('');
+		// Test table for invalid/edge case inputs
+		test.each([
+			{ input: '', expected: '', description: 'empty string' },
+			{ input: null, expected: '', description: 'null' },
+			{ input: undefined, expected: '', description: 'undefined' },
+			{ input: 123, expected: '', description: 'number' },
+		])('should handle $description input', ({ input, expected }: { input: any; expected: string }) => {
+			expect(normalizeTitle(input as any)).toBe(expected);
 		});
 
-		it('should remove various file extensions correctly', () => {
-			expect(normalizeTitle('test.md')).toBe('Test');
-			expect(normalizeTitle('test.markdown')).toBe('Test');
-			expect(normalizeTitle('test.txt')).toBe('Test');
-			expect(normalizeTitle('test.html')).toBe('Test');
-			expect(normalizeTitle('test.htm')).toBe('Test');
-			expect(normalizeTitle('test.pdf')).toBe('Test');
-			expect(normalizeTitle('test.css')).toBe('Test');
-			expect(normalizeTitle('test.js')).toBe('Test');
-			expect(normalizeTitle('test.ts')).toBe('Test');
-			expect(normalizeTitle('test.json')).toBe('Test');
-			expect(normalizeTitle('test.xml')).toBe('Test');
+		// Test table for file extension removal
+		test.each([
+			{ input: 'test.md', expected: 'Test' },
+			{ input: 'test.markdown', expected: 'Test' },
+			{ input: 'test.txt', expected: 'Test' },
+			{ input: 'test.html', expected: 'Test' },
+			{ input: 'test.htm', expected: 'Test' },
+			{ input: 'test.pdf', expected: 'Test' },
+			{ input: 'test.css', expected: 'Test' },
+			{ input: 'test.js', expected: 'Test' },
+			{ input: 'test.ts', expected: 'Test' },
+			{ input: 'test.json', expected: 'Test' },
+			{ input: 'test.xml', expected: 'Test' },
+		])('should remove $input extension correctly', ({ input, expected }: { input: string; expected: string }) => {
+			expect(normalizeTitle(input)).toBe(expected);
 		});
 
-		it('should handle README files specially', () => {
-			expect(normalizeTitle('readme.md')).toBe('README');
-			expect(normalizeTitle('README.txt')).toBe('README');
-			expect(normalizeTitle('ReadMe.markdown')).toBe('README');
+		// Test table for README file handling
+		test.each([
+			{ input: 'readme.md', expected: 'README' },
+			{ input: 'README.txt', expected: 'README' },
+			{ input: 'ReadMe.markdown', expected: 'README' },
+		])('should handle README file: $input', ({ input, expected }: { input: string; expected: string }) => {
+			expect(normalizeTitle(input)).toBe(expected);
 		});
 
-		it('should convert camelCase to Title Case', () => {
-			expect(normalizeTitle('gettingStarted.md')).toBe('Getting Started');
-			expect(normalizeTitle('myAwesomeDocument.txt')).toBe('My Awesome Document');
-			expect(normalizeTitle('testCamelCase.html')).toBe('Test Camel Case');
-		});
+		// Test table for case conversion
+		test.each([
+			{ input: 'gettingStarted.md', expected: 'Getting Started', caseType: 'camelCase' },
+			{ input: 'myAwesomeDocument.txt', expected: 'My Awesome Document', caseType: 'camelCase' },
+			{ input: 'testCamelCase.html', expected: 'Test Camel Case', caseType: 'camelCase' },
+			{ input: 'my-awesome-document.md', expected: 'My Awesome Document', caseType: 'kebab-case' },
+			{ input: 'getting-started.txt', expected: 'Getting Started', caseType: 'kebab-case' },
+			{ input: 'test-kebab-case.html', expected: 'Test Kebab Case', caseType: 'kebab-case' },
+			{ input: 'my_awesome_document.md', expected: 'My Awesome Document', caseType: 'snake_case' },
+			{ input: 'getting_started.txt', expected: 'Getting Started', caseType: 'snake_case' },
+			{ input: 'test_snake_case.html', expected: 'Test Snake Case', caseType: 'snake_case' },
+		])(
+			'should convert $caseType to Title Case: $input',
+			({ input, expected }: { input: string; expected: string }) => {
+				expect(normalizeTitle(input)).toBe(expected);
+			},
+		);
 
-		it('should convert kebab-case to Title Case', () => {
-			expect(normalizeTitle('my-awesome-document.md')).toBe('My Awesome Document');
-			expect(normalizeTitle('getting-started.txt')).toBe('Getting Started');
-			expect(normalizeTitle('test-kebab-case.html')).toBe('Test Kebab Case');
-		});
+		// Test table for acronym casing
+		test.each([
+			{
+				input: 'api-guide.md',
+				expected: 'API Guide',
+				acronyms: ['API', 'HTTP', 'JSON', 'XML'],
+			},
+			{
+				input: 'http_requests.txt',
+				expected: 'HTTP Requests',
+				acronyms: ['API', 'HTTP', 'JSON', 'XML'],
+			},
+			{
+				input: 'jsonDataFormat.html',
+				expected: 'JSON Data Format',
+				acronyms: ['API', 'HTTP', 'JSON', 'XML'],
+			},
+			{
+				input: 'javascript-tutorial.md',
+				expected: 'JavaScript Tutorial',
+				acronyms: ['JavaScript', 'TypeScript', 'CSS', 'HTML'],
+			},
+			{
+				input: 'typescript_guide.txt',
+				expected: 'TypeScript Guide',
+				acronyms: ['JavaScript', 'TypeScript', 'CSS', 'HTML'],
+			},
+			{
+				input: 'cssStyleGuide.html',
+				expected: 'CSS Style Guide',
+				acronyms: ['JavaScript', 'TypeScript', 'CSS', 'HTML'],
+			},
+		])(
+			'should apply acronym casing: $input',
+			({ input, expected, acronyms }: { input: string; expected: string; acronyms: string[] }) => {
+				expect(normalizeTitle(input, acronyms)).toBe(expected);
+			},
+		);
 
-		it('should convert snake_case to Title Case', () => {
-			expect(normalizeTitle('my_awesome_document.md')).toBe('My Awesome Document');
-			expect(normalizeTitle('getting_started.txt')).toBe('Getting Started');
-			expect(normalizeTitle('test_snake_case.html')).toBe('Test Snake Case');
-		});
-
-		it('should apply acronym casing when provided', () => {
-			const acronyms = ['API', 'HTTP', 'JSON', 'XML'];
-			expect(normalizeTitle('api-guide.md', acronyms)).toBe('API Guide');
-			expect(normalizeTitle('http_requests.txt', acronyms)).toBe('HTTP Requests');
-			expect(normalizeTitle('jsonDataFormat.html', acronyms)).toBe('JSON Data Format');
-		});
-
-		it('should handle mixed case acronyms correctly', () => {
-			const acronyms = ['JavaScript', 'TypeScript', 'CSS', 'HTML'];
-			expect(normalizeTitle('javascript-tutorial.md', acronyms)).toBe('JavaScript Tutorial');
-			expect(normalizeTitle('typescript_guide.txt', acronyms)).toBe('TypeScript Guide');
-			expect(normalizeTitle('cssStyleGuide.html', acronyms)).toBe('CSS Style Guide');
-		});
-
-		it('should work without acronyms parameter', () => {
-			expect(normalizeTitle('test-document.md')).toBe('Test Document');
-			expect(normalizeTitle('myTestFile.txt')).toBe('My Test File');
-		});
-
-		it('should preserve single words correctly', () => {
-			expect(normalizeTitle('introduction.md')).toBe('Introduction');
-			expect(normalizeTitle('overview.txt')).toBe('Overview');
-		});
-
-		it('should handle multiple file extensions', () => {
-			expect(normalizeTitle('file.backup.md')).toBe('File.Backup');
-			expect(normalizeTitle('test.min.js')).toBe('Test.Min');
+		// Test table for miscellaneous cases
+		test.each([
+			{ input: 'test-document.md', expected: 'Test Document', description: 'without acronyms' },
+			{ input: 'myTestFile.txt', expected: 'My Test File', description: 'without acronyms' },
+			{ input: 'introduction.md', expected: 'Introduction', description: 'single word' },
+			{ input: 'overview.txt', expected: 'Overview', description: 'single word' },
+			{ input: 'file.backup.md', expected: 'File.Backup', description: 'multiple extensions' },
+			{ input: 'test.min.js', expected: 'Test.Min', description: 'multiple extensions' },
+		])('should handle $description: $input', ({ input, expected }: { input: string; expected: string }) => {
+			expect(normalizeTitle(input)).toBe(expected);
 		});
 	});
 
 	describe('getFileExtension', () => {
-		it('should extract file extensions correctly', () => {
-			expect(getFileExtension('test.md')).toBe('md');
-			expect(getFileExtension('document.txt')).toBe('txt');
-			expect(getFileExtension('style.css')).toBe('css');
-			expect(getFileExtension('script.js')).toBe('js');
-		});
-
-		it('should handle files without extensions', () => {
-			expect(getFileExtension('README')).toBe('');
-			expect(getFileExtension('Makefile')).toBe('');
-		});
-
-		it('should handle multiple dots', () => {
-			expect(getFileExtension('file.backup.md')).toBe('md');
-			expect(getFileExtension('test.min.js')).toBe('js');
-		});
-
-		it('should handle empty or invalid input', () => {
-			expect(getFileExtension('')).toBe('');
-			expect(getFileExtension(null as any)).toBe('');
-			expect(getFileExtension(undefined as any)).toBe('');
-		});
-
-		it('should return lowercase extensions', () => {
-			expect(getFileExtension('TEST.MD')).toBe('md');
-			expect(getFileExtension('Document.TXT')).toBe('txt');
+		// Test table for various file extensions and edge cases
+		test.each([
+			{ input: 'test.md', expected: 'md', description: 'markdown file' },
+			{ input: 'document.txt', expected: 'txt', description: 'text file' },
+			{ input: 'style.css', expected: 'css', description: 'CSS file' },
+			{ input: 'script.js', expected: 'js', description: 'JavaScript file' },
+			{ input: 'README', expected: '', description: 'file without extension' },
+			{ input: 'Makefile', expected: '', description: 'Makefile without extension' },
+			{ input: 'file.backup.md', expected: 'md', description: 'multiple dots' },
+			{ input: 'test.min.js', expected: 'js', description: 'minified file' },
+			{ input: '', expected: '', description: 'empty string' },
+			{ input: null, expected: '', description: 'null' },
+			{ input: undefined, expected: '', description: 'undefined' },
+			{ input: 'TEST.MD', expected: 'md', description: 'uppercase extension' },
+			{ input: 'Document.TXT', expected: 'txt', description: 'mixed case extension' },
+		])('should handle $description: $input', ({ input, expected }: { input: any; expected: string }) => {
+			expect(getFileExtension(input as any)).toBe(expected);
 		});
 	});
 
 	describe('isIndexFile', () => {
-		it('should identify index files correctly', () => {
-			expect(isIndexFile('index.md')).toBe(true);
-			expect(isIndexFile('index.html')).toBe(true);
-			expect(isIndexFile('index.txt')).toBe(true);
-			expect(isIndexFile('Index.md')).toBe(true);
-			expect(isIndexFile('INDEX.HTML')).toBe(true);
-		});
-
-		it('should reject non-index files', () => {
-			expect(isIndexFile('readme.md')).toBe(false);
-			expect(isIndexFile('test.html')).toBe(false);
-			expect(isIndexFile('myindex.txt')).toBe(false);
-		});
-
-		it('should handle empty or invalid input', () => {
-			expect(isIndexFile('')).toBe(false);
-			expect(isIndexFile(null as any)).toBe(false);
-			expect(isIndexFile(undefined as any)).toBe(false);
-		});
+		// Test table for index file identification
+		test.each([
+			{ input: 'index.md', expected: true, description: 'lowercase .md' },
+			{ input: 'index.html', expected: true, description: 'lowercase .html' },
+			{ input: 'index.txt', expected: true, description: 'lowercase .txt' },
+			{ input: 'Index.md', expected: true, description: 'capitalized' },
+			{ input: 'INDEX.HTML', expected: true, description: 'uppercase' },
+			{ input: 'readme.md', expected: false, description: 'readme file' },
+			{ input: 'test.html', expected: false, description: 'regular file' },
+			{ input: 'myindex.txt', expected: false, description: 'contains index' },
+			{ input: '', expected: false, description: 'empty string' },
+			{ input: null, expected: false, description: 'null' },
+			{ input: undefined, expected: false, description: 'undefined' },
+		])(
+			'should return $expected for $description: $input',
+			({ input, expected }: { input: any; expected: boolean }) => {
+				expect(isIndexFile(input as any)).toBe(expected);
+			},
+		);
 	});
 
 	describe('isReadmeFile', () => {
-		it('should identify README files correctly', () => {
-			expect(isReadmeFile('README.md')).toBe(true);
-			expect(isReadmeFile('readme.txt')).toBe(true);
-			expect(isReadmeFile('Readme.html')).toBe(true);
-			expect(isReadmeFile('ReadMe.rst')).toBe(true);
-		});
-
-		it('should reject non-README files', () => {
-			expect(isReadmeFile('index.md')).toBe(false);
-			expect(isReadmeFile('test.html')).toBe(false);
-			expect(isReadmeFile('myreadme.txt')).toBe(false);
-		});
-
-		it('should handle empty or invalid input', () => {
-			expect(isReadmeFile('')).toBe(false);
-			expect(isReadmeFile(null as any)).toBe(false);
-			expect(isReadmeFile(undefined as any)).toBe(false);
-		});
+		// Test table for README file identification
+		test.each([
+			{ input: 'README.md', expected: true, description: 'uppercase .md' },
+			{ input: 'readme.txt', expected: true, description: 'lowercase .txt' },
+			{ input: 'Readme.html', expected: true, description: 'capitalized .html' },
+			{ input: 'ReadMe.rst', expected: true, description: 'mixed case .rst' },
+			{ input: 'index.md', expected: false, description: 'index file' },
+			{ input: 'test.html', expected: false, description: 'regular file' },
+			{ input: 'myreadme.txt', expected: false, description: 'contains readme' },
+			{ input: '', expected: false, description: 'empty string' },
+			{ input: null, expected: false, description: 'null' },
+			{ input: undefined, expected: false, description: 'undefined' },
+		])(
+			'should return $expected for $description: $input',
+			({ input, expected }: { input: any; expected: boolean }) => {
+				expect(isReadmeFile(input as any)).toBe(expected);
+			},
+		);
 	});
 });

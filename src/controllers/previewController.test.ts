@@ -1,5 +1,4 @@
-import { jest } from '@jest/globals';
-import * as vscode from 'vscode';
+import { createMockUri } from '../test/mocks';
 import {
 	clearClickTimes,
 	getDoubleClickThreshold,
@@ -28,7 +27,7 @@ describe('previewController', () => {
 
 	describe('openInPreview', () => {
 		it('should execute markdown preview for .md files', () => {
-			const mockUri = { fsPath: '/test/file.md' } as vscode.Uri;
+			const mockUri = createMockUri('/test/file.md');
 			mockVscode.workspace.getConfiguration().get.mockReturnValue({
 				md: 'markdown.showPreview',
 			});
@@ -39,7 +38,7 @@ describe('previewController', () => {
 		});
 
 		it('should execute default command for unsupported extensions', () => {
-			const mockUri = { fsPath: '/test/file.xyz' } as vscode.Uri;
+			const mockUri = createMockUri('/test/file.xyz');
 			mockVscode.workspace.getConfiguration().get.mockReturnValue({
 				md: 'markdown.showPreview',
 			});
@@ -50,7 +49,7 @@ describe('previewController', () => {
 		});
 
 		it('should handle missing configuration gracefully', () => {
-			const mockUri = { fsPath: '/test/file.md' } as vscode.Uri;
+			const mockUri = createMockUri('/test/file.md');
 			mockVscode.workspace.getConfiguration().get.mockReturnValue(undefined);
 
 			openInPreview(mockUri);
@@ -61,7 +60,7 @@ describe('previewController', () => {
 
 	describe('openInEditor', () => {
 		it('should execute vscode.open command', () => {
-			const mockUri = { fsPath: '/test/file.md' } as vscode.Uri;
+			const mockUri = createMockUri('/test/file.md');
 
 			openInEditor(mockUri);
 
@@ -70,7 +69,7 @@ describe('previewController', () => {
 	});
 
 	describe('handleFileClick', () => {
-		const mockUri = { fsPath: '/test/file.md' } as vscode.Uri;
+		const mockUri = createMockUri('/test/file.md');
 
 		it('should handle single click by executing default command', () => {
 			handleFileClick(mockUri, 'markdown.showPreview');
@@ -103,8 +102,8 @@ describe('previewController', () => {
 		});
 
 		it('should handle different files independently', () => {
-			const mockUri1 = { fsPath: '/test/file1.md' } as vscode.Uri;
-			const mockUri2 = { fsPath: '/test/file2.md' } as vscode.Uri;
+			const mockUri1 = createMockUri('/test/file1.md');
+			const mockUri2 = createMockUri('/test/file2.md');
 
 			// Click on file1
 			handleFileClick(mockUri1, 'markdown.showPreview');
@@ -136,7 +135,7 @@ describe('previewController', () => {
 
 	describe('getOpenCommand', () => {
 		it('should return vscode.open for editor mode', () => {
-			const mockUri = { fsPath: '/test/file.md' } as vscode.Uri;
+			const mockUri = createMockUri('/test/file.md');
 
 			const command = getOpenCommand(mockUri, 'editor');
 
@@ -144,7 +143,7 @@ describe('previewController', () => {
 		});
 
 		it('should return appropriate preview command for supported extensions', () => {
-			const mockUri = { fsPath: '/test/file.md' } as vscode.Uri;
+			const mockUri = createMockUri('/test/file.md');
 			mockVscode.workspace.getConfiguration().get.mockReturnValue({
 				md: 'markdown.showPreview',
 			});
@@ -155,7 +154,7 @@ describe('previewController', () => {
 		});
 
 		it('should return default command for unsupported extensions', () => {
-			const mockUri = { fsPath: '/test/file.xyz' } as vscode.Uri;
+			const mockUri = createMockUri('/test/file.xyz');
 			mockVscode.workspace.getConfiguration().get.mockReturnValue({
 				md: 'markdown.showPreview',
 			});
@@ -166,7 +165,7 @@ describe('previewController', () => {
 		});
 
 		it('should handle missing configuration', () => {
-			const mockUri = { fsPath: '/test/file.md' } as vscode.Uri;
+			const mockUri = createMockUri('/test/file.md');
 			mockVscode.workspace.getConfiguration().get.mockReturnValue(undefined);
 
 			const command = getOpenCommand(mockUri, 'preview');
@@ -175,7 +174,7 @@ describe('previewController', () => {
 		});
 
 		it('should default to preview mode', () => {
-			const mockUri = { fsPath: '/test/file.md' } as vscode.Uri;
+			const mockUri = createMockUri('/test/file.md');
 			mockVscode.workspace.getConfiguration().get.mockReturnValue({
 				md: 'markdown.showPreview',
 			});
@@ -188,7 +187,7 @@ describe('previewController', () => {
 
 	describe('clearClickTimes', () => {
 		it('should clear all stored click times', () => {
-			const mockUri = { fsPath: '/test/file.md' } as vscode.Uri;
+			const mockUri = createMockUri('/test/file.md');
 
 			// Create some click times
 			handleFileClick(mockUri, 'markdown.showPreview');

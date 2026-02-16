@@ -15,6 +15,25 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 - Use mermaid diagrams, code snippets, and examples in `docs/` as much as possible to maximize clarity and maintainability.
 - Display the current checklist and status to the user at every step.
 
+**CRITICAL - Problem Solving Philosophy:**
+
+- **NEVER delete or remove content/code/features to "fix" errors or problems** - this is avoiding the problem, not solving it.
+- When encountering linting errors, validation failures, or bugs:
+    - **FIRST**: Understand the root cause and why the error is occurring
+    - **SECOND**: Research the proper configuration, setting, or code change to address the root cause
+    - **THIRD**: Implement the proper fix that resolves the issue while preserving all intended functionality
+- Examples of WRONG approaches:
+    - ❌ Removing a heading to fix MD025 "multiple H1" error
+    - ❌ Deleting a test to make test suite pass
+    - ❌ Commenting out code to fix a linting error
+    - ❌ Removing a feature because it has a bug
+- Examples of CORRECT approaches:
+    - ✅ Configuring MD025 with `front_matter_title` to recognize YAML front matter
+    - ✅ Fixing the test logic or updating it to match new behavior
+    - ✅ Adjusting linting rules or fixing the code to comply with them
+    - ✅ Debugging and fixing the bug in the feature
+- **The goal is to solve problems, not hide them.** Every piece of content, code, and functionality exists for a reason - preserve it while fixing the underlying issue.
+
 **Example Workflow:**
 
 1. Receive prompt.
@@ -63,6 +82,33 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 - All tests must continue to pass after any changes - use `npm run validate` to verify.
 - Deleting tests removes safety nets and can lead to undetected regressions in production.
 
+**Test Table Format (Data-Driven Testing):**
+
+- Use Jest's `test.each()` or `describe.each()` for testing multiple similar scenarios with different inputs.
+- **Benefits**: Reduces code duplication, improves readability, makes it easy to add new test cases.
+- **Format**: Use array of objects with descriptive properties for clarity:
+    ```typescript
+    test.each([
+    	{ input: 'test.md', expected: 'md', description: 'markdown file' },
+    	{ input: 'README', expected: '', description: 'file without extension' },
+    	{ input: null, expected: '', description: 'null input' },
+    ])('should handle $description: $input', ({ input, expected }) => {
+    	expect(getFileExtension(input as any)).toBe(expected);
+    });
+    ```
+- **When to Use**:
+    - Testing the same function with different inputs and expected outputs
+    - Validating edge cases (null, undefined, empty string, invalid types)
+    - Testing multiple file types, formats, or patterns
+    - Verifying consistent behavior across similar scenarios
+- **Best Practices**:
+    - Include a `description` field for clear test naming
+    - Use `$variable` syntax in test names for dynamic test descriptions
+    - Group related test tables together (e.g., all edge cases, all valid inputs)
+    - Add comments to explain complex test scenarios
+    - For functions with optional parameters, create separate test tables
+- **Example from codebase**: See [src/utils/textUtils.test.ts](src/utils/textUtils.test.ts) for comprehensive examples of table-driven testing.
+
 - **Lint:**
     - Use `npm run lint` (TypeScript ESLint config in `eslint.config.mjs`).
 - **Debug:**
@@ -72,6 +118,7 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 ## Project-Specific Conventions
 
 - **Ordering:** README at root is always top; index.md in folders replaces folder name; alphabetical sorting elsewhere.
+- **TypeScript Config:** Use only the root `tsconfig.json`. Do not create per-purpose `tsconfig` files.
 - **Supported File Types:** `.md`, `.markdown`, `.txt` by default; `.pdf`, `.html` opt-in via settings.
 - **Settings:** All config under `workspaceWiki` namespace (see design doc for full schema).
 - **Excludes:** Respects `excludeGlobs` and `.gitignore` for scanning.

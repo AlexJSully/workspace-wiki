@@ -1,8 +1,4 @@
-/**
- * Unit tests for file utilities
- */
-import { jest } from '@jest/globals';
-import * as vscode from 'vscode';
+import { createMockUri } from '../test/mocks';
 import {
 	getDirectoryName,
 	getFileName,
@@ -43,7 +39,7 @@ describe('fileUtils', () => {
 
 	describe('getRelativePath', () => {
 		it('should return relative path when workspace folder exists', () => {
-			const mockUri = { fsPath: '/workspace/docs/file.md' } as vscode.Uri;
+			const mockUri = createMockUri('/workspace/docs/file.md');
 			const mockWorkspaceFolder = { uri: { fsPath: '/workspace' } };
 
 			mockVscode.workspace.getWorkspaceFolder.mockReturnValue(mockWorkspaceFolder);
@@ -56,7 +52,7 @@ describe('fileUtils', () => {
 		});
 
 		it('should return fsPath when no workspace folder', () => {
-			const mockUri = { fsPath: '/some/file.md' } as vscode.Uri;
+			const mockUri = createMockUri('/some/file.md');
 
 			mockVscode.workspace.getWorkspaceFolder.mockReturnValue(null);
 
