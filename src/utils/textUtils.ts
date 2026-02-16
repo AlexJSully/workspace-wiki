@@ -1,4 +1,6 @@
+import * as fs from 'fs';
 import matter from 'gray-matter';
+import * as vscode from 'vscode';
 
 /** Front matter data extracted from a markdown file */
 export interface FrontMatterData {
@@ -24,11 +26,17 @@ export async function extractFrontMatter(filePath: string): Promise<FrontMatterD
 			return { title: null, description: null };
 		}
 
-		// Read file content
-		// In VS Code extension context, we need to use VS Code's file system API
-		// This function will be called from extension context with proper VS Code imports
-		const fs = require('fs');
-		const content = fs.readFileSync(filePath, 'utf8');
+		// Read file content using VS Code FS when available, otherwise fall back to Node.
+		let content = '';
+		const canUseVscodeFs =
+			typeof vscode.workspace?.fs?.readFile === 'function' && typeof vscode.Uri?.file === 'function';
+
+		if (canUseVscodeFs) {
+			const contentBytes = await vscode.workspace.fs.readFile(vscode.Uri.file(filePath));
+			content = Buffer.from(contentBytes).toString('utf8');
+		} else {
+			content = await fs.promises.readFile(filePath, 'utf8');
+		}
 
 		// Parse front matter
 		const parsed = matter(content);
@@ -45,10 +53,13 @@ export async function extractFrontMatter(filePath: string): Promise<FrontMatterD
 				: null;
 
 		return { title, description };
-	} catch (error) {
+	} catch (error: any) {
+		if (error?.code === 'ENOENT') {
+			return { title: null, description: null };
+		}
+
 		// Log at error level to aid troubleshooting without disrupting extension behavior
 		console.error('[WorkspaceWiki] Failed to extract front matter for file:', filePath, error);
-		// If file can't be read or parsed, return nulls
 		return { title: null, description: null };
 	}
 }

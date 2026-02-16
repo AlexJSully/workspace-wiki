@@ -27,95 +27,88 @@ describe('textUtils', () => {
 			}
 		});
 
-		it('should extract both title and description from YAML front matter', async () => {
-			const testFile = path.join(testFilesDir, 'test-full-frontmatter.md');
-			const content = `---
+		test.each([
+			{
+				description: 'extract both title and description from YAML front matter',
+				fileName: 'test-full-frontmatter.md',
+				content: `---
 title: "Accessibility Best Practices"
 description: "Guidelines for creating accessible software"
 tags: ["accessibility", "a11y"]
 ---
-This document provides accessibility guidance.`;
-			fs.writeFileSync(testFile, content);
-
-			const result = await extractFrontMatter(testFile);
-			expect(result.title).toBe('Accessibility Best Practices');
-			expect(result.description).toBe('Guidelines for creating accessible software');
-
-			fs.unlinkSync(testFile);
-		});
-
-		it('should extract only title when description is missing', async () => {
-			const testFile = path.join(testFilesDir, 'test-title-only.md');
-			const content = `---
+This document provides accessibility guidance.`,
+				expectedTitle: 'Accessibility Best Practices',
+				expectedDescription: 'Guidelines for creating accessible software',
+			},
+			{
+				description: 'fall back to Node fs when VS Code APIs are unavailable',
+				fileName: 'test-node-fallback.md',
+				content: `---
+title: "Node Fallback"
+description: "Read via Node fs"
+---
+Content.`,
+				expectedTitle: 'Node Fallback',
+				expectedDescription: 'Read via Node fs',
+			},
+			{
+				description: 'extract only title when description is missing',
+				fileName: 'test-title-only.md',
+				content: `---
 title: "Title Only"
 tags: ["test"]
 ---
-Content here.`;
-			fs.writeFileSync(testFile, content);
-
-			const result = await extractFrontMatter(testFile);
-			expect(result.title).toBe('Title Only');
-			expect(result.description).toBeNull();
-
-			fs.unlinkSync(testFile);
-		});
-
-		it('should extract only description when title is missing', async () => {
-			const testFile = path.join(testFilesDir, 'test-description-only.md');
-			const content = `---
+Content here.`,
+				expectedTitle: 'Title Only',
+				expectedDescription: null,
+			},
+			{
+				description: 'extract only description when title is missing',
+				fileName: 'test-description-only.md',
+				content: `---
 description: "Description without title"
 author: "Test Author"
 ---
-Content here.`;
-			fs.writeFileSync(testFile, content);
-
-			const result = await extractFrontMatter(testFile);
-			expect(result.title).toBeNull();
-			expect(result.description).toBe('Description without title');
-
-			fs.unlinkSync(testFile);
-		});
-
-		it('should return nulls for files without front matter', async () => {
-			const testFile = path.join(testFilesDir, 'test-no-fm.md');
-			const content = `# Regular Markdown\n\nNo front matter here.`;
-			fs.writeFileSync(testFile, content);
-
-			const result = await extractFrontMatter(testFile);
-			expect(result.title).toBeNull();
-			expect(result.description).toBeNull();
-
-			fs.unlinkSync(testFile);
-		});
-
-		it('should handle non-markdown files by returning nulls', async () => {
-			const testFile = path.join(testFilesDir, 'test.txt');
-			const content = `---
+Content here.`,
+				expectedTitle: null,
+				expectedDescription: 'Description without title',
+			},
+			{
+				description: 'return nulls for files without front matter',
+				fileName: 'test-no-fm.md',
+				content: `# Regular Markdown\n\nNo front matter here.`,
+				expectedTitle: null,
+				expectedDescription: null,
+			},
+			{
+				description: 'handle non-markdown files by returning nulls',
+				fileName: 'test.txt',
+				content: `---
 title: "Should Not Parse"
 description: "This is a text file"
 ---
-Text content.`;
-			fs.writeFileSync(testFile, content);
-
-			const result = await extractFrontMatter(testFile);
-			expect(result.title).toBeNull();
-			expect(result.description).toBeNull();
-
-			fs.unlinkSync(testFile);
-		});
-
-		it('should trim whitespace from title and description', async () => {
-			const testFile = path.join(testFilesDir, 'test-whitespace-fm.md');
-			const content = `---
+Text content.`,
+				expectedTitle: null,
+				expectedDescription: null,
+			},
+			{
+				description: 'trim whitespace from title and description',
+				fileName: 'test-whitespace-fm.md',
+				content: `---
 title: "  Whitespace Title  "
 description: "  Whitespace Description  "
 ---
-Content.`;
+Content.`,
+				expectedTitle: 'Whitespace Title',
+				expectedDescription: 'Whitespace Description',
+			},
+		])('should $description', async ({ fileName, content, expectedTitle, expectedDescription }) => {
+			const testFile = path.join(testFilesDir, fileName);
 			fs.writeFileSync(testFile, content);
 
 			const result = await extractFrontMatter(testFile);
-			expect(result.title).toBe('Whitespace Title');
-			expect(result.description).toBe('Whitespace Description');
+			expect(result.title).toBe(expectedTitle);
+			expect(result.description).toBe(expectedDescription);
 
 			fs.unlinkSync(testFile);
 		});
@@ -131,9 +124,12 @@ Content.`;
 		});
 
 		it('should handle non-existent files gracefully', async () => {
+			const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 			const nonExistentFile = path.join(testFilesDir, 'does-not-exist.md');
 			const result = await extractFrontMatter(nonExistentFile);
 			expect(result).toEqual({ title: null, description: null });
+			expect(consoleErrorSpy).not.toHaveBeenCalled();
+			consoleErrorSpy.mockRestore();
 		});
 	});
 
@@ -220,9 +216,12 @@ This is a text file`;
 		});
 
 		it('should handle non-existent files gracefully', async () => {
+			const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 			const nonExistentFile = path.join(testFilesDir, 'does-not-exist.md');
 			const title = await extractFrontMatterTitle(nonExistentFile);
 			expect(title).toBeNull();
+			expect(consoleErrorSpy).not.toHaveBeenCalled();
+			consoleErrorSpy.mockRestore();
 		});
 
 		it('should trim whitespace from title', async () => {

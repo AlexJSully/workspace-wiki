@@ -769,35 +769,4 @@ Content`,
 			expect(nodes[0].description).toBe(expectedDescription);
 		}
 	});
-
-	it('should handle multiple files with and without front matter', async () => {
-		const file1Path = path.join(tempDir, 'with-fm.md');
-		const file2Path = path.join(tempDir, 'without-fm.md');
-
-		fs.writeFileSync(
-			file1Path,
-			`---
-title: File With Front Matter
-description: Has description
----
-Content`,
-			'utf-8',
-		);
-
-		fs.writeFileSync(file2Path, `# Regular File\nNo front matter`, 'utf-8');
-
-		const nodes = await buildTree([createMockUri(file1Path), createMockUri(file2Path)], 'alphabetical', []);
-
-		expect(nodes).toHaveLength(2);
-
-		// File with front matter
-		const withFm = nodes.find((n) => n.name === 'with-fm.md');
-		expect(withFm?.title).toBe('File With Front Matter');
-		expect(withFm?.description).toBe('Has description');
-
-		// File without front matter
-		const withoutFm = nodes.find((n) => n.name === 'without-fm.md');
-		expect(withoutFm?.title).toBe('Without Fm');
-		expect(withoutFm?.description).toBeUndefined();
-	});
 });

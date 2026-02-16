@@ -47,7 +47,8 @@ The extension uses the [gray-matter](https://github.com/jonschlinkert/gray-matte
 1. **Markdown Files Only**: Front matter parsing only applies to `.md` and `.markdown` files
 2. **Title & Description Fields**: The `title` field is used for tree item display names, and the `description` field (when present) is extracted and shown as the tree item tooltip when hovering in the tree view
 3. **Fallback**: If no front matter title exists, falls back to filename-based normalization
-4. **Performance**: Files are read and parsed during tree building
+4. **Performance**: Files are read asynchronously via VS Code workspace FS when available (with Node fallback for tests) and parsed during tree building
+5. **Missing Files**: Missing file paths return null values without logging to avoid noisy errors during scans
 
 ## Title Normalization
 

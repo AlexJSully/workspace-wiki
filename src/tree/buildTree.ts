@@ -53,9 +53,7 @@ export function processNode(
 	}
 }
 
-/**
- * Build hierarchical tree structure from flat file list
- */
+/** Build hierarchical tree structure from flat file list */
 export async function buildTree(
 	uris: any[],
 	directorySort: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first',
