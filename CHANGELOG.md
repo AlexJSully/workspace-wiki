@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 To see tags and releases, please go to [Tags](https://github.com/AlexJSully/workspace-wiki/tags) on [GitHub](https://github.com/AlexJSully/workspace-wiki).
 
+## [1.1.0] - 2026-02-20
+
+Feature:
+
+- **YAML Front Matter Support**: Markdown files with YAML front matter can now use a `title` field to customize how files appear in the tree view, providing better control over document display names
+
 ## [1.0.4] - 2025-10-30
 
 Bug Fix:
