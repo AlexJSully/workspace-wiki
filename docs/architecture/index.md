@@ -52,6 +52,8 @@ src/
 
 ```mermaid
 flowchart TB
+    accTitle: Workspace Wiki Extension Architecture
+    accDescr: Shows the relationships between the main modules - Extension activation, Scanner, Tree Provider, Controllers, Utilities, and the VS Code API they all interact with.
     subgraph Extension["Extension (src/extension.ts)"]
         A[activate]
         B[Command Registration]
@@ -125,6 +127,8 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
+    accTitle: Workspace Wiki Data Flow
+    accDescr: Shows the sequence from workspace open through extension activation, tree rendering, file click handling, and active-editor sync back to the user.
     participant User
     participant VSCode as VS Code
     participant Extension

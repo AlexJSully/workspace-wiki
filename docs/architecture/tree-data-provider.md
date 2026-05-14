@@ -6,15 +6,6 @@ The TreeDataProvider module powers the Workspace Wiki sidebar tree, converting f
 
 The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tree/treeProvider.ts) as the `WorkspaceWikiTreeProvider` class, along with the `buildTree()` helper function in [`src/tree/buildTree.ts`](../../src/tree/buildTree.ts). The TreeNode interface is defined in [`src/types/treeNode.ts`](../../src/types/treeNode.ts).
 
-## Architecture Changes
-
-**Recent Improvements:**
-
-- **Modular Structure**: TreeDataProvider moved from `src/extension.ts` to dedicated `src/tree/` module
-- **Type Organization**: `TreeNode` interface moved to `src/types/` for better type organization
-- **Path Imports**: Updated to support `@tree` imports via index.ts for cleaner imports
-- **Comprehensive Testing**: Added full unit test coverage for all tree functionality
-
 ## Responsibilities
 
 - Implements VS Code's `TreeDataProvider` interface.
@@ -95,6 +86,8 @@ See also: [Scanner/Indexer](./scanner.md)
 
 ```mermaid
 flowchart TD
+	accTitle: Tree Node Ordering Logic
+	accDescr: Shows how tree nodes are sorted - README nodes always rank first, then root-level nodes are ordered by the directorySort setting (files-first, folders-first, or alphabetical), and finally alphabetically by title within each group. Folder nodes use index.md for their name when present.
 	A[All Nodes] --> B{Is README?}
 	B -->|Yes| C[Rank First]
 	B -->|No| D{Root Level?}

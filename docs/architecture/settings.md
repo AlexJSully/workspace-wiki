@@ -46,6 +46,8 @@ See also: [Usage/Setup](../usage/setup.md)
 
 ```mermaid
 flowchart TD
+	accTitle: Settings Application Flow
+	accDescr: Shows how user settings flow from VS Code Settings through the Settings Manager and are applied to each module - Scanner, TreeDataProvider, Preview Controller, and Sync Module.
 	A[User] -->|Updates Settings| B[VS Code Settings]
 	B -->|Read by| C[Settings Manager]
 	C -->|Applies to| D[Scanner/Indexer]
