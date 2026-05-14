@@ -85,13 +85,6 @@ export function normalizeTitle(fileName: string, acronyms: string[] = []): strin
 		return '';
 	}
 
-	/**
-	 * nameWithoutExt:
-	 * - Removes the file extension from the provided fileName using a regex.
-	 * - Used to extract the base name for further normalization (e.g., converting to title case, handling acronyms).
-	 * - Should include only the main part of the filename, excluding extensions like .md, .markdown, .txt, .htm, .html, .pdf, .css, .js, .ts, .json, .xml.
-	 * - This is important for generating human-readable titles and for consistent handling of technical acronyms.
-	 */
 	const nameWithoutExt = fileName.replace(/\.(md|markdown|txt|(htm|html)|pdf|css|js|ts|json|xml)$/i, '');
 
 	// Handle special cases

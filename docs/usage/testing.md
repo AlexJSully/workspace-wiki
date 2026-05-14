@@ -100,6 +100,8 @@ test('Workspace Wiki tree appears', async () => {
 
 ```mermaid
 sequenceDiagram
+    accTitle: Test Execution Flow
+    accDescr: Shows the two test execution paths - running npm run test:jest launches Jest for unit tests, and npm run test:extension launches a VS Code instance for E2E tests.
     participant Dev as Developer
     participant CLI as Command Line
     participant Jest as Jest Runner

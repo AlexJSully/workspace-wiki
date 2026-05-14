@@ -3,8 +3,6 @@ import { WorkspaceWikiTreeProvider } from '@tree';
 import { syncOpenWithToSupportedExtensions } from '@utils';
 import * as vscode from 'vscode';
 
-// VS Code extension activation: register WorkspaceWikiTreeProvider for 'workspaceWiki' view
-
 export function activate(context: vscode.ExtensionContext) {
 	// Set context for when the extension is active
 	vscode.commands.executeCommand('setContext', 'workspaceWiki:enabled', true);
@@ -145,6 +143,4 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(initialTimeoutDisposable);
 }
 
-export function deactivate() {
-	// Clean up resources when extension is deactivated
-}
+export function deactivate() {}

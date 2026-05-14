@@ -55,6 +55,8 @@ See also: [Settings Manager](./settings.md)
 
 ```mermaid
 flowchart TD
+	accTitle: Scanner File Discovery Flow
+	accDescr: Shows the scanning process: reading configuration, building exclude patterns (including .gitignore), running findFiles for each supported extension, then applying hidden-file, exclude-pattern, and depth filters before returning results.
 	A[Start Scan] --> B[Read Config]
 	B -->|Get supportedExtensions| C[Set Extension Patterns]
 	B -->|Get excludeGlobs| D[Set Exclude Patterns]

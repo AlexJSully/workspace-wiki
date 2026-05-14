@@ -79,6 +79,8 @@ See also: [Tree Data Provider](./tree-data-provider.md), [Settings](./settings.m
 
 ```mermaid
 sequenceDiagram
+	accTitle: Sync Module Active File Revelation Sequence
+	accDescr: Shows the sequence for auto-revealing the active file in the tree - the editor change listener reads autoReveal and autoRevealDelay settings, optionally waits, looks up the node by path, and calls treeView.reveal if the tree is visible.
 	participant VSCode as VS Code Editor
 	participant Listener as Editor Change Listener
 	participant Config as Config Manager

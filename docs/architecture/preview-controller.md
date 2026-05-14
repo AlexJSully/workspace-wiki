@@ -12,10 +12,9 @@ The Preview/Open Controller is implemented in [`src/controllers/previewControlle
 
 ## Features
 
-- Single-click: Opens file in preview mode.
-- Double-click: Opens file in full editor mode.
+- Single-click: Opens file in preview mode using the command configured in `workspaceWiki.openWith` (e.g., `markdown.showPreview` for `.md` files).
+- Double-click: Opens file in full editor mode via `vscode.open`.
 - Context menu: Additional actions (e.g., open to the side).
-- Uses VS Code commands like `vscode.openWith` and `window.showTextDocument`.
 
 ## Double-Click Detection
 
@@ -30,7 +29,11 @@ const DOUBLE_CLICK_THRESHOLD = 500; // milliseconds
 ## Example
 
 ```ts
-vscode.commands.executeCommand('vscode.openWith', uri, 'vscode.markdown.preview');
+// Single click: opens via configured openWith command (e.g. markdown.showPreview)
+openInPreview(uri);
+
+// Double click: always opens in editor
+openInEditor(uri); // executes vscode.open
 ```
 
 ## Customization
@@ -44,6 +47,8 @@ See also: [Settings Manager](./settings.md)
 
 ```mermaid
 sequenceDiagram
+	accTitle: File Open Double-Click Detection Flow
+	accDescr: Shows how a user click on a tree item is handled - single clicks (gap >= 500ms since last click) open the file in preview mode, while double clicks (gap < 500ms) open the file in the editor.
 	participant User as User
 	participant Tree as Tree View
 	participant Handler as handleFileClick
@@ -52,10 +57,10 @@ sequenceDiagram
 	Tree->>Handler: Trigger Click Handler
 	activate Handler
 	Handler->>Handler: Check Click Time
-	alt Single Click (< 500ms)
+	alt Single Click (>= 500ms since last click)
 		Handler->>Command: Execute Default Command
 		Command->>User: Open Preview
-	else Double Click (< 500ms apart)
+	else Double Click (< 500ms since last click)
 		Handler->>Command: Execute vscode.open
 		Command->>User: Open in Editor
 	end
