@@ -29,7 +29,6 @@
 		"types": ["node", "vscode", "jest"],
 	},
 	"exclude": [
-		"**/*.e2e.test.ts",
 		"**/*.spec.ts",
 		"bin/**/*",
 		"node_modules/**/*",

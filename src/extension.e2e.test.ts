@@ -1,8 +1,7 @@
 /**
  * End-to-End Test Suite for Workspace Wiki Extension
- * Tests real user interaction flows and workflows
+ * Tests real user interaction flows and workflows.
  */
-/// <reference types="mocha" />
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 
