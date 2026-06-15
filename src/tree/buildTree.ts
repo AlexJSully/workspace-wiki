@@ -2,7 +2,10 @@ import type { TreeNode } from '@types';
 import { extractFrontMatter, normalizeTitle } from '@utils';
 
 /**
- * Sorts tree nodes based on directory sort setting
+ * Sorts tree nodes in place based on the directory sort setting (README nodes always rank first).
+ *
+ * @param nodes The sibling nodes to sort
+ * @param directorySort `'files-first'`, `'folders-first'`, or `'alphabetical'`; defaults to `'files-first'`
  */
 export function sortNodes(
 	nodes: TreeNode[],
@@ -36,7 +39,10 @@ export function sortNodes(
 }
 
 /**
- * Processes tree nodes recursively, applying sorting to children
+ * Recursively sorts a folder node's children (the folder keeps its own name; `index.md` stays a child).
+ *
+ * @param node The node to process
+ * @param directorySort The sort mode to apply to descendants; defaults to `'files-first'`
  */
 export function processNode(
 	node: TreeNode,
@@ -53,7 +59,15 @@ export function processNode(
 	}
 }
 
-/** Build hierarchical tree structure from flat file list */
+/**
+ * Builds the hierarchical tree from a flat list of file URIs, reading YAML front matter for titles
+ * and applying ordering. Folders are named after their own path segment; `index.md` is a child file.
+ *
+ * @param uris The file URIs to arrange (each with an `fsPath`)
+ * @param directorySort The sort mode for each level; defaults to `'files-first'`
+ * @param acronyms Acronyms to preserve when normalizing titles; defaults to none
+ * @returns Promise resolving to the root-level tree nodes
+ */
 export async function buildTree(
 	uris: any[],
 	directorySort: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first',

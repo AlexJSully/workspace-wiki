@@ -90,7 +90,7 @@ npm run lint              # ESLint validation
 npm run test:jest         # Jest unit tests
 npm run test:extension    # E2E tests
 npm run compile           # TypeScript compilation
-npm run build             # Extension bundling
+npm run package           # Production extension bundle
 ```
 
 ## Workflow Configuration

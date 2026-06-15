@@ -31,6 +31,12 @@ export class WorkspaceWikiTreeProvider {
 		this.onDidChangeTreeData = this._onDidChangeTreeData.event;
 	}
 
+	/**
+	 * Returns the tree items to display under an element, or the root tree when no element is given.
+	 *
+	 * @param element The parent tree item, or undefined for the root level
+	 * @returns Promise resolving to the child tree items (rebuilds the tree and node map at the root)
+	 */
 	async getChildren(element?: any): Promise<any[]> {
 		if (element && (element as any).treeNode) {
 			// Return children of the specified element
@@ -60,6 +66,12 @@ export class WorkspaceWikiTreeProvider {
 		return this.treeData.map((node) => this.createTreeItem(node));
 	}
 
+	/**
+	 * Populates `nodeMap` (absolute path to node) and records each node's parent for lookups and reveal.
+	 *
+	 * @param nodes The nodes to index
+	 * @param parent The parent node to assign to each node, if any
+	 */
 	private buildNodeMap(nodes: TreeNode[], parent?: TreeNode): void {
 		for (const node of nodes) {
 			// Use consistent absolute fsPath for both files and folders
@@ -74,6 +86,12 @@ export class WorkspaceWikiTreeProvider {
 		}
 	}
 
+	/**
+	 * Returns the parent tree item for an element, used by VS Code for reveal and sync.
+	 *
+	 * @param element The tree item whose parent is requested
+	 * @returns The parent tree item, or undefined at the root
+	 */
 	getParent(element: any): any | undefined {
 		if (element && (element as any).treeNode) {
 			const node = (element as any).treeNode as TreeNode;
@@ -85,6 +103,13 @@ export class WorkspaceWikiTreeProvider {
 		return undefined;
 	}
 
+	/**
+	 * Builds a VS Code TreeItem from a TreeNode, setting collapsible state, tooltip, context value,
+	 * and (for files) the click command derived from `defaultOpenMode` and `openWith`.
+	 *
+	 * @param node The tree node to convert
+	 * @returns The configured TreeItem, with the source node attached as `treeNode`
+	 */
 	private createTreeItem(node: TreeNode): any {
 		const collapsibleState =
 			node.type === 'folder' && node.children && node.children.length > 0
@@ -150,6 +175,13 @@ export class WorkspaceWikiTreeProvider {
 		return item;
 	}
 
+	/**
+	 * Returns the TreeItem for an element: the element itself when it is already a tree item,
+	 * otherwise a new item built from a TreeNode.
+	 *
+	 * @param element A tree item or a TreeNode
+	 * @returns The TreeItem to render
+	 */
 	getTreeItem(element: any): any {
 		// If element has treeNode, it means it's our custom tree item
 		if (element && (element as any).treeNode) {
@@ -164,6 +196,9 @@ export class WorkspaceWikiTreeProvider {
 		return element;
 	}
 
+	/**
+	 * Clears the cached node map and fires the change event so VS Code rebuilds the tree.
+	 */
 	refresh(): void {
 		// Clear node map flag to force rebuild on next access
 		this.nodeMapBuilt = false;
@@ -171,6 +206,12 @@ export class WorkspaceWikiTreeProvider {
 		this._onDidChangeTreeData.fire(undefined);
 	}
 
+	/**
+	 * Finds the file tree item matching a path, using direct then normalized (cross-platform) comparison.
+	 *
+	 * @param filePath The absolute file system path to locate
+	 * @returns The matching file tree item, or undefined if not found
+	 */
 	findNodeByPath(filePath: string): any | undefined {
 		// Ensure nodeMap is built before lookup
 		if (!this.nodeMapBuilt && this.treeData.length > 0) {
@@ -198,6 +239,7 @@ export class WorkspaceWikiTreeProvider {
 		return undefined;
 	}
 
+	/** Disposes the tree-data change event emitter. */
 	dispose(): void {
 		// Clean up any resources if needed
 		if (this._onDidChangeTreeData && typeof this._onDidChangeTreeData.dispose === 'function') {

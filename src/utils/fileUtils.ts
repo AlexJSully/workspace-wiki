@@ -5,6 +5,9 @@ import * as vscode from 'vscode';
 
 /**
  * Gets the relative path from workspace root
+ *
+ * @param uri The file URI
+ * @returns The path relative to its workspace folder, or the absolute `fsPath` when outside any workspace
  */
 export function getRelativePath(uri: vscode.Uri): string {
 	const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
@@ -16,6 +19,9 @@ export function getRelativePath(uri: vscode.Uri): string {
 
 /**
  * Checks if a path represents a hidden file or directory
+ *
+ * @param path The file path to inspect
+ * @returns `true` if any segment starts with a dot, is longer than one character, and does not end with a dot
  */
 export function isHiddenPath(path: string): boolean {
 	if (!path || typeof path !== 'string') {
@@ -31,6 +37,9 @@ export function isHiddenPath(path: string): boolean {
 
 /**
  * Normalizes path separators to forward slashes
+ *
+ * @param path The path to normalize
+ * @returns The path with backslashes converted to forward slashes, or `''` for invalid input
  */
 export function normalizePath(path: string): string {
 	if (!path || typeof path !== 'string') {
@@ -42,6 +51,9 @@ export function normalizePath(path: string): string {
 
 /**
  * Gets the directory name from a file path
+ *
+ * @param path The file path
+ * @returns The parent directory name (the second-to-last segment), or `''` if there is none
  */
 export function getDirectoryName(path: string): string {
 	if (!path || typeof path !== 'string') {
@@ -55,6 +67,9 @@ export function getDirectoryName(path: string): string {
 
 /**
  * Gets the file name from a file path
+ *
+ * @param path The file path
+ * @returns The final path segment, or `''` if there is none
  */
 export function getFileName(path: string): string {
 	if (!path || typeof path !== 'string') {
@@ -68,6 +83,13 @@ export function getFileName(path: string): string {
 
 /**
  * Checks if a file path matches any of the given glob patterns
+ *
+ * Patterns are converted to regular expressions (`**` matches any depth, `*` matches within a segment,
+ * `?` matches a single non-slash character); an invalid pattern falls back to a substring match.
+ *
+ * @param filePath The file path to test
+ * @param patterns The glob patterns to match against
+ * @returns `true` if the path matches any pattern
  */
 export function matchesGlobPattern(filePath: string, patterns: string[]): boolean {
 	if (!filePath || !Array.isArray(patterns)) {
@@ -123,6 +145,9 @@ export function matchesGlobPattern(filePath: string, patterns: string[]): boolea
 
 /**
  * Calculates the depth of a file path (number of directory levels)
+ *
+ * @param path The file path
+ * @returns The number of non-empty path segments
  */
 export function getPathDepth(path: string): number {
 	if (!path || typeof path !== 'string') {

@@ -214,7 +214,7 @@
 		"lint:markdown": "markdownlint \"**/*.md\"",
 		"package": "node esbuild.js --production",
 		"package:vsix": "npm run compile && vsce package",
-		"pretest": "npm run compile-tests && npm run compile && npm run lint",
+		"pretest": "npm run compile:tests && npm run compile && npm run lint",
 		"prettier": "prettier --write ./",
 		"prettier:check": "prettier --check ./",
 		"regen-package-lock": "rm -rf node_modules package-lock.json && npm run audit:fix",

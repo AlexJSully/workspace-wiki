@@ -98,7 +98,7 @@ describe('WikiTreeDataProvider', () => {
 - Extension activation/deactivation
 - Command registration and execution
 - Tree provider data flow
-- File system watcher behavior
+- Refresh on configuration changes and active-editor reveal behavior
 
 ### E2E Tests
 

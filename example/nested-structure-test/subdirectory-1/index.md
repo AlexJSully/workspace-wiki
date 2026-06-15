@@ -7,7 +7,7 @@ This is the index file for subdirectory-1, demonstrating index file behavior in 
 This directory tests:
 
 - **Nested index files** - How index.md works in subdirectories
-- **Folder name replacement** - This title should replace "subdirectory-1" in the tree
+- **Folder naming** - The folder displays its own name "Subdirectory 1"; this index.md is shown as a child
 - **Nested ordering** - Files within this subdirectory should follow standard ordering rules
 - **Tree expansion** - Proper collapsible/expandable behavior
 
@@ -15,10 +15,10 @@ This directory tests:
 
 When this subdirectory is displayed in the Workspace Wiki tree:
 
-1. It should show as "Level One Directory" instead of "subdirectory-1"
+1. It shows as "Subdirectory 1" (its own normalized folder name)
 2. It should be expandable/collapsible
 3. Files within should be ordered alphabetically
-4. The index.md file itself should not appear as a separate child (it IS the folder node)
+4. The index.md file appears as a child of the folder (flagged internally as an index file)
 
 ## Content
 

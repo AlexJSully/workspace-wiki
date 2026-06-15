@@ -18,7 +18,7 @@ This guide explains how to package and publish the Workspace Wiki extension to t
 1. Build the extension:
 
     ```sh
-    npm run build
+    npm run package
     ```
 
 2. Run tests and lint:

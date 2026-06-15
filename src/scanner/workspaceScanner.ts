@@ -4,6 +4,9 @@ import * as vscode from 'vscode';
 /**
  * Scans the workspace for documentation files (.md, .markdown, .txt)
  * Returns a list of file URIs matching supported extensions, respecting excludes and settings.
+ *
+ * @param workspace The workspace abstraction providing `findFiles` and optional `getConfiguration`
+ * @returns Promise resolving to the matching file URIs (extension files plus extensionless README when Markdown is enabled)
  */
 export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<vscode.Uri[]> {
 	let supportedExtensions = ['md', 'markdown', 'txt'];
