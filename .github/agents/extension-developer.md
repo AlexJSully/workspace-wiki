@@ -41,16 +41,16 @@ You are a specialized VS Code extension developer with deep expertise in the VS 
 
 - **Purpose**: Documentation file tree view with preview and editing capabilities
 - **File Types**: `.md`, `.markdown`, `.txt` by default; configurable via settings
-- **Tree Ordering**: README first, index.md as folder representative, alphabetical sorting
+- **Tree Ordering**: README first, folders display their own name with `index.md` shown as a child, alphabetical sorting
 - **Settings Namespace**: All configuration under `workspaceWiki.*`
 - **File Filtering**: Support for hidden files (`showHiddenFiles`) and ignored files (`showIgnoredFiles`)
-- **Performance**: File system caching and efficient tree updates
+- **Performance**: Front matter is read in parallel during tree building; the tree re-scans on refresh (no persistent caching)
 
 ### Key Implementation Areas
 
 - **Scanner/Indexer**: Efficient file discovery with `workspace.findFiles()`
-- **Tree Ordering Logic**: README prioritization and folder-as-index handling
-- **File System Watching**: Responding to file changes for tree updates
+- **Tree Ordering Logic**: README prioritization and folder name normalization
+- **Refresh Triggers**: Manual `workspace-wiki.refresh` command and `onDidChangeConfiguration`; the active file is revealed on editor changes (no file system watcher)
 - **Preview Integration**: Opening files in preview vs editor modes
 - **Settings Integration**: Reading and reacting to configuration changes
 

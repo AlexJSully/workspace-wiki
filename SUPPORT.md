@@ -21,7 +21,7 @@ For new features or enhancements, please [submit a feature request](https://gith
 
 ### 🔒 Security Issues
 
-For security-related issues, please see our [Security Policy](SECURITY.md) for responsible disclosure guidelines.
+For security-related issues, please see our [Security Policy](SECURITY.MD) for responsible disclosure guidelines.
 
 ### 💬 Discussions
 
@@ -33,8 +33,7 @@ For general questions, usage help, or community discussions:
 ### 📚 Documentation
 
 - Read the [README](README.md) for setup and usage instructions
-- Check the [Design Documentation](docs/design-doc.md) for technical details
-- See the [Roadmap](docs/ROADMAP.md) for planned features
+- Check the [Design Documentation](docs/project/design-doc.md) for technical details
 
 ### 🤝 Contributing
 

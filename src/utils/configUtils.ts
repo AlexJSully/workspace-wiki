@@ -5,6 +5,8 @@ import * as vscode from 'vscode';
 
 /**
  * Gets workspace wiki configuration
+ *
+ * @returns The `workspaceWiki` workspace configuration
  */
 export function getWorkspaceWikiConfig(): vscode.WorkspaceConfiguration {
 	return vscode.workspace.getConfiguration('workspaceWiki');
@@ -12,6 +14,8 @@ export function getWorkspaceWikiConfig(): vscode.WorkspaceConfiguration {
 
 /**
  * Gets supported file extensions from configuration
+ *
+ * @returns The configured extensions, or `['md', 'markdown', 'txt']` by default
  */
 export function getSupportedExtensions(): string[] {
 	const config = getWorkspaceWikiConfig();
@@ -20,6 +24,8 @@ export function getSupportedExtensions(): string[] {
 
 /**
  * Gets exclude patterns from configuration
+ *
+ * @returns The configured `excludeGlobs`, or a built-in fallback list of common build and output directories
  */
 export function getExcludePatterns(): string[] {
 	const config = getWorkspaceWikiConfig();
@@ -59,6 +65,8 @@ export function getExcludePatterns(): string[] {
 
 /**
  * Gets directory sort setting from configuration
+ *
+ * @returns The sort mode, or `'files-first'` by default
  */
 export function getDirectorySort(): 'files-first' | 'folders-first' | 'alphabetical' {
 	const config = getWorkspaceWikiConfig();
@@ -67,6 +75,8 @@ export function getDirectorySort(): 'files-first' | 'folders-first' | 'alphabeti
 
 /**
  * Gets acronym casing settings from configuration
+ *
+ * @returns The configured acronyms, or an empty array by default
  */
 export function getAcronymCasing(): string[] {
 	const config = getWorkspaceWikiConfig();
@@ -75,6 +85,8 @@ export function getAcronymCasing(): string[] {
 
 /**
  * Gets auto-reveal settings from configuration
+ *
+ * @returns `enabled` (default `true`) and `delay` in milliseconds (default `500`)
  */
 export function getAutoRevealSettings(): { enabled: boolean; delay: number } {
 	const config = getWorkspaceWikiConfig();
@@ -86,6 +98,8 @@ export function getAutoRevealSettings(): { enabled: boolean; delay: number } {
 
 /**
  * Gets open with settings from configuration
+ *
+ * @returns A map of extension to command, or defaults for `md`/`markdown` (`markdown.showPreview`) and `txt` (`vscode.open`)
  */
 export function getOpenWithSettings(): Record<string, string> {
 	const config = getWorkspaceWikiConfig();
@@ -100,6 +114,8 @@ export function getOpenWithSettings(): Record<string, string> {
 
 /**
  * Gets default open mode from configuration
+ *
+ * @returns `'preview'` or `'editor'`, default `'preview'`
  */
 export function getDefaultOpenMode(): 'preview' | 'editor' {
 	const config = getWorkspaceWikiConfig();
@@ -108,6 +124,8 @@ export function getDefaultOpenMode(): 'preview' | 'editor' {
 
 /**
  * Gets max search depth from configuration
+ *
+ * @returns The maximum directory depth to scan, or `10` by default
  */
 export function getMaxSearchDepth(): number {
 	const config = getWorkspaceWikiConfig();
@@ -116,6 +134,8 @@ export function getMaxSearchDepth(): number {
 
 /**
  * Gets show hidden files setting from configuration
+ *
+ * @returns Whether hidden files and folders (dot-prefixed) are shown; default `false`
  */
 export function getShowHiddenFiles(): boolean {
 	const config = getWorkspaceWikiConfig();
@@ -124,6 +144,8 @@ export function getShowHiddenFiles(): boolean {
 
 /**
  * Gets show ignored files setting from configuration
+ *
+ * @returns Whether files matched by `.gitignore` and `excludeGlobs` are shown; default `false`
  */
 export function getShowIgnoredFiles(): boolean {
 	const config = getWorkspaceWikiConfig();
@@ -132,6 +154,9 @@ export function getShowIgnoredFiles(): boolean {
 
 /**
  * Syncs openWith extensions to supportedExtensions
+ *
+ * Adds any extension present in `openWith` but missing from `supportedExtensions`, then writes the
+ * result back to the workspace configuration when a change is needed (side effect; returns nothing).
  */
 export function syncOpenWithToSupportedExtensions(): void {
 	const config = getWorkspaceWikiConfig();

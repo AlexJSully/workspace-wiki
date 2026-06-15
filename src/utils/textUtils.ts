@@ -12,7 +12,7 @@ export interface FrontMatterData {
  * Extracts title and description from YAML front matter in a markdown file
  *
  * @param filePath - The path to the markdown file
- * @returns Object containing title and description from front matter, or nulls if not found
+ * @returns Promise resolving to the `title` and `description` from front matter, or nulls when absent, unreadable, or not a `.md`/`.markdown` file
  */
 export async function extractFrontMatter(filePath: string): Promise<FrontMatterData> {
 	if (!filePath || typeof filePath !== 'string') {
@@ -68,7 +68,7 @@ export async function extractFrontMatter(filePath: string): Promise<FrontMatterD
  * Extracts title from YAML front matter in a markdown file
  *
  * @param filePath - The path to the markdown file
- * @returns The title from front matter if exists, otherwise null
+ * @returns Promise resolving to the front matter `title`, or null when absent
  */
 export async function extractFrontMatterTitle(filePath: string): Promise<string | null> {
 	const frontMatter = await extractFrontMatter(filePath);
@@ -79,6 +79,10 @@ export async function extractFrontMatterTitle(filePath: string): Promise<string 
  * Convert file name to human-readable title
  * e.g. "gettingStarted.md" -> "Getting Started"
  * Applies acronym casing from settings for common technical terms
+ *
+ * @param fileName The file name to convert (extension is stripped)
+ * @param acronyms Acronyms to preserve in their given casing (e.g. `['API', 'HTML']`); defaults to none
+ * @returns The title-cased name (`'README'` for README files), or `''` for invalid input
  */
 export function normalizeTitle(fileName: string, acronyms: string[] = []): string {
 	if (!fileName || typeof fileName !== 'string') {
@@ -132,7 +136,12 @@ export function normalizeTitle(fileName: string, acronyms: string[] = []): strin
 	return result;
 }
 
-/** Extracts file extension from a file name or path */
+/**
+ * Extracts file extension from a file name or path
+ *
+ * @param fileName The file name or path
+ * @returns The lowercase extension without the dot, or `''` when there is none
+ */
 export function getFileExtension(fileName: string): string {
 	if (!fileName || typeof fileName !== 'string') {
 		return '';
@@ -142,7 +151,12 @@ export function getFileExtension(fileName: string): string {
 	return match ? match[1].toLowerCase() : '';
 }
 
-/** Checks if a file name represents an index file */
+/**
+ * Checks if a file name represents an index file
+ *
+ * @param fileName The file name to check
+ * @returns `true` if the name starts with `index.` (case-insensitive)
+ */
 export function isIndexFile(fileName: string): boolean {
 	if (!fileName || typeof fileName !== 'string') {
 		return false;
@@ -151,7 +165,12 @@ export function isIndexFile(fileName: string): boolean {
 	return fileName.toLowerCase().startsWith('index.');
 }
 
-/** Checks if a file name represents a README file */
+/**
+ * Checks if a file name represents a README file
+ *
+ * @param fileName The file name to check
+ * @returns `true` if the name starts with `readme.` (case-insensitive)
+ */
 export function isReadmeFile(fileName: string): boolean {
 	if (!fileName || typeof fileName !== 'string') {
 		return false;

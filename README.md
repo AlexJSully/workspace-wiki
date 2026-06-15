@@ -4,8 +4,8 @@
 [![Downloads](https://img.shields.io/visual-studio-marketplace/d/alexjsully.workspace-wiki)](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
 [![Open VSX Version](https://img.shields.io/open-vsx/v/alexjsully/workspace-wiki)](https://open-vsx.org/extension/alexjsully/workspace-wiki)
 [![Follow on Twitter](https://img.shields.io/twitter/follow/alexjsully?style=social)](https://twitter.com/alexjsully)
-[![GitHub repo size](https://img.shields.io/github/repo-size/AlexJSully/alexjsully-portfolio)](https://github.com/AlexJSully/alexjsully-portfolio)
-[![GitHub](https://img.shields.io/github/license/AlexJSully/alexjsully-portfolio)](https://github.com/AlexJSully/alexjsully-portfolio)
+[![GitHub repo size](https://img.shields.io/github/repo-size/AlexJSully/workspace-wiki)](https://github.com/AlexJSully/workspace-wiki)
+[![GitHub](https://img.shields.io/github/license/AlexJSully/workspace-wiki)](https://github.com/AlexJSully/workspace-wiki)
 [![Build Status](https://github.com/AlexJSully/workspace-wiki/actions/workflows/code-qa-js.yaml/badge.svg)](https://github.com/AlexJSully/workspace-wiki/actions)
 
 Workspace Wiki is a VS Code extension that scans your workspace for documentation files (Markdown and plain text by default) and presents them in a sidebar tree view for fast preview and editing. It emphasizes readability, predictable ordering (README/index handling, alphabetical directories), and fast access via preview or edit. All operations are local-first and privacy-friendly.
@@ -22,7 +22,7 @@ Workspace Wiki is a VS Code extension that scans your workspace for documentatio
 - **Acronym Case Preservation:** Technical terms like HTML, CSS, API maintain proper casing in titles.
 - **Intelligent File Exclusion:** Respects .gitignore patterns and configurable exclude globs to hide unwanted files.
 - **Preview & Edit:** Single-click to preview, double-click to edit in full editor.
-- **Live Updates:** Tree auto-refreshes when files change.
+- **Refresh:** Update the tree on demand with the Refresh action; it also re-scans automatically when `workspaceWiki` settings change.
 - **Configurable:** Supported file types, excludes, open modes, and title formatting are configurable via settings.
 - **Multi-root Support:** Works with multi-root workspaces.
 - **Privacy:** No telemetry, no cloud sync, local-only by default.
@@ -142,11 +142,7 @@ Array of acronyms to preserve proper casing in file titles.
 		"REST",
 		"SQL",
 		"CSV",
-		"FHIR",
-		"BFF",
-		"MFE",
-		"PDF",
-		"VSC"
+		"FHIR"
 	]
 }
 ```

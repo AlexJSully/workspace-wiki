@@ -12,7 +12,7 @@ The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tr
 - Applies ordering rules:
     - `README.md` at root always first
     - Root-level docs next (alphabetical)
-    - Folders (with `index.md` as folder node)
+    - Folders (displayed by their own normalized name; an `index.md` appears as a child file, not as the folder node)
     - Files inside folders (alphabetical, with `README.md` at top)
 - Normalizes file names to human-friendly titles.
 - Handles cross-platform path compatibility by normalizing path separators
@@ -87,7 +87,7 @@ See also: [Scanner/Indexer](./scanner.md)
 ```mermaid
 flowchart TD
 	accTitle: Tree Node Ordering Logic
-	accDescr: Shows how tree nodes are sorted - README nodes always rank first, then root-level nodes are ordered by the directorySort setting (files-first, folders-first, or alphabetical), and finally alphabetically by title within each group. Folder nodes use index.md for their name when present.
+	accDescr: Shows how tree nodes are sorted - README nodes always rank first, then root-level nodes are ordered by the directorySort setting (files-first, folders-first, or alphabetical), and finally alphabetically by title within each group. Folder nodes always display their own normalized folder name; an index.md inside a folder is listed as a child file.
 	A[All Nodes] --> B{Is README?}
 	B -->|Yes| C[Rank First]
 	B -->|No| D{Root Level?}
@@ -101,10 +101,8 @@ flowchart TD
 	I --> K
 	J --> K
 	K --> L[Final Sorted List]
-	F -->|index.md Exists| M[Folder Named by index]
-	F -->|No index.md| N[Use Folder Name]
-	M --> O[Children Sorted]
-	N --> O
+	F --> N[Use Folder Name]
+	N --> O[Children Sorted]
 	O --> L
 ```
 

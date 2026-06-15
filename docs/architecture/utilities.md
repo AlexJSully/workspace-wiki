@@ -71,9 +71,9 @@ The `normalizeTitle()` function performs several transformations:
 
 ```typescript
 normalizeTitle('getting-started.md'); // → 'Getting Started'
-normalizeTitle('api_reference.md'); // → 'API Reference'
+normalizeTitle('api_reference.md', ['API']); // → 'API Reference'
 normalizeTitle('userGuide.md'); // → 'User Guide'
-normalizeTitle('HTMLParser.md'); // → 'HTML Parser'
+normalizeTitle('htmlParser.md', ['HTML']); // → 'HTML Parser'
 normalizeTitle('README.md'); // → 'README'
 ```
 
@@ -114,6 +114,8 @@ See also: [Settings Manager](./settings.md)
 
 ```mermaid
 flowchart TD
+  accTitle: Utilities Module Relationships
+  accDescr: Shows how the utility functions are consumed by other modules. The title normalizer feeds the TreeDataProvider, while the file type detector feeds both the Scanner/Indexer and the Preview/Open Controller.
   A[Title Normalizer] --> B[TreeDataProvider]
   C[File Type Detector] --> D[Scanner/Indexer]
   C --> E[Preview/Open Controller]

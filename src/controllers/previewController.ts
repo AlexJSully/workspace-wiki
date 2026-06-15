@@ -31,7 +31,9 @@ function getFileExtension(uri: vscode.Uri): string | undefined {
 }
 
 /**
- * Retrieves the 'openWith' configuration from settings
+ * Retrieves the 'openWith' configuration from settings, validating it is an object of string values.
+ * Falls back to `DEFAULT_OPEN_WITH` when the setting is missing or malformed.
+ *
  * @returns A mapping of file extensions to commands
  */
 function getOpenWithConfig(): Record<string, string> {
@@ -51,7 +53,7 @@ function getOpenWithConfig(): Record<string, string> {
 }
 
 /**
- * Opens a file in preview mode
+ * Opens a file in preview mode using the command configured for its extension (falling back to `vscode.open`).
  * @param uri The URI of the file to open
  */
 export function openInPreview(uri: vscode.Uri): void {
@@ -60,7 +62,7 @@ export function openInPreview(uri: vscode.Uri): void {
 }
 
 /**
- * Opens a file in editor mode
+ * Opens a file in editor mode (always via the `vscode.open` command).
  * @param uri The URI of the file to open
  */
 export function openInEditor(uri: vscode.Uri): void {
@@ -68,7 +70,8 @@ export function openInEditor(uri: vscode.Uri): void {
 }
 
 /**
- * Handles file clicks with double-click detection
+ * Handles file clicks with double-click detection: a second click within `DOUBLE_CLICK_THRESHOLD`
+ * opens the file in the editor, otherwise the single-click `defaultCommand` runs.
  * @param uri The URI of the file that was clicked
  * @param defaultCommand The default command to execute on single click
  */

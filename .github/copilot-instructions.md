@@ -49,8 +49,8 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 
 - **Purpose:** Presents workspace documentation files in a sidebar tree view for fast preview and editing.
 - **Main Components:**
-    - **Scanner/Indexer:** Uses `workspace.findFiles` and file system watchers to discover docs. Caches metadata for performance.
-    - **TreeDataProvider:** Implements VS Code's tree view, applies ordering rules (README/index, alphabetical, folder-as-index).
+    - **Scanner/Indexer:** Uses `workspace.findFiles` to discover docs on each scan; no caching or file watching (the tree re-scans on refresh).
+    - **TreeDataProvider:** Implements VS Code's tree view, applies ordering rules (README first, folders display their own name with `index.md` as a child, alphabetical otherwise).
     - **Preview/Open Controller:** Handles user interactions, opens files in preview/editor modes.
     - **Settings Manager:** Reads extension config from `workspaceWiki` namespace.
     - **Sync Module:** Reveals active file in the tree.
@@ -71,7 +71,7 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 - Use `npm run test:jest` for Jest unit tests.
 - Use `npm run test:extension` for integration/e2e tests (via `vscode-test`).
 - Use `npm run watch-tests` for live test compilation.
-- Test files must match `**.test.ts` (unit) and `**.e2e.test.ts` (e2e) and reside in `src/test/`.
+- Test files must match `**.test.ts` (unit) and `**.e2e.test.ts` (e2e) and sit beside the file they test (e.g. `src/utils/textUtils.test.ts`). The `src/test/` directory holds only shared testing utilities (`mocks.ts`, `setupTests.ts`).
 
 **CRITICAL - Test Preservation:**
 
@@ -117,7 +117,7 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 
 ## Project-Specific Conventions
 
-- **Ordering:** README at root is always top; index.md in folders replaces folder name; alphabetical sorting elsewhere.
+- **Ordering:** README at root is always top; folders display their own normalized name with any `index.md` shown as a child; alphabetical sorting elsewhere.
 - **TypeScript Config:** Use only the root `tsconfig.json`. Do not create per-purpose `tsconfig` files.
 - **Supported File Types:** `.md`, `.markdown`, `.txt` by default; `.pdf`, `.html` opt-in via settings.
 - **Settings:** All config under `workspaceWiki` namespace (see design doc for full schema).
@@ -148,9 +148,9 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 - `src/extension.ts`: Main extension logic.
 - `esbuild.js`: Build pipeline.
 - `eslint.config.mjs`: Linting rules.
-- `src/test/extension.test.ts`: Example test.
+- `src/extension.test.ts`: Example test.
 - `.vscode/launch.json`, `.vscode/tasks.json`: Debug and build tasks.
-- `docs/design-doc.md`: Architecture and implementation details.
+- `docs/project/design-doc.md`: Architecture and implementation details.
 - `.github/agents/`: Specialized AI agent configurations for domain expertise.
 
 ## Examples
