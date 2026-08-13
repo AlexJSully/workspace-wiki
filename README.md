@@ -20,16 +20,16 @@ Workspace Wiki is a VS Code extension that scans your workspace for documentatio
 - **Flexible File Types**: Supports `.md`, `.txt` and other files with configurable extension filtering
 - **Intelligent Ordering**: README files appear first, index files represent their folders, alphabetical sorting for others
 - **Acronym Case Preservation:** Technical terms like HTML, CSS, API maintain proper casing in titles.
-- **Intelligent File Exclusion:** Respects .gitignore patterns and configurable exclude globs to hide unwanted files.
+- **Intelligent File Exclusion:** Respects `.gitignore` patterns, including nested files and negation rules, plus configurable exclude globs to hide unwanted files.
 - **Preview & Edit:** Single-click to preview, double-click to edit in full editor.
 - **Refresh:** Update the tree on demand with the Refresh action; it also re-scans automatically when `workspaceWiki` settings change.
 - **Configurable:** Supported file types, excludes, open modes, and title formatting are configurable via settings.
-- **Multi-root Support:** Works with multi-root workspaces.
+- **Multi-root Support:** Works with multi-root workspaces, scoping each folder's `.gitignore` rules and search depth to that folder.
 - **Privacy:** No telemetry, no cloud sync, local-only by default.
 
 ## Requirements
 
-- VS Code 1.99.3+
+- VS Code 1.105.0+
 
 ## Extension Settings
 

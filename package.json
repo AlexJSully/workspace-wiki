@@ -5,7 +5,7 @@
 	"version": "1.1.0",
 	"publisher": "alexjsully",
 	"engines": {
-		"vscode": "^1.99.3"
+		"vscode": "^1.105.0"
 	},
 	"homepage": "https://github.com/AlexJSully/workspace-wiki",
 	"categories": [
@@ -20,6 +20,13 @@
 	],
 	"activationEvents": [],
 	"main": "./dist/extension.js",
+	"browser": "./dist/web/extension.js",
+	"capabilities": {
+		"virtualWorkspaces": true,
+		"untrustedWorkspaces": {
+			"supported": true
+		}
+	},
 	"icon": "media/icon.png",
 	"galleryBanner": {
 		"color": "#2B5797",
@@ -209,7 +216,8 @@
 		"audit:fix": "npm i && npm audit fix",
 		"check-types": "tsc --noEmit",
 		"compile": "npm run check-types && node esbuild.js",
-		"compile:tests": "rm -rf out && npm run compile && npx esbuild src/extension.e2e.test.ts --platform=node --format=cjs --target=es2020 --outfile=out/extension.e2e.test.js",
+		"compile:tests": "rm -rf out && npm run compile && npx esbuild src/extension.e2e.test.ts --bundle --platform=node --format=cjs --target=es2020 --external:vscode --external:mocha --outfile=out/extension.e2e.test.js",
+		"compile:tests:web": "npx esbuild src/test/web/index.ts --bundle --platform=browser --format=cjs --target=es2020 --external:vscode --outfile=out/web/index.js",
 		"lint": "eslint src",
 		"lint:markdown": "markdownlint \"**/*.md\"",
 		"package": "node esbuild.js --production",
@@ -218,10 +226,12 @@
 		"prettier": "prettier --write ./",
 		"prettier:check": "prettier --check ./",
 		"regen-package-lock": "rm -rf node_modules package-lock.json && npm run audit:fix",
+		"run-in-browser": "npm run compile && vscode-test-web --browserType=chromium --quality=stable --extensionDevelopmentPath=. example",
 		"test:extension": "npm run compile:tests && vscode-test",
 		"test:jest": "jest src/",
 		"test:jest:coverage": "jest --coverage src/",
-		"validate": "npm run compile && npm run prettier && npm run lint && npm run lint:markdown && npm run test:jest && npm run test:extension",
+		"test:web": "npm run compile && npm run compile:tests:web && vscode-test-web --browserType=chromium --quality=stable --headless --extensionDevelopmentPath=. --extensionTestsPath=out/web/index.js example",
+		"validate": "npm run compile && npm run prettier && npm run lint && npm run lint:markdown && npm run test:jest && npm run test:extension && npm run test:web",
 		"vscode:prepublish": "npm run package",
 		"watch": "npm-run-all -p watch:*",
 		"watch-tests": "tsc -p . -w --outDir out",
@@ -229,30 +239,31 @@
 		"watch:tsc": "tsc --noEmit --watch --project tsconfig.json"
 	},
 	"dependencies": {
-		"gray-matter": "^4.0.3"
+		"ignore": "^7.0.6",
+		"js-yaml": "^5.2.2"
 	},
 	"devDependencies": {
-		"@testing-library/jest-dom": "^6.9.1",
 		"@trivago/prettier-plugin-sort-imports": "^6.0.2",
 		"@types/jest": "^30.0.0",
 		"@types/mocha": "^10.0.10",
-		"@types/node": "^25.7.0",
-		"@types/vscode": "^1.99.3",
-		"@typescript-eslint/eslint-plugin": "^8.59.3",
-		"@typescript-eslint/parser": "^8.59.3",
-		"@vscode/test-cli": "^0.0.12",
-		"@vscode/test-electron": "^2.5.2",
-		"@vscode/vsce": "^3.9.1",
-		"esbuild": "^0.28.0",
-		"eslint": "^10.3.0",
+		"@types/node": "^26.1.2",
+		"@types/vscode": "1.105.0",
+		"@typescript-eslint/eslint-plugin": "^8.65.0",
+		"@typescript-eslint/parser": "^8.65.0",
+		"@vscode/test-cli": "^0.0.15",
+		"@vscode/test-electron": "^3.1.0",
+		"@vscode/test-web": "^0.0.81",
+		"@vscode/vsce": "^3.9.2",
+		"esbuild": "^0.28.1",
+		"eslint": "^10.8.0",
 		"jest": "^30.4.2",
-		"jest-environment-jsdom": "^30.4.1",
-		"markdownlint-cli": "^0.48.0",
+		"markdownlint-cli": "^0.49.1",
 		"mocha": "^11.7.6",
 		"npm-run-all": "^4.1.5",
-		"prettier": "^3.8.3",
-		"ts-jest": "^29.4.11",
-		"typescript": "^6.0.3"
+		"prettier": "^3.9.6",
+		"ts-jest": "^29.4.12",
+		"typescript": "^6.0.3",
+		"vscode-uri": "^3.1.0"
 	},
 	"bugs": "https://github.com/AlexJSully/workspace-wiki/issues",
 	"repository": {

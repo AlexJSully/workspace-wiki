@@ -1,14 +1,15 @@
 import { scanWorkspaceDocs } from '../scanner';
-import { createMockUri } from '../test/mocks';
+import { createMockUri, createMockWorkspace as createSharedMockWorkspace } from '../test/mocks';
 import { buildTree } from '../tree/buildTree';
 import { WorkspaceWikiTreeProvider } from '../tree/treeProvider';
 
-// Mock the scanner module
+// The scanner and tree builder are stubbed so these cases can drive `createTreeItem` with an exact
+// node shape. Both are covered by their own suites, and treeProvider.integration.test.ts runs the
+// three together unmocked, which is what catches a fixture drifting from real buildTree output.
 jest.mock('../scanner', () => ({
 	scanWorkspaceDocs: jest.fn(),
 }));
 
-// Mock the buildTree module
 jest.mock('../tree/buildTree', () => ({
 	buildTree: jest.fn(),
 }));
@@ -22,7 +23,7 @@ interface MockTreeNode {
 	name: string;
 	title: string;
 	path: string;
-	uri?: any;
+	uri: any;
 	children?: MockTreeNode[];
 	isIndex?: boolean;
 	isReadme?: boolean;
@@ -45,12 +46,7 @@ const createMockEventEmitter = () => ({
 	dispose: jest.fn(),
 });
 
-const createMockWorkspace = (config: any = {}) => ({
-	findFiles: jest.fn().mockResolvedValue([]),
-	getConfiguration: jest.fn().mockReturnValue({
-		get: jest.fn().mockImplementation((key: string) => config[key]),
-	}),
-});
+const createMockWorkspace = (config: any = {}) => createSharedMockWorkspace(config, { files: () => [] });
 
 describe('WorkspaceWikiTreeProvider', () => {
 	let provider: WorkspaceWikiTreeProvider;
@@ -92,6 +88,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 				name: 'docs',
 				title: 'Docs',
 				path: '/workspace-root/docs',
+				uri: createMockUri('/workspace-root/docs'),
 				children: [
 					{
 						type: 'file',
@@ -155,9 +152,8 @@ describe('WorkspaceWikiTreeProvider', () => {
 		});
 
 		it('should handle workspace without getConfiguration method', async () => {
-			const simpleWorkspace = {
-				findFiles: jest.fn().mockResolvedValue([]),
-			};
+			const simpleWorkspace = createSharedMockWorkspace({}, { files: () => [] });
+			delete simpleWorkspace.getConfiguration;
 			provider = new WorkspaceWikiTreeProvider(
 				simpleWorkspace,
 				mockTreeItem,
@@ -190,8 +186,8 @@ describe('WorkspaceWikiTreeProvider', () => {
 
 			await provider.getChildren();
 
-			// Test that node map is built by checking findNodeByPath
-			const foundNode = provider.findNodeByPath('/workspace-root/test.md');
+			// Test that node map is built by checking findNodeByUri
+			const foundNode = provider.findNodeByUri(createMockUri('/workspace-root/test.md'));
 			expect(foundNode).toBeDefined();
 		});
 	});
@@ -329,6 +325,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 				name: 'docs',
 				title: 'Docs',
 				path: '/workspace-root/docs',
+				uri: createMockUri('/workspace-root/docs'),
 				children: [
 					{
 						type: 'file',
@@ -398,6 +395,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 				name: 'test.md',
 				title: 'Test File',
 				path: '/workspace-root/test.md',
+				uri: createMockUri('/workspace-root/test.md'),
 				description: 'This is a test file description from YAML front matter',
 				expectedTooltip: 'This is a test file description from YAML front matter',
 			},
@@ -406,9 +404,10 @@ describe('WorkspaceWikiTreeProvider', () => {
 				nodeType: 'file' as const,
 				name: 'test.md',
 				title: 'Test File',
-				path: '/workspace-root/test.md',
+				path: 'test.md',
+				uri: createMockUri('/workspace-root/test.md'),
 				description: undefined,
-				expectedTooltip: '/workspace-root/test.md',
+				expectedTooltip: 'test.md',
 			},
 			{
 				scenario: 'handle tooltip for folder nodes with description',
@@ -416,6 +415,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 				name: 'docs',
 				title: 'Documentation',
 				path: '/workspace-root/docs',
+				uri: createMockUri('/workspace-root/docs'),
 				description: 'Project documentation folder',
 				expectedTooltip: 'Project documentation folder',
 			},
@@ -424,18 +424,19 @@ describe('WorkspaceWikiTreeProvider', () => {
 				nodeType: 'folder' as const,
 				name: 'docs',
 				title: 'Documentation',
-				path: '/workspace-root/docs',
+				path: 'docs',
+				uri: createMockUri('/workspace-root/docs'),
 				description: undefined,
-				expectedTooltip: '/workspace-root/docs',
+				expectedTooltip: 'docs',
 			},
-		])('should $scenario', async ({ nodeType, name, title, path, description, expectedTooltip }) => {
+		])('should $scenario', async ({ nodeType, name, title, path, uri, description, expectedTooltip }) => {
 			const mockNode: MockTreeNode = {
 				type: nodeType,
 				name,
 				title,
 				path,
 				...(description && { description }),
-				...(nodeType === 'file' && { uri: createMockUri(path) }),
+				uri,
 				...(nodeType === 'folder' && { children: [] }),
 			};
 
@@ -472,6 +473,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 				name: 'docs',
 				title: 'Docs',
 				path: '/workspace-root/docs',
+				uri: createMockUri('/workspace-root/docs'),
 			};
 
 			const childNode: MockTreeNode = {
@@ -559,7 +561,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 		});
 	});
 
-	describe('findNodeByPath', () => {
+	describe('findNodeByUri', () => {
 		beforeEach(async () => {
 			const mockTreeData: MockTreeNode[] = [
 				{
@@ -574,6 +576,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 					name: 'docs',
 					title: 'Docs',
 					path: '/workspace-root/docs',
+					uri: createMockUri('/workspace-root/docs'),
 					children: [
 						{
 							type: 'file',
@@ -592,38 +595,32 @@ describe('WorkspaceWikiTreeProvider', () => {
 		});
 
 		it('should find file nodes by exact path', () => {
-			const result = provider.findNodeByPath('/workspace-root/test.md');
+			const result = provider.findNodeByUri(createMockUri('/workspace-root/test.md'));
 			expect(result).toBeDefined();
 			expect(mockTreeItem).toHaveBeenCalledWith('Test', mockCollapsibleState.None);
 		});
 
 		it('should find nested file nodes', () => {
-			const result = provider.findNodeByPath('/workspace-root/docs/nested.md');
+			const result = provider.findNodeByUri(createMockUri('/workspace-root/docs/nested.md'));
 			expect(result).toBeDefined();
 			expect(mockTreeItem).toHaveBeenCalledWith('Nested', mockCollapsibleState.None);
 		});
 
 		it('should return undefined for non-existent paths', () => {
-			const result = provider.findNodeByPath('/nonexistent/path.md');
+			const result = provider.findNodeByUri(createMockUri('/nonexistent/path.md'));
 			expect(result).toBeUndefined();
 		});
 
 		it('should return undefined for folder paths', () => {
-			const result = provider.findNodeByPath('/workspace-root/docs');
+			const result = provider.findNodeByUri(createMockUri('/workspace-root/docs'));
 			expect(result).toBeUndefined();
-		});
-
-		it('should handle normalized path comparison', () => {
-			// Test with backslashes (Windows-style paths)
-			const result = provider.findNodeByPath('/workspace-root\\test.md');
-			expect(result).toBeDefined();
 		});
 
 		it('should build node map if not already built', () => {
 			// Reset the nodeMapBuilt flag
 			(provider as any).nodeMapBuilt = false;
 
-			const result = provider.findNodeByPath('/workspace-root/test.md');
+			const result = provider.findNodeByUri(createMockUri('/workspace-root/test.md'));
 			expect(result).toBeDefined();
 		});
 
@@ -633,7 +630,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			(provider as any).nodeMap.clear();
 			(provider as any).nodeMapBuilt = false;
 
-			const result = provider.findNodeByPath('/any/path.md');
+			const result = provider.findNodeByUri(createMockUri('/any/path.md'));
 			expect(result).toBeUndefined();
 		});
 	});
@@ -646,6 +643,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 					name: 'docs',
 					title: 'Docs',
 					path: 'docs',
+					uri: createMockUri('docs'),
 					children: [
 						{
 							type: 'file',
@@ -715,7 +713,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			expect(initialChildren).toHaveLength(1);
 
 			// Find node
-			const foundNode = provider.findNodeByPath('/workspace-root/test.md');
+			const foundNode = provider.findNodeByUri(createMockUri('/workspace-root/test.md'));
 			expect(foundNode).toBeDefined();
 
 			// Refresh
@@ -742,6 +740,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 					name: 'docs',
 					title: 'Docs',
 					path: 'docs',
+					uri: createMockUri('docs'),
 					children: [
 						{
 							type: 'file',
@@ -767,8 +766,108 @@ describe('WorkspaceWikiTreeProvider', () => {
 			expect(folderChildren).toHaveLength(1);
 
 			// Test finding both files
-			expect(provider.findNodeByPath('/workspace-root/README.md')).toBeDefined();
-			expect(provider.findNodeByPath('/workspace-root/docs/index.md')).toBeDefined();
+			expect(provider.findNodeByUri(createMockUri('/workspace-root/README.md'))).toBeDefined();
+			expect(provider.findNodeByUri(createMockUri('/workspace-root/docs/index.md'))).toBeDefined();
+		});
+	});
+	describe('integration with the real scanner and tree builder', () => {
+		// The cases above stub the scanner and builder so they can drive createTreeItem with an exact
+		// node shape. These run the real ones, so a fixture that drifts from what buildTree produces
+		// fails here.
+		const realScanWorkspaceDocs = jest.requireActual('../scanner').scanWorkspaceDocs;
+		const realBuildTree = jest.requireActual('./buildTree').buildTree;
+
+		/**
+		 * Builds a provider over a workspace containing the given document paths.
+		 *
+		 * @param paths Document paths the scanner should discover
+		 * @param gitignore Contents of a workspace-root `.gitignore`, if any
+		 * @returns The provider
+		 */
+		function createRealProvider(paths: string[], gitignore?: string): WorkspaceWikiTreeProvider {
+			const gitignoreUri = createMockUri('/workspace-root/.gitignore');
+			const workspace = createSharedMockWorkspace(
+				{},
+				{
+					contents: gitignore ? { [gitignoreUri.toString()]: gitignore } : {},
+					files: (pattern: string) => {
+						if (pattern === '**/.gitignore') {
+							return gitignore ? [gitignoreUri] : [];
+						}
+						return pattern === '**/*.md' ? paths.map(createMockUri) : [];
+					},
+				},
+			);
+
+			mockScanWorkspaceDocs.mockImplementation(realScanWorkspaceDocs);
+			mockBuildTree.mockImplementation(realBuildTree);
+
+			return new WorkspaceWikiTreeProvider(workspace, mockTreeItem, mockCollapsibleState, mockEventEmitter);
+		}
+
+		it('builds a tree of real nodes from discovered documents', async () => {
+			const provider = createRealProvider(['/workspace-root/docs/guide.md', '/workspace-root/docs/api.md']);
+
+			const roots = await provider.getChildren();
+
+			expect(roots.map((item: any) => item.label)).toEqual(['Api', 'Guide']);
+		});
+
+		it('nests files under a folder node carrying a real URI', async () => {
+			const provider = createRealProvider(['/workspace-root/notes.md', '/workspace-root/docs/guide.md']);
+
+			const roots = await provider.getChildren();
+			const folder = roots.find((item: any) => item.label === 'Docs');
+
+			expect(folder).toBeDefined();
+			expect(folder.collapsibleState).toBe(mockCollapsibleState.Collapsed);
+			expect(folder.contextValue).toBe('folder');
+			expect(folder.resourceUri.toString()).toBe('file:///workspace-root/docs');
+
+			const children = await provider.getChildren(folder);
+			expect(children.map((item: any) => item.label)).toEqual(['Guide']);
+		});
+
+		it('finds a node by the URI the scanner produced', async () => {
+			const provider = createRealProvider(['/workspace-root/docs/guide.md', '/workspace-root/docs/api.md']);
+			await provider.getChildren();
+
+			const found = provider.findNodeByUri(createMockUri('/workspace-root/docs/guide.md'));
+
+			expect(found).toBeDefined();
+			expect(found.label).toBe('Guide');
+		});
+
+		it('does not match a node when only the path agrees and the scheme differs', async () => {
+			// URI identity includes the scheme, so a file-scheme URI cannot match a virtual URI.
+			const provider = createRealProvider([
+				'vscode-vfs://github/owner/repo/docs/guide.md',
+				'vscode-vfs://github/owner/repo/docs/api.md',
+			]);
+			await provider.getChildren();
+
+			expect(provider.findNodeByUri(createMockUri('vscode-vfs://github/owner/repo/docs/guide.md'))).toBeDefined();
+			expect(provider.findNodeByUri(createMockUri('/owner/repo/docs/guide.md'))).toBeUndefined();
+		});
+
+		it('preserves a virtual file system scheme through to the tree item', async () => {
+			const provider = createRealProvider(['vscode-vfs://github/owner/repo/docs/guide.md']);
+
+			const roots = await provider.getChildren();
+
+			expect(roots[0].resourceUri.scheme).toBe('vscode-vfs');
+			expect(roots[0].command.arguments[0].scheme).toBe('vscode-vfs');
+		});
+
+		it('omits documents the workspace .gitignore excludes', async () => {
+			const provider = createRealProvider(
+				['/workspace-root/secret.md', '/workspace-root/public.md'],
+				'secret.md\n',
+			);
+
+			const roots = await provider.getChildren();
+
+			expect(roots.map((item: any) => item.label)).toEqual(['Public']);
 		});
 	});
 });

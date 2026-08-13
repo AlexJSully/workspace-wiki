@@ -5,7 +5,8 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
 ## Test Types
 
 - **Unit Tests**: Test individual functions and modules (Jest).
-- **E2E/Integration Tests**: Validate extension behavior in a running VS Code instance (`@vscode/test-electron`).
+- **Desktop E2E Tests**: Validate extension behavior in a running VS Code instance (`@vscode/test-electron`).
+- **Web E2E Tests**: Validate extension behavior in a browser extension host (`@vscode/test-web`). This is the only place the extension runs in a browser, so a runtime web regression surfaces here rather than in the unit or desktop suites.
 
 ## Running Tests
 
@@ -15,11 +16,21 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
     npm run test:jest
     ```
 
-- **E2E tests:**
+- **Desktop E2E tests:**
 
     ```sh
     npm run test:extension
     ```
+
+- **Web E2E tests:**
+
+    ```sh
+    npm run test:web
+    ```
+
+    Runs headless Chromium against the [`example`](../../example/README.md) workspace. To open the same environment interactively, run `npm run run-in-browser`.
+
+    Both scripts download a VS Code build on first use, roughly 53 MB, into `.vscode-test-web`. `npm run validate` includes the web suite, so it carries that cost too.
 
 - **Watch mode:**
 
@@ -36,7 +47,8 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
 ## Test Locations
 
 - Unit tests: `src/**/*.test.ts`
-- E2E tests: `src/**/*.e2e.test.ts`
+- Desktop E2E tests: `src/**/*.e2e.test.ts`
+- Web E2E tests: [`src/test/web/index.ts`](../../src/test/web/index.ts), driven by the runner in [`src/test/web/runner.ts`](../../src/test/web/runner.ts)
 - Test utilities: `src/test/`
 
 ## Jest Types in TypeScript Tests
@@ -55,6 +67,7 @@ available via the root `tsconfig.json` `types` entry, so tests can use
 **Scanner Module Tests:**
 
 - [`src/scanner/workspaceScanner.test.ts`](../../src/scanner/workspaceScanner.test.ts): Tests for workspace file scanning and filtering
+- [`src/scanner/gitignore.test.ts`](../../src/scanner/gitignore.test.ts): Tests for `.gitignore` negation, parent exclusion, anchoring, nested overrides, multi-root isolation, and virtual file system schemes
 
 **Extension Tests:**
 
@@ -63,6 +76,7 @@ available via the root `tsconfig.json` `types` entry, so tests can use
 **E2E Tests:**
 
 - [`src/extension.e2e.test.ts`](../../src/extension.e2e.test.ts): End-to-end tests for extension behavior in VS Code
+- [`src/test/web/index.ts`](../../src/test/web/index.ts): Web extension host smoke tests, executed through the lightweight runner in [`src/test/web/runner.ts`](../../src/test/web/runner.ts)
 
 ## Example Directory for Testing
 
@@ -101,17 +115,21 @@ test('Workspace Wiki tree appears', async () => {
 ```mermaid
 sequenceDiagram
     accTitle: Test Execution Flow
-    accDescr: Shows the two test execution paths - running npm run test:jest launches Jest for unit tests, and npm run test:extension launches a VS Code instance for E2E tests.
+    accDescr: Shows the three test execution paths - npm run test:jest runs Jest unit tests, npm run test:extension runs desktop extension-host tests, and npm run test:web runs browser extension-host tests.
     participant Dev as Developer
     participant CLI as Command Line
     participant Jest as Jest Runner
-    participant VSCode as VS Code Test Runner
+    participant VSCodeDesktop as VS Code Desktop Test Runner
+    participant VSCodeWeb as VS Code Web Test Runner
     Dev->>CLI: Run npm run test:jest
     CLI->>Jest: Start unit tests
     Jest-->>CLI: Test results
     Dev->>CLI: Run npm run test:extension
-    CLI->>VSCode: Launch VS Code test instance
-    VSCode-->>CLI: E2E test results
+    CLI->>VSCodeDesktop: Launch desktop extension host
+    VSCodeDesktop-->>CLI: Desktop E2E results
+    Dev->>CLI: Run npm run test:web
+    CLI->>VSCodeWeb: Launch browser extension host
+    VSCodeWeb-->>CLI: Web E2E results
 ```
 
-This diagram shows the flow for running both unit and E2E tests.
+This diagram shows the flow for running unit, desktop E2E, and web E2E tests.

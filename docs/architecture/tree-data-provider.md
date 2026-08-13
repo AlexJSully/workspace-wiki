@@ -15,19 +15,18 @@ The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tr
     - Folders (displayed by their own normalized name; an `index.md` appears as a child file, not as the folder node)
     - Files inside folders (alphabetical, with `README.md` at top)
 - Normalizes file names to human-friendly titles.
-- Handles cross-platform path compatibility by normalizing path separators
+- Addresses nodes by URI, so the tree behaves the same on local, remote, and virtual file systems
 - Supports sync functionality with active editor
-- Provides efficient file path lookups via node mapping
+- Provides efficient URI lookups via node mapping
 - Handles tree view enhancements (collapse all, inline actions)
 
-## Path Handling
+## Path and identity handling
 
-The tree builder includes robust path handling for cross-platform compatibility:
+Structure comes from `uri.path`, which is always forward-slash separated whatever the platform, so no separator normalization is needed. From it the builder derives the common base directory shared by every discovered file and slices each path against that base to place nodes.
 
-- **Path Normalization**: All file paths are normalized to use forward slashes (`/`) regardless of platform
-- **Common Base Path Calculation**: Automatically determines shared directory structure
-- **Windows Compatibility**: Converts backslashes (`\`) to forward slashes before processing
-- **Mixed Path Support**: Handles scenarios where URIs contain different path separator styles
+Every node carries a `uri`, folders included. A folder's URI is derived from a child file's URI by truncating the path, which preserves the scheme and authority: on a virtual workspace a folder node addresses a real location rather than a fabricated `file:` path. That URI is what `resourceUri` is set to, so VS Code resolves folder icons against the actual file system provider.
+
+`nodeMap` is keyed by `uri.toString()`. A URI string is exact and carries the scheme, so lookups need no path normalization or fallback scan, and two files with the same path under different schemes cannot collide. The `path` field on a node is a display value relative to the common base and is never used for identity.
 
 ## Key Methods
 
@@ -35,7 +34,7 @@ The tree builder includes robust path handling for cross-platform compatibility:
 - `getChildren()` - Returns child nodes for tree expansion
 - `getParent()` - Returns parent node for sync and reveal functionality
 - `createTreeItem()` - Creates tree items with proper commands and icons
-- `findNodeByPath()` - Efficient file path lookups for sync module
+- `findNodeByUri()` - Node lookup by URI for the sync module
 - `refresh()` - Triggers tree data change event; node map is cleared and rebuilt lazily on next `getChildren()` call
 
 ## Testing
@@ -50,7 +49,7 @@ The tree builder includes robust path handling for cross-platform compatibility:
 - Tree building with various folder structures
 - Title normalization including acronym handling
 - File and folder sorting behaviors
-- Node mapping and path lookups
+- Node mapping and URI lookups
 - Tree refresh and state management
 - Edge cases and error handling
 

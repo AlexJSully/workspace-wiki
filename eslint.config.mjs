@@ -33,4 +33,19 @@ export default [
 			semi: 'warn',
 		},
 	},
+	{
+		// Node globals are invisible to both the browser build and tsc, which keeps `node` in
+		// `types` for the tests. A Node import is caught by the browser build instead.
+		files: ['src/**/*.ts'],
+		ignores: ['src/**/*.test.ts', 'src/test/**/*.ts'],
+		rules: {
+			'no-restricted-globals': [
+				'error',
+				{ name: 'Buffer', message: 'Not defined in the web extension host. Use TextDecoder/TextEncoder.' },
+				{ name: 'process', message: 'Not defined in the web extension host.' },
+				{ name: '__dirname', message: 'Not defined in the web extension host.' },
+				{ name: '__filename', message: 'Not defined in the web extension host.' },
+			],
+		},
+	},
 ];

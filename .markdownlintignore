@@ -73,6 +73,7 @@ test-results/
 
 # IDE and editor files
 .vscode-test
+.vscode-test-web
 !.vscode/extensions.json
 !.vscode/launch.json
 !.vscode/settings.json
@@ -106,3 +107,8 @@ typings/
 *credential*
 *password*
 *secret*
+
+# Fixtures whose exact bytes are the point
+example/front-matter-test/byte-order-mark.md
+example/front-matter-test/crlf-line-endings.md
+example/front-matter-test/tab-indented.md

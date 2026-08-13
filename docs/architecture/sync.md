@@ -43,9 +43,9 @@ const revealActiveFile = () => {
 	if (!activeEditor) return;
 
 	// Check if file is supported
-	const activeFilePath = activeEditor.document.uri.fsPath;
+	const activeUri = activeEditor.document.uri;
 	const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'txt']);
-	const fileExt = activeFilePath.split('.').pop()?.toLowerCase();
+	const fileExt = getFileExtension(activeUri.path);
 
 	if (!fileExt || !supportedExtensions.includes(fileExt)) return;
 
@@ -63,15 +63,15 @@ const revealActiveFile = () => {
 The sync functionality requires the `TreeDataProvider` to implement:
 
 - `getParent()` method for tree navigation
-- `findNodeByPath()` method for efficient lookups
-- Node mapping for O(1) path resolution
+- `findNodeByUri()` method for lookups
+- Node mapping keyed by URI string for O(1) resolution
 
 ## Edge Cases
 
 - Only reveals files that match `supportedExtensions`
 - Respects `excludeGlobs` and `.gitignore` patterns
 - Tree view must be visible for revelation to work
-- Handles path normalization for cross-platform compatibility
+- Matches the active editor by URI, so a file resolves the same on local, remote, and virtual file systems
 
 See also: [Tree Data Provider](./tree-data-provider.md), [Settings](./settings.md)
 
@@ -80,7 +80,7 @@ See also: [Tree Data Provider](./tree-data-provider.md), [Settings](./settings.m
 ```mermaid
 sequenceDiagram
 	accTitle: Sync Module Active File Revelation Sequence
-	accDescr: Shows the sequence for auto-revealing the active file in the tree - the editor change listener reads autoReveal and autoRevealDelay settings, optionally waits, looks up the node by path, and calls treeView.reveal if the tree is visible.
+	accDescr: Shows the sequence for auto-revealing the active file in the tree - the editor change listener reads autoReveal and autoRevealDelay settings, optionally waits, looks up the node by URI, and calls treeView.reveal if the tree is visible.
 	participant VSCode as VS Code Editor
 	participant Listener as Editor Change Listener
 	participant Config as Config Manager
@@ -96,7 +96,7 @@ sequenceDiagram
 		alt autoRevealDelay > 0
 			Listener->>Listener: Wait (setTimeout)
 		end
-		Listener->>Tree: findNodeByPath
+		Listener->>Tree: findNodeByUri
 		alt Node Found & Tree Visible
 			Listener->>View: reveal(node)
 			View->>VSCode: Highlight & Expand

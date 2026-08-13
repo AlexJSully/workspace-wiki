@@ -1,25 +1,23 @@
-import * as vscode from 'vscode';
+import type { WorkspaceLike } from '@types';
+import type * as vscode from 'vscode';
+import { URI } from 'vscode-uri';
 
 /**
- * Creates a properly typed mock vscode.Uri object for testing
+ * Builds a URI for testing using the same implementation VS Code itself uses.
  *
- * @param fsPath File system path for the mock URI
- * @returns Mock vscode.Uri object with all required methods
+ * @param pathOrUri An absolute path (treated as `file:`) or a full URI string such as
+ * `vscode-vfs://github/owner/repo/docs/a.md`
+ * @returns The URI
  */
-export function createMockUri(fsPath: string): vscode.Uri {
-	const uri: vscode.Uri = {
-		fsPath,
-		scheme: 'file',
-		authority: '',
-		path: fsPath,
-		query: '',
-		fragment: '',
-		with: () => uri,
-		toJSON: () => ({ fsPath, scheme: 'file', authority: '', path: fsPath, query: '', fragment: '' }),
-	};
-	return uri;
+export function createMockUri(pathOrUri: string): vscode.Uri {
+	// A single letter before the colon is a Windows drive, not a scheme (`C:\docs` vs `file:/docs`).
+	const isWindowsPath = /^[a-zA-Z]:[\\/]/.test(pathOrUri);
+	const hasScheme = !isWindowsPath && /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(pathOrUri);
+
+	return (hasScheme ? URI.parse(pathOrUri) : URI.file(pathOrUri)) as vscode.Uri;
 }
 
+/** Settings a mock workspace should report. */
 export interface MockWorkspaceConfig {
 	showHiddenFiles?: boolean;
 	showIgnoredFiles?: boolean;
@@ -29,142 +27,92 @@ export interface MockWorkspaceConfig {
 	defaultOpenMode?: string;
 	directorySort?: string;
 	acronymCasing?: string[];
+	openWith?: Record<string, string>;
 }
 
+/** File-system and search behaviour a mock workspace should present. */
 export interface MockWorkspaceFiles {
-	files?: vscode.Uri[];
-	pattern?: string;
-	exclude?: string;
+	/**
+	 * URIs returned by `findFiles`, or a function for per-pattern control. The function receives the
+	 * pattern already flattened to a string, so a `RelativePattern` cannot break a `String` predicate.
+	 */
+	files?: vscode.Uri[] | ((pattern: string, exclude?: vscode.GlobPattern | null) => vscode.Uri[]);
+	/** File contents keyed by `uri.toString()`; anything absent reads as missing. */
+	contents?: Record<string, string>;
+	/** Workspace roots; defaults to a single `/workspace-root`. */
+	folders?: vscode.Uri[];
 }
+
+/** The default document set used when a test does not care which files exist. */
+const DEFAULT_FILES = [
+	'/workspace-root/.github/agents.md',
+	'/workspace-root/docs/visible.md',
+	'/workspace-root/.env',
+	'/workspace-root/visible.txt',
+];
 
 /**
- * Creates a mock workspace with configurable settings and file list
+ * Creates a mock workspace satisfying the whole `WorkspaceLike` seam.
+ *
+ * The single construction point for that seam in tests, so a new member on the interface is
+ * supplied in one place.
  *
  * @param config Configuration settings for the mock workspace
- * @param files File list and pattern matching configuration
- * @returns Mock workspace object compatible with WorkspaceLike interface
+ * @param files File list, file contents, and workspace roots
+ * @returns A mock workspace
  */
-export function createMockWorkspace(config: MockWorkspaceConfig = {}, files: MockWorkspaceFiles = {}) {
-	const defaultFiles = [
-		createMockUri('/workspace-root/.github/agents.md'),
-		createMockUri('/workspace-root/docs/visible.md'),
-		createMockUri('/workspace-root/.env'),
-		createMockUri('/workspace-root/visible.txt'),
-	];
+export function createMockWorkspace(config: MockWorkspaceConfig = {}, files: MockWorkspaceFiles = {}): WorkspaceLike {
+	const folders = (files.folders ?? [createMockUri('/workspace-root')]).map((uri) => ({ uri }));
+	const contents = files.contents ?? {};
+
+	const resolveFiles = (pattern: vscode.GlobPattern, exclude?: vscode.GlobPattern | null): vscode.Uri[] => {
+		if (typeof files.files === 'function') {
+			const asString = typeof pattern === 'string' ? pattern : pattern.pattern;
+			return files.files(asString, exclude);
+		}
+		return files.files ?? DEFAULT_FILES.map(createMockUri);
+	};
 
 	return {
-		findFiles: async (_pattern: string, _exclude?: string) => files.files || defaultFiles,
-		getConfiguration: (_section: string) => ({
-			get: (key: string) => {
-				switch (key) {
-					case 'showHiddenFiles':
-						return config.showHiddenFiles !== undefined ? config.showHiddenFiles : false;
-					case 'showIgnoredFiles':
-						return config.showIgnoredFiles !== undefined ? config.showIgnoredFiles : false;
-					case 'excludeGlobs':
-						return config.excludeGlobs || [];
-					case 'supportedExtensions':
-						return config.supportedExtensions || ['md', 'txt'];
-					case 'maxSearchDepth':
-						return config.maxSearchDepth !== undefined ? config.maxSearchDepth : 10;
-					case 'defaultOpenMode':
-						return config.defaultOpenMode || 'preview';
-					case 'directorySort':
-						return config.directorySort || 'files-first';
-					case 'acronymCasing':
-						return (
-							config.acronymCasing || [
-								'HTML',
-								'CSS',
-								'JS',
-								'TS',
-								'API',
-								'URL',
-								'JSON',
-								'XML',
-								'HTTP',
-								'HTTPS',
-								'REST',
-								'SQL',
-								'CSV',
-								'FHIR',
-							]
-						);
-					default:
-						return undefined;
+		findFiles: async (pattern, exclude) => resolveFiles(pattern, exclude),
+		fs: {
+			readFile: async (uri: vscode.Uri) => {
+				const content = contents[uri.toString()];
+				if (content === undefined) {
+					const error: any = new Error(`File not found: ${uri.toString()}`);
+					error.code = 'FileNotFound';
+					throw error;
 				}
+				return new TextEncoder().encode(content);
 			},
+		},
+		workspaceFolders: folders,
+		asRelativePath: (pathOrUri, _includeWorkspaceFolder) => {
+			const path = typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.path;
+			// Longest root first, so a nested workspace folder wins over its parent.
+			const roots = folders.map((folder) => folder.uri.path).sort((a, b) => b.length - a.length);
+			for (const root of roots) {
+				if (path === root || path.startsWith(`${root}/`)) {
+					return path.slice(root.length).replace(/^\//, '');
+				}
+			}
+			return path;
+		},
+		// Unset settings return undefined rather than a stand-in default, so production fallbacks
+		// are the ones under test. A mock that supplied its own defaults would silently mask them.
+		getConfiguration: (_section: string) => ({
+			get: (key: string) => config[key as keyof MockWorkspaceConfig],
 		}),
 	};
 }
 
 /**
- * Mock VS Code API for testing
- */
-export const commands = {
-	executeCommand: jest.fn(),
-	registerCommand: jest.fn(),
-};
-
-export const window = {
-	createTreeView: jest.fn(() => ({
-		reveal: jest.fn(),
-		dispose: jest.fn(),
-	})),
-	showInformationMessage: jest.fn(),
-	showErrorMessage: jest.fn(),
-	activeTextEditor: undefined,
-	onDidChangeActiveTextEditor: jest.fn(),
-};
-
-export const workspace = {
-	findFiles: jest.fn(),
-	getConfiguration: jest.fn(() => ({
-		get: jest.fn(),
-	})),
-	workspaceFolders: [{ uri: { fsPath: '/workspace-root' } }],
-	onDidChangeConfiguration: jest.fn(),
-};
-
-export const TreeItemCollapsibleState = {
-	None: 0,
-	Collapsed: 1,
-	Expanded: 2,
-};
-
-export const TreeItem = class {
-	constructor(
-		public label: string,
-		public collapsibleState?: number,
-	) {}
-};
-
-export const Uri = {
-	file: jest.fn((path: string) => ({ fsPath: path, scheme: 'file', path })),
-};
-
-export const EventEmitter = class {
-	private listeners: any[] = [];
-
-	fire(data: any) {
-		this.listeners.forEach((listener) => listener(data));
-	}
-
-	get event() {
-		return (listener: any) => {
-			this.listeners.push(listener);
-			return { dispose: () => {} };
-		};
-	}
-};
-
-/**
- * Creates a mock workspace specifically for hidden file testing
+ * Creates a mock workspace for hidden-file tests.
  *
- * @param showHiddenFiles Whether to show hidden files
- * @returns Mock workspace configured for hidden file tests
+ * @param showHiddenFiles Whether hidden files should be reported
+ * @returns A mock workspace configured for hidden file tests
  */
-export function createHiddenFilesMockWorkspace(showHiddenFiles: boolean) {
+export function createHiddenFilesMockWorkspace(showHiddenFiles: boolean): WorkspaceLike {
 	return createMockWorkspace(
 		{
 			showHiddenFiles,
@@ -172,27 +120,22 @@ export function createHiddenFilesMockWorkspace(showHiddenFiles: boolean) {
 			supportedExtensions: ['md', 'txt'],
 		},
 		{
-			files: [
-				createMockUri('/workspace-root/.github/agents.md'),
-				createMockUri('/workspace-root/docs/visible.md'),
-				createMockUri('/workspace-root/.env'),
-				createMockUri('/workspace-root/visible.txt'),
-			],
+			files: DEFAULT_FILES.map(createMockUri),
 		},
 	);
 }
 
 /**
- * Creates a mock workspace for basic file discovery testing
+ * Creates a mock workspace for basic file-discovery tests.
  *
  * @param supportedExtensions Array of supported file extensions
  * @param excludeGlobs Array of exclude patterns
- * @returns Mock workspace configured for file discovery tests
+ * @returns A mock workspace configured for file discovery tests
  */
 export function createFileDiscoveryMockWorkspace(
 	supportedExtensions: string[] = ['md', 'txt'],
 	excludeGlobs: string[] = [],
-) {
+): WorkspaceLike {
 	return createMockWorkspace({
 		supportedExtensions,
 		excludeGlobs,

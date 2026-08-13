@@ -1,8 +1,17 @@
 import { handleFileClick, openInEditor, openInPreview } from '@controllers';
 import { WorkspaceWikiTreeProvider } from '@tree';
-import { syncOpenWithToSupportedExtensions } from '@utils';
+import { getFileExtension, syncOpenWithToSupportedExtensions } from '@utils';
 import * as vscode from 'vscode';
 
+/**
+ * Starts the extension.
+ *
+ * Registers the Workspace Wiki view and its four commands, then wires the listeners that keep the
+ * tree current: active-editor changes drive auto-reveal, and any `workspaceWiki` setting change
+ * re-syncs `openWith` and refreshes the tree. Every disposable is pushed onto the context.
+ *
+ * @param context The extension context whose subscriptions receive each disposable
+ */
 export function activate(context: vscode.ExtensionContext) {
 	// Set context for when the extension is active
 	vscode.commands.executeCommand('setContext', 'workspaceWiki:enabled', true);
@@ -39,11 +48,11 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		const activeFilePath = activeEditor.document.uri.fsPath;
+		const activeUri = activeEditor.document.uri;
 
 		// Check if this file is supported by our extension
 		const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'txt']) as string[];
-		const fileExt = activeFilePath.split('.').pop()?.toLowerCase();
+		const fileExt = getFileExtension(activeUri.path);
 
 		if (!fileExt || !supportedExtensions.includes(fileExt)) {
 			return;
@@ -55,7 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 
 		const doReveal = () => {
-			const node = treeProvider.findNodeByPath(activeFilePath);
+			const node = treeProvider.findNodeByUri(activeUri);
 			if (node && treeView.visible) {
 				Promise.resolve(
 					treeView.reveal(node, {
@@ -143,4 +152,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(initialTimeoutDisposable);
 }
 
+/**
+ * Shuts the extension down.
+ *
+ * Nothing to do: every disposable was registered on the context, which VS Code disposes itself.
+ */
 export function deactivate() {}

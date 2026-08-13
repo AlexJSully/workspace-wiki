@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { createMockUri } from '../test/mocks';
 import {
 	extractFrontMatter,
 	extractFrontMatterTitle,
@@ -39,17 +40,6 @@ tags: ["accessibility", "a11y"]
 This document provides accessibility guidance.`,
 				expectedTitle: 'Accessibility Best Practices',
 				expectedDescription: 'Guidelines for creating accessible software',
-			},
-			{
-				description: 'fall back to Node fs when VS Code APIs are unavailable',
-				fileName: 'test-node-fallback.md',
-				content: `---
-title: "Node Fallback"
-description: "Read via Node fs"
----
-Content.`,
-				expectedTitle: 'Node Fallback',
-				expectedDescription: 'Read via Node fs',
 			},
 			{
 				description: 'extract only title when description is missing',
@@ -102,19 +92,77 @@ Content.`,
 				expectedTitle: 'Whitespace Title',
 				expectedDescription: 'Whitespace Description',
 			},
+			{
+				description: 'parse front matter behind a UTF-8 byte order mark',
+				fileName: 'test-bom-fm.md',
+				content: '﻿---\ntitle: "BOM Title"\ndescription: "BOM Description"\n---\nContent.',
+				expectedTitle: 'BOM Title',
+				expectedDescription: 'BOM Description',
+			},
+			{
+				description: 'parse front matter with CRLF line endings',
+				fileName: 'test-crlf-fm.md',
+				content: '---\r\ntitle: "CRLF Title"\r\ndescription: "CRLF Description"\r\n---\r\nContent.',
+				expectedTitle: 'CRLF Title',
+				expectedDescription: 'CRLF Description',
+			},
+			{
+				description: 'return nulls for an empty front matter block',
+				fileName: 'test-empty-fm.md',
+				content: '---\n\n---\nContent.',
+				expectedTitle: null,
+				expectedDescription: null,
+			},
+			{
+				description: 'read only the leading block when the body also contains a delimiter',
+				fileName: 'test-delimiter-in-body.md',
+				content: '---\ntitle: "Real Title"\n---\nContent.\n---\nNot front matter.',
+				expectedTitle: 'Real Title',
+				expectedDescription: null,
+			},
 		])('should $description', async ({ fileName, content, expectedTitle, expectedDescription }) => {
 			const testFile = path.join(testFilesDir, fileName);
 			fs.writeFileSync(testFile, content);
+			const uri = createMockUri(testFile);
 
-			const result = await extractFrontMatter(testFile);
+			const result = await extractFrontMatter(uri);
 			expect(result.title).toBe(expectedTitle);
 			expect(result.description).toBe(expectedDescription);
 
 			fs.unlinkSync(testFile);
 		});
 
+		it('should read through the VS Code file system API rather than Node fs', async () => {
+			// A Node fs read would produce the same title here, so the parsed value proves nothing.
+			// Asserting the seam is what catches a reintroduced Node dependency.
+			const vscode = require('vscode');
+			const testFile = path.join(testFilesDir, 'test-vscode-fs-read.md');
+			fs.writeFileSync(testFile, '---\ntitle: "Read Via Workspace Fs"\n---\nContent.');
+			const uri = createMockUri(testFile);
+
+			const result = await extractFrontMatter(uri);
+
+			expect(result.title).toBe('Read Via Workspace Fs');
+			expect(vscode.workspace.fs.readFile).toHaveBeenCalledWith(uri);
+
+			fs.unlinkSync(testFile);
+		});
+
+		it('should not read a file it will not parse', async () => {
+			const vscode = require('vscode');
+			const testFile = path.join(testFilesDir, 'test-skip-read.txt');
+			fs.writeFileSync(testFile, '---\ntitle: "Should Not Parse"\n---\nText.');
+
+			const result = await extractFrontMatter(createMockUri(testFile));
+
+			expect(result).toEqual({ title: null, description: null });
+			expect(vscode.workspace.fs.readFile).not.toHaveBeenCalled();
+
+			fs.unlinkSync(testFile);
+		});
+
 		it('should handle empty or invalid file paths', async () => {
-			const result1 = await extractFrontMatter('');
+			const result1 = await extractFrontMatter('' as any);
 			const result2 = await extractFrontMatter(null as any);
 			const result3 = await extractFrontMatter(undefined as any);
 
@@ -126,10 +174,27 @@ Content.`,
 		it('should handle non-existent files gracefully', async () => {
 			const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 			const nonExistentFile = path.join(testFilesDir, 'does-not-exist.md');
-			const result = await extractFrontMatter(nonExistentFile);
+			const result = await extractFrontMatter(createMockUri(nonExistentFile));
 			expect(result).toEqual({ title: null, description: null });
 			expect(consoleErrorSpy).not.toHaveBeenCalled();
 			consoleErrorSpy.mockRestore();
+		});
+
+		it('should report unparseable front matter and fall back to nulls', async () => {
+			// YAML forbids tab characters in indentation, so this block does not parse. The file
+			// keeps working and falls back to its filename-derived title, and the parse failure is
+			// reported rather than swallowed.
+			const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+			const testFile = path.join(testFilesDir, 'test-tab-indent-fm.md');
+			fs.writeFileSync(testFile, '---\ntitle: A\n\tbad: B\n---\nContent.');
+
+			const result = await extractFrontMatter(createMockUri(testFile));
+
+			expect(result).toEqual({ title: null, description: null });
+			expect(consoleErrorSpy).toHaveBeenCalled();
+
+			consoleErrorSpy.mockRestore();
+			fs.unlinkSync(testFile);
 		});
 	});
 
@@ -161,7 +226,7 @@ description: "Guidance for creating more accessible code"
 This document provides guidance on creating accessible software.`;
 			fs.writeFileSync(testFile, content);
 
-			const title = await extractFrontMatterTitle(testFile);
+			const title = await extractFrontMatterTitle(createMockUri(testFile));
 			expect(title).toBe('Introduction to Accessibility');
 
 			fs.unlinkSync(testFile);
@@ -174,7 +239,7 @@ This document provides guidance on creating accessible software.`;
 This is just regular markdown without front matter.`;
 			fs.writeFileSync(testFile, content);
 
-			const title = await extractFrontMatterTitle(testFile);
+			const title = await extractFrontMatterTitle(createMockUri(testFile));
 			expect(title).toBeNull();
 
 			fs.unlinkSync(testFile);
@@ -189,7 +254,7 @@ tags: ["test"]
 # Content`;
 			fs.writeFileSync(testFile, content);
 
-			const title = await extractFrontMatterTitle(testFile);
+			const title = await extractFrontMatterTitle(createMockUri(testFile));
 			expect(title).toBeNull();
 
 			fs.unlinkSync(testFile);
@@ -203,14 +268,14 @@ title: "Should Not Parse"
 This is a text file`;
 			fs.writeFileSync(testFile, content);
 
-			const title = await extractFrontMatterTitle(testFile);
+			const title = await extractFrontMatterTitle(createMockUri(testFile));
 			expect(title).toBeNull();
 
 			fs.unlinkSync(testFile);
 		});
 
 		it('should handle empty or invalid file paths', async () => {
-			expect(await extractFrontMatterTitle('')).toBeNull();
+			expect(await extractFrontMatterTitle('' as any)).toBeNull();
 			expect(await extractFrontMatterTitle(null as any)).toBeNull();
 			expect(await extractFrontMatterTitle(undefined as any)).toBeNull();
 		});
@@ -218,7 +283,7 @@ This is a text file`;
 		it('should handle non-existent files gracefully', async () => {
 			const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 			const nonExistentFile = path.join(testFilesDir, 'does-not-exist.md');
-			const title = await extractFrontMatterTitle(nonExistentFile);
+			const title = await extractFrontMatterTitle(createMockUri(nonExistentFile));
 			expect(title).toBeNull();
 			expect(consoleErrorSpy).not.toHaveBeenCalled();
 			consoleErrorSpy.mockRestore();
@@ -232,7 +297,7 @@ title: "  Whitespace Title  "
 # Content`;
 			fs.writeFileSync(testFile, content);
 
-			const title = await extractFrontMatterTitle(testFile);
+			const title = await extractFrontMatterTitle(createMockUri(testFile));
 			expect(title).toBe('Whitespace Title');
 
 			fs.unlinkSync(testFile);

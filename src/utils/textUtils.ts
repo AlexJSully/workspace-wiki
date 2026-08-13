@@ -1,5 +1,4 @@
-import * as fs from 'fs';
-import matter from 'gray-matter';
+import { load } from 'js-yaml';
 import * as vscode from 'vscode';
 
 /** Front matter data extracted from a markdown file */
@@ -9,57 +8,82 @@ export interface FrontMatterData {
 }
 
 /**
- * Extracts title and description from YAML front matter in a markdown file
+ * Matches a leading YAML front matter block, tolerating a UTF-8 BOM and CRLF line endings.
+ * Capture group 1 is the raw YAML between the delimiters.
+ */
+const FRONT_MATTER_BLOCK = /^﻿?---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/;
+
+/** File-system error codes meaning "the file simply is not there", which is not worth logging. */
+const MISSING_FILE_CODES = new Set(['FileNotFound', 'ENOENT']);
+
+/**
+ * Splits a leading YAML front matter block off a document and parses it.
  *
- * @param filePath - The path to the markdown file
+ * @param text The full document text
+ * @returns The parsed front matter mapping, or an empty object when there is no block, the block is
+ * blank, or it does not parse to an object
+ */
+function parseFrontMatter(text: string): Record<string, unknown> {
+	const match = FRONT_MATTER_BLOCK.exec(text);
+
+	// Test for emptiness on a trimmed copy but parse the original, so block indentation survives.
+	if (!match || !match[1].trim()) {
+		return {};
+	}
+
+	const parsed = load(match[1]);
+	return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+}
+
+/**
+ * Reads a front matter field, accepting only non-empty strings.
+ *
+ * @param data The parsed front matter mapping
+ * @param key The field to read
+ * @returns The trimmed value, or null when absent, non-string, or blank
+ */
+function readStringField(data: Record<string, unknown>, key: string): string | null {
+	const value = data[key];
+	return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+/**
+ * Extracts title and description from YAML front matter in a markdown file.
+ *
+ * Reads through `vscode.workspace.fs`, so it works against any file system provider — local disk,
+ * remote, or a virtual workspace such as `vscode-vfs://` on VS Code Web.
+ *
+ * @param uri - The URI of the markdown file
  * @returns Promise resolving to the `title` and `description` from front matter, or nulls when absent, unreadable, or not a `.md`/`.markdown` file
  */
-export async function extractFrontMatter(filePath: string): Promise<FrontMatterData> {
-	if (!filePath || typeof filePath !== 'string') {
+export async function extractFrontMatter(uri: vscode.Uri): Promise<FrontMatterData> {
+	if (!uri || typeof uri.path !== 'string') {
 		return { title: null, description: null };
 	}
 
 	try {
 		// Only process markdown files
-		const ext = getFileExtension(filePath);
-		if (!['md', 'markdown'].includes(ext.toLowerCase())) {
+		const ext = getFileExtension(uri.path);
+		if (!['md', 'markdown'].includes(ext)) {
 			return { title: null, description: null };
 		}
 
-		// Read file content using VS Code FS when available, otherwise fall back to Node.
-		let content = '';
-		const canUseVscodeFs =
-			typeof vscode.workspace?.fs?.readFile === 'function' && typeof vscode.Uri?.file === 'function';
+		const contentBytes = await vscode.workspace.fs.readFile(uri);
+		const content = new TextDecoder().decode(contentBytes);
 
-		if (canUseVscodeFs) {
-			const contentBytes = await vscode.workspace.fs.readFile(vscode.Uri.file(filePath));
-			content = Buffer.from(contentBytes).toString('utf8');
-		} else {
-			content = await fs.promises.readFile(filePath, 'utf8');
-		}
+		const data = parseFrontMatter(content);
 
-		// Parse front matter
-		const parsed = matter(content);
-
-		// Extract title and description
-		const title =
-			parsed.data && typeof parsed.data.title === 'string' && parsed.data.title.trim()
-				? parsed.data.title.trim()
-				: null;
-
-		const description =
-			parsed.data && typeof parsed.data.description === 'string' && parsed.data.description.trim()
-				? parsed.data.description.trim()
-				: null;
-
-		return { title, description };
+		return {
+			title: readStringField(data, 'title'),
+			description: readStringField(data, 'description'),
+		};
 	} catch (error: any) {
-		if (error?.code === 'ENOENT') {
+		if (MISSING_FILE_CODES.has(error?.code)) {
 			return { title: null, description: null };
 		}
 
 		// Log at error level to aid troubleshooting without disrupting extension behavior
-		console.error('[WorkspaceWiki] Failed to extract front matter for file:', filePath, error);
+		console.error('[WorkspaceWiki] Failed to extract front matter for file:', uri.toString(), error);
 		return { title: null, description: null };
 	}
 }
@@ -67,11 +91,11 @@ export async function extractFrontMatter(filePath: string): Promise<FrontMatterD
 /**
  * Extracts title from YAML front matter in a markdown file
  *
- * @param filePath - The path to the markdown file
+ * @param uri - The URI of the markdown file
  * @returns Promise resolving to the front matter `title`, or null when absent
  */
-export async function extractFrontMatterTitle(filePath: string): Promise<string | null> {
-	const frontMatter = await extractFrontMatter(filePath);
+export async function extractFrontMatterTitle(uri: vscode.Uri): Promise<string | null> {
+	const frontMatter = await extractFrontMatter(uri);
 	return frontMatter.title;
 }
 
@@ -139,6 +163,9 @@ export function normalizeTitle(fileName: string, acronyms: string[] = []): strin
 /**
  * Extracts file extension from a file name or path
  *
+ * The extension is looked for in the final path segment only, so a dotted directory name
+ * (`/docs.v2/README`) does not produce a spurious extension.
+ *
  * @param fileName The file name or path
  * @returns The lowercase extension without the dot, or `''` when there is none
  */
@@ -147,7 +174,8 @@ export function getFileExtension(fileName: string): string {
 		return '';
 	}
 
-	const match = fileName.match(/\.([^.]+)$/);
+	const baseName = fileName.split(/[/\\]/).pop() ?? '';
+	const match = baseName.match(/\.([^.]+)$/);
 	return match ? match[1].toLowerCase() : '';
 }
 

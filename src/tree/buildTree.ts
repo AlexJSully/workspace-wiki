@@ -1,5 +1,6 @@
 import type { TreeNode } from '@types';
 import { extractFrontMatter, normalizeTitle } from '@utils';
+import * as vscode from 'vscode';
 
 /**
  * Sorts tree nodes in place based on the directory sort setting (README nodes always rank first).
@@ -49,8 +50,6 @@ export function processNode(
 	directorySort: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first',
 ): void {
 	if (node.type === 'folder' && node.children) {
-		// Note: We keep the original folder name, index.md files are shown as children
-
 		// Sort children based on directory sort setting
 		sortNodes(node.children, directorySort);
 
@@ -63,13 +62,16 @@ export function processNode(
  * Builds the hierarchical tree from a flat list of file URIs, reading YAML front matter for titles
  * and applying ordering. Folders are named after their own path segment; `index.md` is a child file.
  *
- * @param uris The file URIs to arrange (each with an `fsPath`)
+ * Path structure comes from `uri.path`, which is always forward-slash separated and carries no
+ * scheme assumptions, so the tree is identical on local, remote, and virtual file systems.
+ *
+ * @param uris The file URIs to arrange
  * @param directorySort The sort mode for each level; defaults to `'files-first'`
  * @param acronyms Acronyms to preserve when normalizing titles; defaults to none
  * @returns Promise resolving to the root-level tree nodes
  */
 export async function buildTree(
-	uris: any[],
+	uris: vscode.Uri[],
 	directorySort: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first',
 	acronyms: string[] = [],
 ): Promise<TreeNode[]> {
@@ -80,18 +82,12 @@ export async function buildTree(
 	const tree: TreeNode[] = [];
 	const folders = new Map<string, TreeNode>();
 
-	// Normalize path separators for cross-platform compatibility
-	const normalizedUris = uris.map((uri) => ({
-		...uri,
-		fsPath: uri.fsPath.replace(/\\/g, '/'),
-	}));
-
 	// Extract front matter for all files in parallel for better performance
-	const frontMatterPromises = uris.map((uri) => extractFrontMatter(uri.fsPath));
+	const frontMatterPromises = uris.map((uri) => extractFrontMatter(uri));
 	const frontMatters = await Promise.all(frontMatterPromises);
 
 	// Find common base path (directories only, not including filenames)
-	const allPaths = normalizedUris.map((uri) => uri.fsPath.split('/').filter((part: string) => part));
+	const allPaths = uris.map((uri) => uri.path.split('/').filter((part: string) => part));
 
 	// Calculate common directory path only (exclude the filename)
 	const allDirectoryPaths = allPaths.map((path) => path.slice(0, -1)); // Remove filename from each path
@@ -111,8 +107,7 @@ export async function buildTree(
 	// First pass: collect all files and create folder structure
 	for (let i = 0; i < uris.length; i++) {
 		const originalUri = uris[i];
-		const normalizedUri = normalizedUris[i];
-		const pathParts = normalizedUri.fsPath.split('/').filter((part: string) => part);
+		const pathParts = originalUri.path.split('/').filter((part: string) => part);
 
 		// Make path relative to common base (but keep the directory structure)
 		const relativeParts = pathParts.slice(commonBase.length);
@@ -125,8 +120,8 @@ export async function buildTree(
 
 		// Build folder path using relative parts
 		let currentPath = '';
-		for (let i = 0; i < relativeParts.length - 1; i++) {
-			const folderName = relativeParts[i];
+		for (let depth = 0; depth < relativeParts.length - 1; depth++) {
+			const folderName = relativeParts[depth];
 			const parentPath = currentPath;
 			currentPath = currentPath ? `${currentPath}/${folderName}` : folderName;
 
@@ -136,6 +131,14 @@ export async function buildTree(
 					name: folderName,
 					title: normalizeTitle(folderName, acronyms),
 					path: currentPath,
+					// Derive the folder URI from the file's own URI so scheme and authority survive.
+					// The leading slash is restored explicitly: splitting on '/' dropped it, and a
+					// relative path here would produce an invalid URI on any scheme.
+					uri: originalUri.with({
+						path: `/${pathParts.slice(0, commonBase.length + depth + 1).join('/')}`,
+						query: '',
+						fragment: '',
+					}),
 					children: [],
 				};
 				folders.set(currentPath, folderNode);
@@ -159,7 +162,9 @@ export async function buildTree(
 			type: 'file',
 			name: relativeFileName,
 			title: displayTitle,
-			path: originalUri.fsPath,
+			// Display path, relative to the common base, so files and folders read consistently.
+			// Identity lives on `uri`, never on this string.
+			path: relativeParts.join('/'),
 			uri: originalUri,
 			isIndex: relativeFileName.toLowerCase() === 'index.md',
 			isReadme: relativeFileName.toLowerCase().startsWith('readme.'),

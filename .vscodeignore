@@ -1,8 +1,11 @@
 # Development files
 .vscode/**
+.claude/**
 .vscode-test
 .vscode-test/**
 **/.vscode-test.*
+.vscode-test-web
+.vscode-test-web/**
 src/**
 test/**
 tests/**
@@ -59,7 +62,6 @@ example/**
 # Source maps and TypeScript
 **/*.map
 **/*.ts
-!**/*.d.ts
 
 # Logs
 *.log
