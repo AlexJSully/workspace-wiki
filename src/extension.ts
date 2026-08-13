@@ -1,6 +1,6 @@
 import { handleFileClick, openInEditor, openInPreview } from '@controllers';
 import { WorkspaceWikiTreeProvider } from '@tree';
-import { getFileExtension, syncOpenWithToSupportedExtensions } from '@utils';
+import { getFileExtension, matchesGlobPattern, syncOpenWithToSupportedExtensions, toSearchGlob } from '@utils';
 import * as vscode from 'vscode';
 
 /**
@@ -50,11 +50,15 @@ export function activate(context: vscode.ExtensionContext) {
 
 		const activeUri = activeEditor.document.uri;
 
-		// Check if this file is supported by our extension
-		const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'txt']) as string[];
+		// Check if this file is supported by our extension, by extension or by include pattern
+		const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'mdx', 'txt']) as string[];
+		const includeGlobs = config.get('includeGlobs', []) as string[];
 		const fileExt = getFileExtension(activeUri.path);
 
-		if (!fileExt || !supportedExtensions.includes(fileExt)) {
+		const isSupportedExtension = !!fileExt && supportedExtensions.includes(fileExt);
+		const isIncludedByGlob = matchesGlobPattern(activeUri.path, includeGlobs.map(toSearchGlob));
+
+		if (!isSupportedExtension && !isIncludedByGlob) {
 			return;
 		}
 

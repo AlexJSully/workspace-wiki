@@ -4,6 +4,7 @@ import {
 	getDefaultOpenMode,
 	getDirectorySort,
 	getExcludePatterns,
+	getIncludeGlobs,
 	getMaxSearchDepth,
 	getOpenWithSettings,
 	getShowHiddenFiles,
@@ -74,7 +75,26 @@ describe('configUtils', () => {
 
 			const extensions = getSupportedExtensions();
 
-			expect(extensions).toEqual(['md', 'markdown', 'txt']);
+			expect(extensions).toEqual(['md', 'markdown', 'mdx', 'txt']);
+		});
+	});
+
+	describe('getIncludeGlobs', () => {
+		it('should return configured include globs', () => {
+			mockConfig.get.mockReturnValue(['doc.go', '*.guide.ts']);
+			mockVscode.workspace.getConfiguration.mockReturnValue(mockConfig);
+
+			const globs = getIncludeGlobs();
+
+			expect(globs).toEqual(['doc.go', '*.guide.ts']);
+			expect(mockConfig.get).toHaveBeenCalledWith('includeGlobs');
+		});
+
+		it('should return no globs when not configured', () => {
+			mockConfig.get.mockReturnValue(undefined);
+			mockVscode.workspace.getConfiguration.mockReturnValue(mockConfig);
+
+			expect(getIncludeGlobs()).toEqual([]);
 		});
 	});
 
@@ -218,6 +238,7 @@ describe('configUtils', () => {
 			expect(settings).toEqual({
 				md: 'markdown.showPreview',
 				markdown: 'markdown.showPreview',
+				mdx: 'markdown.showPreview',
 				txt: 'vscode.open',
 			});
 		});
@@ -379,7 +400,7 @@ describe('configUtils', () => {
 
 			expect(mockConfig.update).toHaveBeenCalledWith(
 				'supportedExtensions',
-				['md', 'markdown', 'txt', 'html'],
+				['md', 'markdown', 'mdx', 'txt', 'html'],
 				2, // vscode.ConfigurationTarget.Workspace
 			);
 		});
@@ -401,7 +422,7 @@ describe('configUtils', () => {
 
 			expect(mockConfig.update).toHaveBeenCalledWith(
 				'supportedExtensions',
-				['md', 'markdown', 'txt'],
+				['md', 'markdown', 'mdx', 'txt'],
 				2, // vscode.ConfigurationTarget.Workspace
 			);
 		});

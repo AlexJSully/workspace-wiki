@@ -144,6 +144,24 @@ export function matchesGlobPattern(filePath: string, patterns: string[]): boolea
 }
 
 /**
+ * Turns an include pattern into one that matches at any depth.
+ *
+ * A pattern naming a file and nothing else (`doc.go`) is anchored to the workspace root by both
+ * `findFiles` and `matchesGlobPattern`, which is never what naming a file means here, so it gains a
+ * `**\/` prefix. A pattern that already spells out path structure passes through unchanged.
+ *
+ * @param pattern The include pattern to normalize
+ * @returns The search glob, or `''` for invalid input
+ */
+export function toSearchGlob(pattern: string): string {
+	if (!pattern || typeof pattern !== 'string') {
+		return '';
+	}
+
+	return pattern.includes('/') ? pattern : `**/${pattern}`;
+}
+
+/**
  * Calculates the depth of a file path (number of directory levels)
  *
  * @param path The file path

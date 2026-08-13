@@ -2,6 +2,7 @@
  * End-to-End Test Suite for Workspace Wiki Extension
  * Tests real user interaction flows and workflows.
  */
+import { scanWorkspaceDocs } from '@scanner';
 import * as assert from 'node:assert';
 import * as vscode from 'vscode';
 
@@ -183,6 +184,31 @@ describe('File Type Support E2E', () => {
 		assert.ok(htmlFiles.length > 0, 'Expected .html fixtures in the example workspace');
 	});
 
+	it('should discover MDX documents', async () => {
+		const mdxFiles = await vscode.workspace.findFiles('**/*.mdx', null, 50);
+
+		assert.ok(mdxFiles.length > 0, 'Expected .mdx fixtures in the example workspace');
+	});
+
+	it('should open an MDX file with the built-in Markdown preview', async () => {
+		// The default `openWith` entry for mdx is only worth having if the built-in preview accepts a
+		// file whose language is not markdown, so the command is run against a real fixture here.
+		const [mdxFile] = await vscode.workspace.findFiles('**/test-mdx.mdx', null, 1);
+		assert.ok(mdxFile, 'Expected the .mdx fixture to be discoverable');
+
+		await vscode.commands.executeCommand('markdown.showPreview', mdxFile);
+		await new Promise((resolve) => setTimeout(resolve, 1500));
+
+		const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+		assert.strictEqual(
+			activeTab?.label,
+			'Preview test-mdx.mdx',
+			'Expected a Markdown preview tab for the MDX file',
+		);
+
+		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+	});
+
 	it('should handle index files appropriately', async () => {
 		// Test finding index files
 		const indexFiles = await vscode.workspace.findFiles('**/index.{md,html,txt}', null, 50);
@@ -193,6 +219,61 @@ describe('File Type Support E2E', () => {
 			const fileName = file.fsPath.split('/').pop() || '';
 			assert.ok(fileName.toLowerCase().startsWith('index.'), 'Index files should start with "index."');
 		}
+	});
+});
+
+describe('Include Globs E2E', () => {
+	/**
+	 * Scans the example workspace through the extension's own scanner, so the settings in
+	 * `example/.vscode/settings.json` are the ones under test.
+	 *
+	 * @returns The discovered paths
+	 */
+	async function scanPaths(): Promise<string[]> {
+		const uris = await scanWorkspaceDocs(vscode.workspace);
+		return uris.map((uri) => uri.path);
+	}
+
+	it('should include a file named by an include glob', async () => {
+		const paths = await scanPaths();
+
+		assert.ok(
+			paths.some((path) => path.endsWith('/include-globs-test/doc.go')),
+			'Expected doc.go to be discovered through includeGlobs',
+		);
+	});
+
+	it('should include a file matched by a wildcard include glob', async () => {
+		const paths = await scanPaths();
+
+		assert.ok(
+			paths.some((path) => path.endsWith('/include-globs-test/api.guide.ts')),
+			'Expected api.guide.ts to be discovered through includeGlobs',
+		);
+	});
+
+	it('should leave other files of the same extension out of the scan', async () => {
+		const paths = await scanPaths();
+
+		assert.ok(
+			!paths.some((path) => path.endsWith('/include-globs-test/other.go')),
+			'Including doc.go by name should not pull in the rest of the package',
+		);
+	});
+
+	it('should discover MDX documents with the default settings', async () => {
+		const paths = await scanPaths();
+
+		assert.ok(
+			paths.some((path) => path.endsWith('/file-types-test/test-mdx.mdx')),
+			'Expected the .mdx fixture to be discovered',
+		);
+	});
+
+	it('should return every discovered document exactly once', async () => {
+		const paths = await scanPaths();
+
+		assert.strictEqual(new Set(paths).size, paths.length, 'Scan results should be deduplicated');
 	});
 });
 

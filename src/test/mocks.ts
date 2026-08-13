@@ -22,6 +22,7 @@ export interface MockWorkspaceConfig {
 	showHiddenFiles?: boolean;
 	showIgnoredFiles?: boolean;
 	excludeGlobs?: string[];
+	includeGlobs?: string[];
 	supportedExtensions?: string[];
 	maxSearchDepth?: number;
 	defaultOpenMode?: string;

@@ -135,6 +135,7 @@ export class WorkspaceWikiTreeProvider {
 			let openWith: Record<string, string> = {
 				md: 'markdown.showPreview',
 				markdown: 'markdown.showPreview',
+				mdx: 'markdown.showPreview',
 				txt: 'vscode.open',
 			};
 

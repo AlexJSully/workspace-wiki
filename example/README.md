@@ -16,14 +16,19 @@ The example follows the ordering rules defined in the design document:
 
 1. **README.md** (this file) - Always appears at the top of root directory
 2. **File Type Testing** (`file-types-test/`) - Tests various supported file extensions
-3. **Index File Testing** (`index-files-test/`) - Tests index.md behavior and README handling
-4. **Nested Directories** (`nested-structure-test/`) - Tests deep directory structures and hierarchical organization
+3. **Front Matter Testing** (`front-matter-test/`) - Tests YAML front matter titles and descriptions, including byte order marks, CRLF endings, and malformed blocks
+4. **Ignore File Testing** (`ignore-files-test/`) - Tests hidden-file and ignore handling
+5. **Include Glob Testing** (`include-globs-test/`) - Tests `workspaceWiki.includeGlobs`: `doc.go` and `api.guide.ts` are pulled in by the patterns in [`.vscode/settings.json`](.vscode/settings.json), while `other.go` stays out
+6. **Index File Testing** (`index-files-test/`) - Tests index.md behavior and README handling
+7. **Nested Directories** (`nested-structure-test/`) - Tests deep directory structures and hierarchical organization
 
 ## File Type Support
 
 The extension supports these file types with the following default behavior:
 
 - `.md`, `.markdown` - Primary documentation format (enabled by default)
+- `.mdx` - Markdown with component syntax (enabled by default)
+- `.prompt.md`, `.instructions.md` - Copilot prompt and instructions files; Markdown underneath, so enabled by default
 - `.txt` - Plain text files (enabled by default)
 - `.html`, `.htm` - HTML files (disabled by default, configurable)
 - `.pdf` - PDF files (preview only, configurable)
@@ -40,28 +45,50 @@ The extension supports these file types with the following default behavior:
 
 ## Expected Tree Display
 
+With the settings in [`.vscode/settings.json`](.vscode/settings.json), the tree reads:
+
 ```text
 Workspace Wiki
-├── README                    (this file)
-├── File Types Test          (from file-types-test/index.md)
-│   ├── Test Document        (from test-document.md)
-│   ├── Test Document Alt    (from test-document.markdown)
-│   ├── Test Notes          (from test-notes.txt)
-│   ├── Test Page           (from test-page.html)
-│   ├── Test Page Alt       (from test-page.htm)
-│   └── [Other file types as configured]
-├── Index Files Test        (from index-files-test/index.md)
-│   ├── readme              (from readme.md)
-│   ├── Index HTML          (from index.html)
-│   └── Index Text          (from index.txt)
-└── Nested Structure Test   (from nested-structure-test/index.md)
-    ├── Test File           (from test-file.md)
-    ├── Level One           (subdirectory-1/)
-    │   ├── Level One Doc   (from level-one.md)
-    ├── Level Two           (subdirectory-2/)
-    │   └── README          (from rEaDmE.md)
-    └── Level Three         (subdirectory-3/)
-        ├── Deep Nested     (from subsubdirectory-1/index.md)
+├── README                             (from README.md)
+├── File Types Test                    (file-types-test/)
+│   ├── Index                          (from index.md)
+│   ├── MDX Fixture                    (from test-mdx.mdx front matter)
+│   ├── Test Htm                       (from test-htm.htm)
+│   ├── Test HTML                      (from test-html.html)
+│   ├── Test Instructions.Instructions (from test-instructions.instructions.md)
+│   ├── Test Markdown                  (from test-markdown.markdown)
+│   ├── Test Markdown `.md` File       (from test-md.md front matter)
+│   ├── Test Pdf                       (from test-pdf.pdf)
+│   ├── Test Prompt.Prompt             (from test-prompt.prompt.md)
+│   └── Test Txt                       (from test-txt.txt)
+├── Front Matter Test                  (front-matter-test/)
+│   └── [one entry per front matter fixture, titled from its front matter]
+├── Ignore Files Test                  (ignore-files-test/)
+│   ├── Display                        (from display.md)
+│   └── Index                          (from index.md)
+├── Include Globs Test                 (include-globs-test/)
+│   ├── API.Guide                      (from api.guide.ts, matched by *.guide.ts)
+│   └── Doc                            (from doc.go, matched by doc.go)
+├── Index Files Test                   (index-files-test/)
+│   ├── README                         (from readme.md)
+│   ├── Index                          (from index.md)
+│   ├── Index                          (from index.txt)
+│   └── Index                          (from index.html)
+└── Nested Structure Test              (nested-structure-test/)
+    ├── Index                          (from index.md)
+    ├── Test File                      (from test-file.md)
+    ├── Subdirectory 1                 (subdirectory-1/)
+    │   ├── Index                      (from index.md)
+    │   └── Level One                  (from level-one.md)
+    ├── Subdirectory 2                 (subdirectory-2/)
+    │   └── README                     (from rEaDmE.md)
+    └── Subdirectory 3                 (subdirectory-3/)
+        ├── Index                      (from index.md)
+        ├── README                     (from README, no extension)
+        └── Subsubdirectory 1          (subsubdirectory-1/)
+            └── Index                  (from index.md)
 ```
+
+Note what the fixtures prove: `other.go` sits beside `doc.go` and stays out of the tree, and the hidden `.hidden.md` in `ignore-files-test/` is absent while `showHiddenFiles` is false.
 
 This structure validates that the Workspace Wiki extension correctly implements all the ordering and display rules specified in the design document.

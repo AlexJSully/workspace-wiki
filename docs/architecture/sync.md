@@ -42,12 +42,16 @@ const revealActiveFile = () => {
 	const activeEditor = vscode.window.activeTextEditor;
 	if (!activeEditor) return;
 
-	// Check if file is supported
+	// Check if file is supported, by extension or by include pattern
 	const activeUri = activeEditor.document.uri;
-	const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'txt']);
+	const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'mdx', 'txt']);
+	const includeGlobs = config.get('includeGlobs', []);
 	const fileExt = getFileExtension(activeUri.path);
 
-	if (!fileExt || !supportedExtensions.includes(fileExt)) return;
+	const isSupportedExtension = !!fileExt && supportedExtensions.includes(fileExt);
+	const isIncludedByGlob = matchesGlobPattern(activeUri.path, includeGlobs.map(toSearchGlob));
+
+	if (!isSupportedExtension && !isIncludedByGlob) return;
 
 	// Reveal with delay
 	if (autoRevealDelay > 0) {
@@ -68,7 +72,7 @@ The sync functionality requires the `TreeDataProvider` to implement:
 
 ## Edge Cases
 
-- Only reveals files that match `supportedExtensions`
+- Only reveals files that match `supportedExtensions` or an `includeGlobs` pattern, so the reveal rule and the scan agree on what belongs in the tree
 - Respects `excludeGlobs` and `.gitignore` patterns
 - Tree view must be visible for revelation to work
 - Matches the active editor by URI, so a file resolves the same on local, remote, and virtual file systems

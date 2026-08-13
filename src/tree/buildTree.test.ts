@@ -111,7 +111,9 @@ describe('normalizeTitle', () => {
 
 		it('should handle multiple dots in filename', () => {
 			expect(normalizeTitle('test.config.js')).toBe('Test.Config');
-			expect(normalizeTitle('my.component.test')).toBe('My.Component.Test');
+			// The last dotted segment is the extension whatever it spells, so an unfamiliar one such as
+			// `.test` is removed for the same reason `.go` is.
+			expect(normalizeTitle('my.component.test')).toBe('My.Component');
 		});
 
 		it('should trim whitespace', () => {
@@ -215,6 +217,24 @@ describe('buildTree', () => {
 			// Check the nested index file
 			const docsFolder = result[1];
 			expect(docsFolder.children![0].isIndex).toBe(true);
+		});
+
+		it('should identify an index file of any supported type', async () => {
+			const uris = [createMockUri('/workspace-root/index.mdx'), createMockUri('/workspace-root/docs/index.txt')];
+			const result = await buildTree(uris);
+
+			expect(result[0].isIndex).toBe(true);
+			expect(result[1].children![0].isIndex).toBe(true);
+		});
+
+		it('should title a folder whose name contains a dot without truncating it', async () => {
+			// A second root-level file keeps `docs.v2` out of the common base, so it becomes a folder node.
+			const uris = [createMockUri('/workspace-root/docs.v2/guide.md'), createMockUri('/workspace-root/top.md')];
+			const result = await buildTree(uris);
+
+			const folder = result.find((node) => node.type === 'folder');
+			expect(folder!.title).toBe('Docs.V2');
+			expect(folder!.children![0].title).toBe('Guide');
 		});
 	});
 

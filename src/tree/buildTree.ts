@@ -1,5 +1,5 @@
 import type { TreeNode } from '@types';
-import { extractFrontMatter, normalizeTitle } from '@utils';
+import { extractFrontMatter, isIndexFile, isReadmeFile, normalizeTitle } from '@utils';
 import * as vscode from 'vscode';
 
 /**
@@ -129,7 +129,8 @@ export async function buildTree(
 				const folderNode: TreeNode = {
 					type: 'folder',
 					name: folderName,
-					title: normalizeTitle(folderName, acronyms),
+					// A folder name is whole: the text after a dot in `docs.v2` is not an extension.
+					title: normalizeTitle(folderName, acronyms, false),
 					path: currentPath,
 					// Derive the folder URI from the file's own URI so scheme and authority survive.
 					// The leading slash is restored explicitly: splitting on '/' dropped it, and a
@@ -166,8 +167,8 @@ export async function buildTree(
 			// Identity lives on `uri`, never on this string.
 			path: relativeParts.join('/'),
 			uri: originalUri,
-			isIndex: relativeFileName.toLowerCase() === 'index.md',
-			isReadme: relativeFileName.toLowerCase().startsWith('readme.'),
+			isIndex: isIndexFile(relativeFileName),
+			isReadme: isReadmeFile(relativeFileName),
 			description: frontMatter.description || undefined,
 		};
 

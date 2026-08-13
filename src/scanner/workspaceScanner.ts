@@ -1,20 +1,23 @@
 import { WorkspaceLike } from '@types';
-import { matchesGlobPattern } from '@utils';
+import { matchesGlobPattern, toSearchGlob } from '@utils';
 import * as vscode from 'vscode';
 import { buildIgnoreIndex } from './gitignore';
 
 /** Extensions scanned when the setting is missing or malformed. */
-const DEFAULT_EXTENSIONS = ['md', 'markdown', 'txt'];
+const DEFAULT_EXTENSIONS = ['md', 'markdown', 'mdx', 'txt'];
 /** Patterns excluded when the setting is missing. */
 const DEFAULT_EXCLUDE_GLOBS = ['**/node_modules/**', '**/.git/**'];
+/** Include patterns used when the setting is missing: none, so extensions alone decide the scan. */
+const DEFAULT_INCLUDE_GLOBS: string[] = [];
 /** Directory levels searched when the setting is missing; matches the `package.json` default. */
 const DEFAULT_MAX_SEARCH_DEPTH = 10;
 /** Extensions that make extensionless `README` files worth searching for. */
-const MARKDOWN_EXTENSIONS = ['md', 'markdown'];
+const MARKDOWN_EXTENSIONS = ['md', 'markdown', 'mdx'];
 
 /** Resolved `workspaceWiki.*` settings that shape a scan. */
 interface ScanSettings {
 	supportedExtensions: string[];
+	includeGlobs: string[];
 	excludeGlobs: string[];
 	maxSearchDepth: number;
 	showIgnoredFiles: boolean;
@@ -35,6 +38,7 @@ function asStringArray(value: unknown, fallback: string[]): string[] {
 function readSettings(workspace: WorkspaceLike): ScanSettings {
 	const settings: ScanSettings = {
 		supportedExtensions: DEFAULT_EXTENSIONS,
+		includeGlobs: DEFAULT_INCLUDE_GLOBS,
 		excludeGlobs: DEFAULT_EXCLUDE_GLOBS,
 		maxSearchDepth: DEFAULT_MAX_SEARCH_DEPTH,
 		showIgnoredFiles: false,
@@ -48,6 +52,7 @@ function readSettings(workspace: WorkspaceLike): ScanSettings {
 	const config = workspace.getConfiguration('workspaceWiki');
 
 	settings.supportedExtensions = asStringArray(config.get('supportedExtensions'), DEFAULT_EXTENSIONS);
+	settings.includeGlobs = asStringArray(config.get('includeGlobs'), DEFAULT_INCLUDE_GLOBS);
 	settings.excludeGlobs = asStringArray(config.get('excludeGlobs'), DEFAULT_EXCLUDE_GLOBS);
 
 	// 0 is meaningful: it disables depth filtering, so it must survive the fallback.
@@ -66,7 +71,14 @@ function readSettings(workspace: WorkspaceLike): ScanSettings {
 	return settings;
 }
 
-function buildPatterns(supportedExtensions: string[]): string[] {
+/**
+ * Builds the search patterns for a scan.
+ *
+ * @param supportedExtensions The extensions to search for
+ * @param includeGlobs Extra file names or patterns to search for, normalized so a bare name matches at any depth
+ * @returns The patterns to pass to `findFiles`, in search order
+ */
+function buildPatterns(supportedExtensions: string[], includeGlobs: string[]): string[] {
 	const patterns = supportedExtensions.map((ext) => `**/*.${ext}`);
 
 	const hasMarkdown = supportedExtensions.some((ext) => MARKDOWN_EXTENSIONS.includes(ext.toLowerCase()));
@@ -75,6 +87,8 @@ function buildPatterns(supportedExtensions: string[]): string[] {
 		patterns.push('**/README');
 		patterns.push('**/readme');
 	}
+
+	patterns.push(...includeGlobs.map(toSearchGlob).filter((pattern) => pattern));
 
 	return patterns;
 }
@@ -96,24 +110,29 @@ function getDepth(workspace: WorkspaceLike, uri: vscode.Uri): number {
 /**
  * Finds the documentation files to show in the tree.
  *
- * Searches the configured `supportedExtensions`, plus extensionless `README` when Markdown is
- * enabled, then drops anything excluded by `excludeGlobs`, a `.gitignore`, a dot-prefixed path
- * segment, or `maxSearchDepth`. `showIgnoredFiles` and `showHiddenFiles` disable those filters.
+ * Searches the configured `supportedExtensions`, the `includeGlobs` patterns, plus extensionless
+ * `README` when Markdown is enabled, then drops anything excluded by `excludeGlobs`, a `.gitignore`,
+ * a dot-prefixed path segment, or `maxSearchDepth`. `showIgnoredFiles` and `showHiddenFiles` disable
+ * those filters. Every match passes through the same filters, so an include pattern widens what is
+ * searched for without escaping what is filtered out.
  *
  * @param workspace The workspace abstraction providing `findFiles`, `workspaceFolders`, `asRelativePath`, `fs`, and optional `getConfiguration`
- * @returns Promise resolving to the matching file URIs, in pattern order and not deduplicated
+ * @returns Promise resolving to the matching file URIs, in pattern order and deduplicated by `uri.toString()`
  */
 export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<vscode.Uri[]> {
-	const { supportedExtensions, excludeGlobs, maxSearchDepth, showIgnoredFiles, showHiddenFiles } =
+	const { supportedExtensions, includeGlobs, excludeGlobs, maxSearchDepth, showIgnoredFiles, showHiddenFiles } =
 		readSettings(workspace);
 
 	// findFiles takes a single glob with no way to spell negation, so .gitignore is resolved
 	// separately and applied as a filter below.
 	const ignoreIndex = showIgnoredFiles ? null : await buildIgnoreIndex(workspace, excludeGlobs);
 
-	const patterns = buildPatterns(supportedExtensions);
+	const patterns = buildPatterns(supportedExtensions, includeGlobs);
 	const exclude = !showIgnoredFiles && excludeGlobs.length > 0 ? `{${excludeGlobs.join(',')}}` : undefined;
 
+	// Patterns overlap by design once include globs are configured, and a URI reaching the tree twice
+	// would render twice and collide in the provider's node map, where the last write wins.
+	const seen = new Set<string>();
 	const results: vscode.Uri[] = [];
 	for (const pattern of patterns) {
 		let uris = (await workspace.findFiles(pattern, exclude, undefined)) as vscode.Uri[];
@@ -148,7 +167,15 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<vscod
 			uris = uris.filter((uri: vscode.Uri) => getDepth(workspace, uri) <= maxSearchDepth);
 		}
 
-		results.push(...uris);
+		for (const uri of uris) {
+			const key = uri.toString();
+			if (seen.has(key)) {
+				continue;
+			}
+
+			seen.add(key);
+			results.push(uri);
+		}
 	}
 
 	return results;

@@ -146,6 +146,45 @@ describe('extension', () => {
 				expect(provider.findNodeByUri).not.toHaveBeenCalled();
 			});
 
+			it('reveals the active file when an include glob matches it', () => {
+				const vscode = require('vscode');
+				const { createMockUri } = require('./test/mocks');
+				const activeUri = createMockUri('/workspace-root/pkg/doc.go');
+				vscode.window.activeTextEditor = { document: { uri: activeUri } };
+
+				const { handler, provider, treeView } = activateAndCaptureRevealHandler({
+					autoReveal: true,
+					autoRevealDelay: 0,
+					supportedExtensions: ['md', 'markdown', 'txt'],
+					includeGlobs: ['doc.go'],
+				});
+				provider.findNodeByUri.mockReturnValue({ label: 'Doc' });
+
+				handler();
+
+				expect(provider.findNodeByUri).toHaveBeenCalledWith(activeUri);
+				expect(treeView.reveal).toHaveBeenCalled();
+			});
+
+			it('ignores a file sharing an extension with an include glob but not its name', () => {
+				const vscode = require('vscode');
+				const { createMockUri } = require('./test/mocks');
+				vscode.window.activeTextEditor = {
+					document: { uri: createMockUri('/workspace-root/pkg/other.go') },
+				};
+
+				const { handler, provider } = activateAndCaptureRevealHandler({
+					autoReveal: true,
+					autoRevealDelay: 0,
+					supportedExtensions: ['md', 'markdown', 'txt'],
+					includeGlobs: ['doc.go'],
+				});
+
+				handler();
+
+				expect(provider.findNodeByUri).not.toHaveBeenCalled();
+			});
+
 			it('does nothing when autoReveal is disabled', () => {
 				const vscode = require('vscode');
 				const { createMockUri } = require('./test/mocks');

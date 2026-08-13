@@ -14,6 +14,13 @@ const targets = [
 ];
 
 /**
+ * Targets currently building. The watch log brackets the whole set rather than each target, because
+ * VS Code reads the first `build finished` as "the build is done" and would let a launch start while
+ * the other bundle was still being written.
+ */
+let targetsBuilding = 0;
+
+/**
  * Reports build start and end, formatting any errors for the VS Code problem matcher.
  *
  * @param {string} name The target being built
@@ -24,14 +31,27 @@ const esbuildProblemMatcherPlugin = (name) => ({
 
 	setup(build) {
 		build.onStart(() => {
-			console.log(`[watch] build started (${name})`);
+			if (targetsBuilding === 0) {
+				console.log('[watch] build started');
+			}
+			targetsBuilding++;
 		});
 		build.onEnd((result) => {
 			result.errors.forEach(({ text, location }) => {
 				console.error(`✘ [ERROR] ${text}`);
-				console.error(`    ${location.file}:${location.line}:${location.column}:`);
+				// esbuild leaves `location` null for errors not tied to a source position, and reading
+				// through it would throw here, taking the watch process down with it.
+				if (location) {
+					console.error(`    ${location.file}:${location.line}:${location.column}:`);
+				}
 			});
-			console.log(`[watch] build finished (${name})`);
+
+			console.log(`[watch] ${name} built`);
+
+			targetsBuilding--;
+			if (targetsBuilding === 0) {
+				console.log('[watch] build finished');
+			}
 		});
 	},
 });

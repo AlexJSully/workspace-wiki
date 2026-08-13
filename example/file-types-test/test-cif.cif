@@ -1,0 +1,18 @@
+data_FIXTURE
+#
+_entry.id   FIXTURE
+_struct.title   'mmCIF fixture for Workspace Wiki'
+#
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_comp_id
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+ATOM 1 N N   MET 20.154 29.699 5.276
+ATOM 2 C CA  MET 21.260 29.013 5.966
+ATOM 3 C C   MET 22.435 29.930 6.229
+#

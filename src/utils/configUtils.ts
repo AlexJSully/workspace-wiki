@@ -15,11 +15,21 @@ export function getWorkspaceWikiConfig(): vscode.WorkspaceConfiguration {
 /**
  * Gets supported file extensions from configuration
  *
- * @returns The configured extensions, or `['md', 'markdown', 'txt']` by default
+ * @returns The configured extensions, or `['md', 'markdown', 'mdx', 'txt']` by default
  */
 export function getSupportedExtensions(): string[] {
 	const config = getWorkspaceWikiConfig();
-	return config.get<string[]>('supportedExtensions') || ['md', 'markdown', 'txt'];
+	return config.get<string[]>('supportedExtensions') || ['md', 'markdown', 'mdx', 'txt'];
+}
+
+/**
+ * Gets the include patterns that add files beyond `supportedExtensions`.
+ *
+ * @returns The configured `includeGlobs`, or an empty list by default
+ */
+export function getIncludeGlobs(): string[] {
+	const config = getWorkspaceWikiConfig();
+	return config.get<string[]>('includeGlobs') || [];
 }
 
 /**
@@ -99,7 +109,7 @@ export function getAutoRevealSettings(): { enabled: boolean; delay: number } {
 /**
  * Gets open with settings from configuration
  *
- * @returns A map of extension to command, or defaults for `md`/`markdown` (`markdown.showPreview`) and `txt` (`vscode.open`)
+ * @returns A map of extension to command, or defaults for `md`/`markdown`/`mdx` (`markdown.showPreview`) and `txt` (`vscode.open`)
  */
 export function getOpenWithSettings(): Record<string, string> {
 	const config = getWorkspaceWikiConfig();
@@ -107,6 +117,7 @@ export function getOpenWithSettings(): Record<string, string> {
 		config.get<Record<string, string>>('openWith') || {
 			md: 'markdown.showPreview',
 			markdown: 'markdown.showPreview',
+			mdx: 'markdown.showPreview',
 			txt: 'vscode.open',
 		}
 	);
@@ -165,7 +176,7 @@ export function syncOpenWithToSupportedExtensions(): void {
 
 	// Ensure supportedExtensions is a valid array
 	if (!Array.isArray(supportedExtensions)) {
-		supportedExtensions = ['md', 'markdown', 'txt'];
+		supportedExtensions = ['md', 'markdown', 'mdx', 'txt'];
 	}
 
 	const openWithKeys = Object.keys(openWith);

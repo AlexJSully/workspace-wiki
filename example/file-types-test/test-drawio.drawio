@@ -1,0 +1,14 @@
+<mxfile host="app.diagrams.net">
+	<!-- Export: This file is for testing draw.io exclusion in Workspace Wiki -->
+	<diagram name="Test Draw.io File" id="fixture">
+		<mxGraphModel dx="640" dy="480" grid="1" pageWidth="850" pageHeight="1100">
+			<root>
+				<mxCell id="0" />
+				<mxCell id="1" parent="0" />
+				<mxCell id="2" value="Hello, World!" style="rounded=0" vertex="1" parent="1">
+					<mxGeometry x="120" y="120" width="160" height="40" as="geometry" />
+				</mxCell>
+			</root>
+		</mxGraphModel>
+	</diagram>
+</mxfile>

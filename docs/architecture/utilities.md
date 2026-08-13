@@ -11,11 +11,11 @@ The utilities are implemented across multiple modules:
 
 ## YAML Front Matter Support
 
-The extension parses YAML front matter from Markdown files to extract custom titles.
+The extension parses YAML front matter from Markdown and MDX files to extract custom titles.
 
 ### How Front Matter Works
 
-When a Markdown file contains YAML front matter with a `title` field, that title will be used in the tree view instead of the normalized filename.
+When a `.md`, `.markdown`, or `.mdx` file contains YAML front matter with a `title` field, that title will be used in the tree view instead of the normalized filename. Files of any other type, including those pulled in by `includeGlobs`, are titled from their name.
 
 #### Example
 
@@ -56,7 +56,7 @@ Converts file names like `userGuide.md` to `User Guide` for display in the tree.
 
 The `normalizeTitle()` function performs several transformations:
 
-1. **Extension Removal**: Strips file extensions (`.md`, `.markdown`, `.txt`, etc.)
+1. **Extension Removal**: Strips whatever trailing extension the name carries, so a file included by name (`doc.go`) reads like any other document. Nothing is stripped when no characters would remain (`.env`), and the caller can turn stripping off entirely, which [`buildTree`](../../src/tree/buildTree.ts) does for folder names so `docs.v2` keeps its suffix.
 2. **Special README Handling**: Returns "README" for README files
 3. **Case Conversion**: Transforms various naming conventions to Title Case:
     - `dash-case` → `Dash Case`
@@ -73,6 +73,8 @@ normalizeTitle('api_reference.md', ['API']); // → 'API Reference'
 normalizeTitle('userGuide.md'); // → 'User Guide'
 normalizeTitle('htmlParser.md', ['HTML']); // → 'HTML Parser'
 normalizeTitle('README.md'); // → 'README'
+normalizeTitle('doc.go'); // → 'Doc'
+normalizeTitle('docs.v2', [], false); // → 'Docs.V2' (a folder name, kept whole)
 ```
 
 ### Acronym Casing
@@ -86,7 +88,17 @@ normalizeTitle('htmlCssGuide.md', acronyms); // → 'HTML CSS Guide'
 
 ## File Type Detection
 
-[`getFileExtension`](../../src/utils/textUtils.ts) reads the extension from the final path segment only, so a dotted directory name such as `/docs.v2/README` does not yield a spurious extension. [`previewController.ts`](../../src/controllers/previewController.ts) passes it `uri.path` to choose the command for a file, and `extractFrontMatter` uses it to restrict parsing to Markdown.
+[`getFileExtension`](../../src/utils/textUtils.ts) reads the extension from the final path segment only, so a dotted directory name such as `/docs.v2/README` does not yield a spurious extension. [`previewController.ts`](../../src/controllers/previewController.ts) passes it `uri.path` to choose the command for a file, `extractFrontMatter` uses it to restrict parsing to Markdown and MDX, and `normalizeTitle` uses it to decide what to strip.
+
+## Include Pattern Normalization
+
+[`toSearchGlob`](../../src/utils/fileUtils.ts) prefixes a pattern with `**/` when it names a file rather than a path, because both `findFiles` and [`matchesGlobPattern`](../../src/utils/fileUtils.ts) anchor a slashless pattern to the start of the path. Without it, `doc.go` in `includeGlobs` would match only at the workspace root. The [scanner](./scanner.md) applies it when building search patterns and the [sync module](./sync.md) applies it when deciding whether to reveal the active file, so both agree on what a pattern means.
+
+```typescript
+toSearchGlob('doc.go'); // → '**/doc.go'
+toSearchGlob('*.guide.ts'); // → '**/*.guide.ts'
+toSearchGlob('docs/notes/*.adoc'); // → 'docs/notes/*.adoc'
+```
 
 See also: [Settings Manager](./settings.md)
 

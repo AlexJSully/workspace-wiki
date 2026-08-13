@@ -8,7 +8,7 @@
 [![GitHub](https://img.shields.io/github/license/AlexJSully/workspace-wiki)](https://github.com/AlexJSully/workspace-wiki)
 [![Build Status](https://github.com/AlexJSully/workspace-wiki/actions/workflows/code-qa-js.yaml/badge.svg)](https://github.com/AlexJSully/workspace-wiki/actions)
 
-Workspace Wiki is a VS Code extension that scans your workspace for documentation files (Markdown and plain text by default) and presents them in a sidebar tree view for fast preview and editing. It emphasizes readability, predictable ordering (README/index handling, alphabetical directories), and fast access via preview or edit. All operations are local-first and privacy-friendly.
+Workspace Wiki is a VS Code extension that scans your workspace for documentation files (Markdown, MDX, and plain text by default) and presents them in a sidebar tree view for fast preview and editing. It emphasizes readability, predictable ordering (README/index handling, alphabetical directories), and fast access via preview or edit. All operations are local-first and privacy-friendly.
 
 ![Example gif and user flow of the Workspace Wiki extension](https://github.com/AlexJSully/workspace-wiki/blob/main/media/example.gif?raw=true)
 
@@ -16,8 +16,9 @@ Workspace Wiki is a VS Code extension that scans your workspace for documentatio
 
 - **Workspace Wiki Tree View:** Discover all documentation files in a single sidebar tree.
 - **Smart and Human Readable Title Display**: Automatically converts file names (e.g., `user-guide.md`) to readable titles (`User Guide`)
-- **YAML Front Matter Support**: Markdown files with YAML front matter `title` fields display that title instead of the filename
-- **Flexible File Types**: Supports `.md`, `.txt` and other files with configurable extension filtering
+- **YAML Front Matter Support**: Markdown and MDX files with YAML front matter `title` fields display that title instead of the filename
+- **Flexible File Types**: Supports `.md`, `.mdx`, `.txt` and other files with configurable extension filtering
+- **Include Files by Name**: Pull in individual documentation files such as `doc.go` by name or pattern, without showing every file that shares their extension
 - **Intelligent Ordering**: README files appear first, index files represent their folders, alphabetical sorting for others
 - **Acronym Case Preservation:** Technical terms like HTML, CSS, API maintain proper casing in titles.
 - **Intelligent File Exclusion:** Respects `.gitignore` patterns, including nested files and negation rules, plus configurable exclude globs to hide unwanted files.
@@ -39,15 +40,29 @@ This extension contributes the following settings under the `workspaceWiki` name
 
 #### `workspaceWiki.supportedExtensions`
 
-Array of file extensions to include in the workspace wiki.
+Array of file extensions to include in the workspace wiki (default: `md`, `markdown`, `mdx`, `txt`).
 
-**Special Case:** If `md` or `markdown` is included, files named `README` (with no extension, case-insensitive) are also included and treated as Markdown.
+**Special Case:** If `md`, `markdown`, or `mdx` is included, files named `README` (with no extension, case-insensitive) are also included and treated as Markdown.
 
 ```json
 {
-	"workspaceWiki.supportedExtensions": ["md", "markdown", "txt", "html", "pdf"]
+	"workspaceWiki.supportedExtensions": ["md", "markdown", "mdx", "txt", "html", "pdf"]
 }
 ```
+
+#### `workspaceWiki.includeGlobs`
+
+File names or glob patterns to include **in addition to** `supportedExtensions` (default: none). Use this when a single file is documentation but its extension is not: adding `go` to `supportedExtensions` would show every Go source file, while `doc.go` here shows only that file.
+
+A pattern containing no `/` matches at any depth; a pattern with a `/` is matched as written.
+
+```json
+{
+	"workspaceWiki.includeGlobs": ["doc.go", "*.guide.ts", "docs/notes/*.adoc", "CHANGELOG"]
+}
+```
+
+Included files are filtered exactly like extension matches: `excludeGlobs`, `.gitignore`, the hidden-file rule, and `maxSearchDepth` all still apply. Their titles come from the file name, since front matter is read only from Markdown and MDX files.
 
 #### `workspaceWiki.excludeGlobs`
 
@@ -99,6 +114,7 @@ Commands to use for opening different file types. This supports adding other ext
 	"workspaceWiki.openWith": {
 		"md": "markdown.showPreview",
 		"markdown": "markdown.showPreview",
+		"mdx": "markdown.showPreview",
 		"txt": "vscode.open",
 		"pdf": "vscode.open",
 		"html": "otherExtension.preview"

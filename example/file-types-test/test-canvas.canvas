@@ -1,0 +1,15 @@
+{
+	"nodes": [
+		{
+			"id": "a1",
+			"type": "text",
+			"text": "This file is for testing Obsidian Canvas (JSON Canvas) exclusion in Workspace Wiki",
+			"x": 0,
+			"y": 0,
+			"width": 400,
+			"height": 100
+		},
+		{ "id": "b2", "type": "text", "text": "Hello, World!", "x": 0, "y": 160, "width": 200, "height": 60 }
+	],
+	"edges": [{ "id": "e1", "fromNode": "a1", "fromSide": "bottom", "toNode": "b2", "toSide": "top" }]
+}

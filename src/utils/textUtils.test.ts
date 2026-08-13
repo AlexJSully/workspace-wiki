@@ -114,6 +114,19 @@ Content.`,
 				expectedDescription: null,
 			},
 			{
+				description: 'extract front matter from an MDX file',
+				fileName: 'test-mdx-frontmatter.mdx',
+				content: `---
+title: "MDX Guide"
+description: "Front matter in an MDX document"
+---
+import { Note } from './Note';
+
+<Note>MDX body.</Note>`,
+				expectedTitle: 'MDX Guide',
+				expectedDescription: 'Front matter in an MDX document',
+			},
+			{
 				description: 'read only the leading block when the body also contains a delimiter',
 				fileName: 'test-delimiter-in-body.md',
 				content: '---\ntitle: "Real Title"\n---\nContent.\n---\nNot front matter.',
@@ -328,9 +341,35 @@ title: "  Whitespace Title  "
 			{ input: 'test.ts', expected: 'Test' },
 			{ input: 'test.json', expected: 'Test' },
 			{ input: 'test.xml', expected: 'Test' },
+			{ input: 'test.mdx', expected: 'Test' },
+			{ input: 'test.go', expected: 'Test' },
+			{ input: 'test.rst', expected: 'Test' },
+			{ input: 'test.adoc', expected: 'Test' },
 		])('should remove $input extension correctly', ({ input, expected }: { input: string; expected: string }) => {
 			expect(normalizeTitle(input)).toBe(expected);
 		});
+
+		// A name with no extension to remove keeps every character it has.
+		test.each([
+			{ input: 'doc.go', expected: 'Doc', description: 'included source file' },
+			{ input: 'api.guide.ts', expected: 'Api.Guide', description: 'compound name' },
+			{ input: 'CHANGELOG', expected: 'CHANGELOG', description: 'extensionless name' },
+			{ input: '.env', expected: '.Env', description: 'dotfile with nothing before the dot' },
+		])('should title $description: $input', ({ input, expected }: { input: string; expected: string }) => {
+			expect(normalizeTitle(input)).toBe(expected);
+		});
+
+		// Folder names are not file names: `docs.v2` is the whole name, not a name plus an extension.
+		test.each([
+			{ input: 'docs.v2', expected: 'Docs.V2', description: 'versioned folder' },
+			{ input: 'example.com', expected: 'Example.Com', description: 'domain-like folder' },
+			{ input: 'getting-started', expected: 'Getting Started', description: 'kebab-case folder' },
+		])(
+			'should keep a folder name whole: $description',
+			({ input, expected }: { input: string; expected: string }) => {
+				expect(normalizeTitle(input, [], false)).toBe(expected);
+			},
+		);
 
 		// Test table for README file handling
 		test.each([

@@ -1,3 +1,4 @@
 {
-	"workspaceWiki.supportedExtensions": ["md", "markdown", "txt", "html", "htm", "pdf"]
+	"workspaceWiki.supportedExtensions": ["md", "markdown", "mdx", "txt", "html", "htm", "pdf"],
+	"workspaceWiki.includeGlobs": ["doc.go", "*.guide.ts"]
 }

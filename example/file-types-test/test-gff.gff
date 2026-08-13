@@ -1,0 +1,3 @@
+##gff-version 3
+##sequence-region fixture 1 1000
+fixture	WorkspaceWiki	gene	1	500	.	+	.	ID=gene0001;Name=fixture_gene

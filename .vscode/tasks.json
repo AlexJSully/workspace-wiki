@@ -18,7 +18,36 @@
 			"type": "npm",
 			"script": "watch:esbuild",
 			"group": "build",
-			"problemMatcher": "$esbuild-watch",
+			// Defined here rather than referenced as "$esbuild-watch": that name is contributed by the
+			// connor4312.esbuild-problem-matchers extension, and an uninstalled contributor makes the
+			// whole task fail to construct, which takes the F5 launch down with it. The patterns match
+			// what esbuild.js prints, so they live with the code that produces them.
+			"problemMatcher": {
+				"owner": "esbuild",
+				"source": "esbuild",
+				"severity": "error",
+				"applyTo": "closedDocuments",
+				"fileLocation": ["relative", "${workspaceFolder}"],
+				"pattern": [
+					{
+						"regexp": "^[✘▲] \\[([A-Z]+)\\] (.+)",
+						"severity": 1,
+						"message": 2
+					},
+					{
+						"regexp": "^(?:\\t| {4})(?!\\s)([^:]+)(?::([0-9]+))?(?::([0-9]+))?:$",
+						"file": 1,
+						"line": 2,
+						"column": 3
+					}
+				],
+				"background": {
+					// Keeps the task busy until the first build finishes, so a launch waits for a bundle.
+					"activeOnStart": true,
+					"beginsPattern": "\\[watch\\] build started",
+					"endsPattern": "\\[watch\\] build finished"
+				}
+			},
 			"isBackground": true,
 			"label": "npm: watch:esbuild",
 			"presentation": {

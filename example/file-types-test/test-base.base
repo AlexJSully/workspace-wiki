@@ -1,0 +1,9 @@
+filters:
+  and:
+    - file.hasTag("fixture")
+views:
+  - type: table
+    name: Workspace Wiki fixtures
+    order:
+      - file.name
+      - note.status

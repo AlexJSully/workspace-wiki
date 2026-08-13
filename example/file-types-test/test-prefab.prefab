@@ -1,0 +1,14 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &2345678901
+GameObject:
+  m_ObjectHideFlags: 0
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2345678902}
+  m_Name: HelloWorldPrefab
+  m_IsActive: 1
+--- !u!4 &2345678902
+Transform:
+  m_GameObject: {fileID: 2345678901}
+  m_LocalPosition: {x: 0, y: 0, z: 0}

@@ -24,7 +24,8 @@ The same installation steps apply in VS Code for the Web (vscode.dev, github.dev
 
 The extension works out-of-the-box, but you can customize it via settings:
 
-- `workspaceWiki.supportedExtensions`: File types to include (default: `md`, `markdown`, `txt`).
+- `workspaceWiki.supportedExtensions`: File types to include (default: `md`, `markdown`, `mdx`, `txt`).
+- `workspaceWiki.includeGlobs`: File names or patterns to include beyond those extensions, such as `doc.go` or `*.guide.ts` (default: none).
 - `workspaceWiki.excludeGlobs`: Glob patterns to exclude (e.g., `**/node_modules/**`).
 - `workspaceWiki.directorySort`: How to sort files and folders (default: `files-first`).
 - `workspaceWiki.openWith`: Commands to use for opening different file types.
@@ -44,7 +45,8 @@ To change settings:
 
 ```json
 {
-	"workspaceWiki.supportedExtensions": ["md", "markdown", "txt"],
+	"workspaceWiki.supportedExtensions": ["md", "markdown", "mdx", "txt"],
+	"workspaceWiki.includeGlobs": ["doc.go", "*.guide.ts"],
 	"workspaceWiki.excludeGlobs": ["**/node_modules/**", "**/.git/**"],
 	"workspaceWiki.directorySort": "files-first",
 	"workspaceWiki.autoReveal": true,
