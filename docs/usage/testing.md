@@ -76,6 +76,7 @@ available via the root `tsconfig.json` `types` entry, so tests can use
 **E2E Tests:**
 
 - [`src/extension.e2e.test.ts`](../../src/extension.e2e.test.ts): End-to-end tests for extension behavior in VS Code
+- [`src/test/web/index.ts`](../../src/test/web/index.ts): Web extension host smoke tests, executed through the lightweight runner in [`src/test/web/runner.ts`](../../src/test/web/runner.ts)
 
 ## Example Directory for Testing
 
@@ -114,17 +115,21 @@ test('Workspace Wiki tree appears', async () => {
 ```mermaid
 sequenceDiagram
     accTitle: Test Execution Flow
-    accDescr: Shows the two test execution paths - running npm run test:jest launches Jest for unit tests, and npm run test:extension launches a VS Code instance for E2E tests.
+    accDescr: Shows the three test execution paths - npm run test:jest runs Jest unit tests, npm run test:extension runs desktop extension-host tests, and npm run test:web runs browser extension-host tests.
     participant Dev as Developer
     participant CLI as Command Line
     participant Jest as Jest Runner
-    participant VSCode as VS Code Test Runner
+    participant VSCodeDesktop as VS Code Desktop Test Runner
+    participant VSCodeWeb as VS Code Web Test Runner
     Dev->>CLI: Run npm run test:jest
     CLI->>Jest: Start unit tests
     Jest-->>CLI: Test results
     Dev->>CLI: Run npm run test:extension
-    CLI->>VSCode: Launch VS Code test instance
-    VSCode-->>CLI: E2E test results
+    CLI->>VSCodeDesktop: Launch desktop extension host
+    VSCodeDesktop-->>CLI: Desktop E2E results
+    Dev->>CLI: Run npm run test:web
+    CLI->>VSCodeWeb: Launch browser extension host
+    VSCodeWeb-->>CLI: Web E2E results
 ```
 
-This diagram shows the flow for running both unit and E2E tests.
+This diagram shows the flow for running unit, desktop E2E, and web E2E tests.

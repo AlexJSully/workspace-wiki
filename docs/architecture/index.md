@@ -6,7 +6,7 @@ This section explains the overall architecture of the Workspace Wiki extension, 
 
 The extension runs in two extension hosts from one set of sources. [`esbuild.js`](../../esbuild.js) emits `dist/extension.js` for the Node host used by VS Code desktop, Cursor, and Antigravity, and `dist/web/extension.js` for the Web Worker host used by vscode.dev and github.dev. [`package.json`](../../package.json) points `main` at the first and `browser` at the second.
 
-No module branches on its environment. Node built-ins do not resolve in a Web Worker, so every file read goes through `vscode.workspace.fs` and no source file imports `fs`, `path`, or references `Buffer`. Two guards hold that line. [`tsconfig.json`](../../tsconfig.json) sets `lib` to `ES2022` and `WebWorker` rather than `DOM`, so a browser global the worker does not provide fails to compile. [`eslint.config.mjs`](../../eslint.config.mjs) restricts Node built-in imports and the `Buffer`, `process`, `__dirname`, and `__filename` globals outside test files, which is what catches the Node side, since tests legitimately use those and keep `node` in `types`.
+No module branches on its environment. Node built-ins do not resolve in a Web Worker, so every file read goes through `vscode.workspace.fs` and no source file imports `fs`, `path`, or references `Buffer`. Three guards hold that line. [`tsconfig.json`](../../tsconfig.json) sets `lib` to `ES2022` and `WebWorker` rather than `DOM`, so a browser global the worker does not provide fails to compile. [`eslint.config.mjs`](../../eslint.config.mjs) restricts the `Buffer`, `process`, `__dirname`, and `__filename` globals outside test files, since tests legitimately use those and keep `node` in `types`, which leaves the compiler unable to flag them. A Node built-in import is caught by the web bundle instead, since [`esbuild.js`](../../esbuild.js) builds it with esbuild's `browser` platform, where `fs` and `path` do not resolve.
 
 The same rule shapes how paths are handled. `Uri.fsPath` carries no scheme information, so on a virtual file system such as `vscode-vfs://` it yields a path that no longer identifies the file. Modules therefore use `uri.toString()` for identity, `uri.path` for path structure, and `workspace.asRelativePath` for anything relative to a workspace folder.
 
@@ -35,10 +35,7 @@ src/
 │   ├── gitignore.ts          # .gitignore discovery and matching
 │   └── workspaceScanner.ts   # File discovery, filtering
 ├── test/
-│   ├── assert.ts             # Assertions shared by the desktop and web E2E suites
-│   ├── mockUri.ts            # vscode.Uri stand-in for tests
-│   ├── mocks.ts              # Shared WorkspaceLike factory
-│   ├── setupGlobals.ts       # TextEncoder/TextDecoder shim for jsdom
+│   ├── mocks.ts              # Shared URI and WorkspaceLike mocks
 │   ├── setupTests.ts         # Virtual vscode module for Jest
 │   └── web/                  # Web extension host test runner and suite
 ├── tree/

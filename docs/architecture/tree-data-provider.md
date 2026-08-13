@@ -17,7 +17,7 @@ The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tr
 - Normalizes file names to human-friendly titles.
 - Addresses nodes by URI, so the tree behaves the same on local, remote, and virtual file systems
 - Supports sync functionality with active editor
-- Provides efficient file path lookups via node mapping
+- Provides efficient URI lookups via node mapping
 - Handles tree view enhancements (collapse all, inline actions)
 
 ## Path and identity handling

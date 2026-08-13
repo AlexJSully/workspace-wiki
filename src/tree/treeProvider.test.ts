@@ -839,7 +839,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 		});
 
 		it('does not match a node when only the path agrees and the scheme differs', async () => {
-			// The regression the findNodeByPath -> findNodeByUri rename exists to prevent.
+			// URI identity includes the scheme, so a file-scheme URI cannot match a virtual URI.
 			const provider = createRealProvider([
 				'vscode-vfs://github/owner/repo/docs/guide.md',
 				'vscode-vfs://github/owner/repo/docs/api.md',
