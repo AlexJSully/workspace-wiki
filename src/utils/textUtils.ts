@@ -1,7 +1,7 @@
 import { load } from 'js-yaml';
 import * as vscode from 'vscode';
 
-/** Front matter data extracted from a markdown file */
+/** Front matter data extracted from a Markdown or MDX file */
 export interface FrontMatterData {
 	title: string | null;
 	description: string | null;
@@ -51,12 +51,12 @@ function readStringField(data: Record<string, unknown>, key: string): string | n
 }
 
 /**
- * Extracts title and description from YAML front matter in a markdown file.
+ * Extracts title and description from YAML front matter in a Markdown or MDX file.
  *
  * Reads through `vscode.workspace.fs`, so it works against any file system provider — local disk,
  * remote, or a virtual workspace such as `vscode-vfs://` on VS Code Web.
  *
- * @param uri - The URI of the markdown file
+ * @param uri - The URI of the Markdown or MDX file
  * @returns Promise resolving to the `title` and `description` from front matter, or nulls when absent, unreadable, or not a `.md`/`.markdown`/`.mdx` file
  */
 export async function extractFrontMatter(uri: vscode.Uri): Promise<FrontMatterData> {
@@ -65,7 +65,7 @@ export async function extractFrontMatter(uri: vscode.Uri): Promise<FrontMatterDa
 	}
 
 	try {
-		// Only process markdown files
+		// Only process Markdown and MDX files
 		const ext = getFileExtension(uri.path);
 		if (!FRONT_MATTER_EXTENSIONS.includes(ext)) {
 			return { title: null, description: null };
@@ -92,9 +92,9 @@ export async function extractFrontMatter(uri: vscode.Uri): Promise<FrontMatterDa
 }
 
 /**
- * Extracts title from YAML front matter in a markdown file
+ * Extracts title from YAML front matter in a Markdown or MDX file.
  *
- * @param uri - The URI of the markdown file
+ * @param uri - The URI of the Markdown or MDX file
  * @returns Promise resolving to the front matter `title`, or null when absent
  */
 export async function extractFrontMatterTitle(uri: vscode.Uri): Promise<string | null> {

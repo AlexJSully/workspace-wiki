@@ -42,7 +42,7 @@ js-yaml follows the YAML specification, which forbids tab characters in indentat
 
 ### Implementation Details
 
-1. **Markdown Files Only**: Front matter parsing only applies to `.md` and `.markdown` files
+1. **Markdown-Derived Files Only**: Front matter parsing only applies to `.md`, `.markdown`, and `.mdx` files
 2. **Title & Description Fields**: The `title` field is used for tree item display names, and the `description` field (when present) is extracted and shown as the tree item tooltip when hovering in the tree view
 3. **Fallback**: If no front matter title exists, falls back to filename-based normalization
 4. **File Access**: Files are read asynchronously through `vscode.workspace.fs` and decoded with `TextDecoder`, so parsing works against any file system provider, and are parsed during tree building

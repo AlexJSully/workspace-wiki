@@ -40,7 +40,7 @@ export function sortNodes(
 }
 
 /**
- * Recursively sorts a folder node's children (the folder keeps its own name; `index.md` stays a child).
+ * Recursively sorts a folder node's children (the folder keeps its own name; any `index.*` file stays a child).
  *
  * @param node The node to process
  * @param directorySort The sort mode to apply to descendants; defaults to `'files-first'`
@@ -60,7 +60,7 @@ export function processNode(
 
 /**
  * Builds the hierarchical tree from a flat list of file URIs, reading YAML front matter for titles
- * and applying ordering. Folders are named after their own path segment; `index.md` is a child file.
+ * and applying ordering. Folders are named after their own path segment; any `index.*` file is a child file.
  *
  * Path structure comes from `uri.path`, which is always forward-slash separated and carries no
  * scheme assumptions, so the tree is identical on local, remote, and virtual file systems.
