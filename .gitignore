@@ -74,6 +74,7 @@ test-results/
 
 # IDE and editor files
 .vscode-test
+.vscode-test-web
 !.vscode/extensions.json
 !.vscode/launch.json
 !.vscode/settings.json

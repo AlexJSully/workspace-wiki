@@ -10,7 +10,7 @@ The Settings Manager reads and applies user configuration for the Workspace Wiki
     - If `md` or `markdown` is included, files named `README` (no extension, case-insensitive) are also included and treated as Markdown.
 - `workspaceWiki.excludeGlobs`: Glob patterns to exclude files and folders (default: `**/node_modules/**`, `**/.git/**`).
 - `workspaceWiki.maxSearchDepth`: Maximum directory depth to search for documentation files (default: `10`).
-- `workspaceWiki.showIgnoredFiles`: Show files listed in `.gitignore` and matched by `excludeGlobs` patterns (default: `false`).
+- `workspaceWiki.showIgnoredFiles`: Show files listed in `.gitignore` and matched by `excludeGlobs` patterns (default: `false`). When `false`, every `.gitignore` in every workspace folder applies, nested files and negation rules included; see [Scanner](./scanner.md).
 - `workspaceWiki.showHiddenFiles`: Show hidden files and folders starting with a dot (e.g., `.github`, `.env`) (default: `false`).
 
 ### File Opening & Display

@@ -5,7 +5,8 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
 ## Test Types
 
 - **Unit Tests**: Test individual functions and modules (Jest).
-- **E2E/Integration Tests**: Validate extension behavior in a running VS Code instance (`@vscode/test-electron`).
+- **Desktop E2E Tests**: Validate extension behavior in a running VS Code instance (`@vscode/test-electron`).
+- **Web E2E Tests**: Validate extension behavior in a browser extension host (`@vscode/test-web`). This is the only place the extension runs in a browser, so a runtime web regression surfaces here rather than in the unit or desktop suites.
 
 ## Running Tests
 
@@ -15,11 +16,21 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
     npm run test:jest
     ```
 
-- **E2E tests:**
+- **Desktop E2E tests:**
 
     ```sh
     npm run test:extension
     ```
+
+- **Web E2E tests:**
+
+    ```sh
+    npm run test:web
+    ```
+
+    Runs headless Chromium against the [`example`](../../example/README.md) workspace. To open the same environment interactively, run `npm run run-in-browser`.
+
+    Both scripts download a VS Code build on first use, roughly 53 MB, into `.vscode-test-web`. `npm run validate` includes the web suite, so it carries that cost too.
 
 - **Watch mode:**
 
@@ -36,7 +47,8 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
 ## Test Locations
 
 - Unit tests: `src/**/*.test.ts`
-- E2E tests: `src/**/*.e2e.test.ts`
+- Desktop E2E tests: `src/**/*.e2e.test.ts`
+- Web E2E tests: [`src/test/web/index.ts`](../../src/test/web/index.ts), driven by the runner in [`src/test/web/runner.ts`](../../src/test/web/runner.ts)
 - Test utilities: `src/test/`
 
 ## Jest Types in TypeScript Tests
@@ -55,6 +67,7 @@ available via the root `tsconfig.json` `types` entry, so tests can use
 **Scanner Module Tests:**
 
 - [`src/scanner/workspaceScanner.test.ts`](../../src/scanner/workspaceScanner.test.ts): Tests for workspace file scanning and filtering
+- [`src/scanner/gitignore.test.ts`](../../src/scanner/gitignore.test.ts): Tests for `.gitignore` negation, parent exclusion, anchoring, nested overrides, multi-root isolation, and virtual file system schemes
 
 **Extension Tests:**
 

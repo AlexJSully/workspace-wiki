@@ -14,7 +14,7 @@ jest.mock('./controllers/previewController', () => ({
 jest.mock('./tree/treeProvider', () => ({
 	WorkspaceWikiTreeProvider: jest.fn().mockImplementation(() => ({
 		refresh: jest.fn(),
-		findNodeByPath: jest.fn(),
+		findNodeByUri: jest.fn(),
 		dispose: jest.fn(),
 	})),
 }));
@@ -81,6 +81,85 @@ describe('extension', () => {
 
 			// Should have added multiple disposables (tree provider, tree view, commands, listeners, etc.)
 			expect(mockContext.subscriptions.length).toBeGreaterThan(5);
+		});
+
+		describe('auto-reveal', () => {
+			/**
+			 * Activates the extension and returns the registered active-editor callback along with the
+			 * tree provider and view it was wired to.
+			 *
+			 * @param settings Configuration values the handler should read
+			 * @returns The callback plus the provider and view doubles
+			 */
+			function activateAndCaptureRevealHandler(settings: Record<string, unknown>) {
+				const vscode = require('vscode');
+				const { WorkspaceWikiTreeProvider } = require('./tree/treeProvider');
+
+				vscode.workspace.getConfiguration.mockReturnValue({
+					get: (key: string, defaultValue?: unknown) => (key in settings ? settings[key] : defaultValue),
+				});
+
+				const treeView = { visible: true, reveal: jest.fn(), onDidChangeVisibility: jest.fn() };
+				vscode.window.createTreeView.mockReturnValue(treeView);
+
+				activate(mockContext as any);
+
+				const provider = WorkspaceWikiTreeProvider.mock.results[0].value;
+				const handler = vscode.window.onDidChangeActiveTextEditor.mock.calls[0][0];
+
+				return { handler, provider, treeView };
+			}
+
+			it('reveals the active file when its extension is supported', () => {
+				const vscode = require('vscode');
+				const { createMockUri } = require('./test/mocks');
+				const activeUri = createMockUri('/workspace-root/docs/guide.md');
+				vscode.window.activeTextEditor = { document: { uri: activeUri } };
+
+				const { handler, provider, treeView } = activateAndCaptureRevealHandler({
+					autoReveal: true,
+					autoRevealDelay: 0,
+					supportedExtensions: ['md', 'markdown', 'txt'],
+				});
+				provider.findNodeByUri.mockReturnValue({ label: 'Guide' });
+
+				handler();
+
+				// Looked up by URI, not by a path string.
+				expect(provider.findNodeByUri).toHaveBeenCalledWith(activeUri);
+				expect(treeView.reveal).toHaveBeenCalled();
+			});
+
+			it('ignores an active file whose extension is not supported', () => {
+				const vscode = require('vscode');
+				const { createMockUri } = require('./test/mocks');
+				vscode.window.activeTextEditor = { document: { uri: createMockUri('/workspace-root/image.png') } };
+
+				const { handler, provider } = activateAndCaptureRevealHandler({
+					autoReveal: true,
+					autoRevealDelay: 0,
+					supportedExtensions: ['md', 'markdown', 'txt'],
+				});
+
+				handler();
+
+				expect(provider.findNodeByUri).not.toHaveBeenCalled();
+			});
+
+			it('does nothing when autoReveal is disabled', () => {
+				const vscode = require('vscode');
+				const { createMockUri } = require('./test/mocks');
+				vscode.window.activeTextEditor = { document: { uri: createMockUri('/workspace-root/docs/guide.md') } };
+
+				const { handler, provider } = activateAndCaptureRevealHandler({
+					autoReveal: false,
+					supportedExtensions: ['md', 'markdown', 'txt'],
+				});
+
+				handler();
+
+				expect(provider.findNodeByUri).not.toHaveBeenCalled();
+			});
 		});
 
 		it('should sync extensions on activation', () => {

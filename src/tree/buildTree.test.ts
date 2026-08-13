@@ -137,7 +137,7 @@ describe('buildTree', () => {
 				type: 'file',
 				name: 'test.md',
 				title: 'Test',
-				path: '/workspace-root/test.md',
+				path: 'test.md',
 				isIndex: false,
 				isReadme: false,
 			});
@@ -287,15 +287,15 @@ describe('buildTree', () => {
 	});
 
 	describe('path handling', () => {
-		it('should normalize Windows path separators to Unix-style', async () => {
+		it('should build structure from a drive-letter rooted path', async () => {
+			// The path form Uri.file produces on Windows, where it converts the separators.
 			const uris = [
-				createMockUri('C:\\workspace\\docs\\test.md'),
-				createMockUri('C:\\workspace\\docs\\guide.md'),
-				createMockUri('C:\\workspace\\api\\reference.md'),
+				createMockUri('file:///c:/workspace/docs/test.md'),
+				createMockUri('file:///c:/workspace/docs/guide.md'),
+				createMockUri('file:///c:/workspace/api/reference.md'),
 			];
 			const result = await buildTree(uris);
 
-			// Should create proper folder structure with normalized paths
 			expect(result).toHaveLength(2);
 
 			// Find the folders
@@ -311,23 +311,18 @@ describe('buildTree', () => {
 			expect(apiFolder?.children).toHaveLength(1);
 		});
 
-		it('should handle mixed path separators correctly', async () => {
+		it('should handle roots that share no common base', async () => {
 			const uris = [
 				createMockUri('/workspace/docs/test.md'),
-				createMockUri('C:\\workspace\\docs\\guide.md'),
+				createMockUri('file:///c:/workspace/docs/guide.md'),
 				createMockUri('/workspace/api/reference.md'),
 			];
 			const result = await buildTree(uris);
 
-			// Different drive roots mean no common base, so we should get the full structure
-			expect(result.length).toBeGreaterThan(0);
-
-			// Check for workspace-level structure
-			const hasWorkspaceStructure = result.some((node) => node.name === 'workspace');
-			const hasCDriveStructure = result.some((node) => node.name === 'C:');
-
-			// We should have both Unix and Windows paths represented
-			expect(hasWorkspaceStructure || hasCDriveStructure).toBe(true);
+			// No shared base means the tree keeps each root's full structure.
+			const rootNames = result.map((node) => node.name);
+			expect(rootNames).toContain('workspace');
+			expect(rootNames).toContain('c:');
 		});
 
 		it('should handle Unix paths correctly (no change needed)', async () => {

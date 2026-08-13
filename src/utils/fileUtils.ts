@@ -7,14 +7,14 @@ import * as vscode from 'vscode';
  * Gets the relative path from workspace root
  *
  * @param uri The file URI
- * @returns The path relative to its workspace folder, or the absolute `fsPath` when outside any workspace
+ * @returns The path relative to its workspace folder, or the URI's own path when outside any workspace
  */
 export function getRelativePath(uri: vscode.Uri): string {
 	const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
 	if (workspaceFolder) {
 		return vscode.workspace.asRelativePath(uri, false);
 	}
-	return uri.fsPath;
+	return uri.path;
 }
 
 /**

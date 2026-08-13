@@ -1,3 +1,5 @@
+import * as vscode from 'vscode';
+
 /**
  * Tree node representing a file or folder in the workspace wiki
  */
@@ -8,10 +10,10 @@ export interface TreeNode {
 	name: string;
 	/** The display title (normalized from name) */
 	title: string;
-	/** The full file system path */
+	/** Display path relative to the tree's common base. Never used for identity — that is `uri`. */
 	path: string;
-	/** VS Code URI object for the file */
-	uri?: any;
+	/** The node's URI. Carries the real scheme and authority, so it works on virtual file systems. */
+	uri: vscode.Uri;
 	/** Child nodes (for folders) */
 	children?: TreeNode[];
 	/** Whether this node represents an index file (index.md, etc.) */

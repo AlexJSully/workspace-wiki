@@ -1,29 +1,35 @@
 import { scanWorkspaceDocs } from '@scanner';
-import { TreeNode } from '@types';
+import { TreeNode, WorkspaceLike } from '@types';
+import { getFileExtension } from '@utils';
+import * as vscode from 'vscode';
 import { buildTree } from './buildTree';
 
+/**
+ * Supplies the Workspace Wiki view with tree items.
+ *
+ * Implements VS Code's `TreeDataProvider` contract. A root-level `getChildren` rescans the
+ * workspace, rebuilds the tree, and reindexes every node by `uri.toString()`; expanding a folder
+ * reads from that already-built tree without touching the file system.
+ */
 export class WorkspaceWikiTreeProvider {
 	private _onDidChangeTreeData: any;
+	/** Event VS Code subscribes to; `refresh()` fires it to request a rebuild. */
 	readonly onDidChangeTreeData: any;
-	private workspace: {
-		findFiles: (pattern: string, exclude?: string, maxResults?: number) => Thenable<any[]>;
-		getConfiguration?: (section: string) => { get: (key: string) => any };
-	};
+	private workspace: WorkspaceLike;
 	private TreeItem: any;
 	private CollapsibleState: any;
 	private treeData: TreeNode[] = [];
+	/** Nodes keyed by `uri.toString()`, the only stable identity across file system providers. */
 	private nodeMap: Map<string, TreeNode> = new Map();
 	private nodeMapBuilt: boolean = false;
 
-	constructor(
-		workspace: {
-			findFiles: (pattern: string, exclude?: string, maxResults?: number) => Thenable<any[]>;
-			getConfiguration?: (section: string) => { get: (key: string) => any };
-		},
-		TreeItem: any,
-		CollapsibleState: any,
-		EventEmitter: any,
-	) {
+	/**
+	 * @param workspace The workspace API used to discover and read documents
+	 * @param TreeItem The `vscode.TreeItem` constructor
+	 * @param CollapsibleState The `vscode.TreeItemCollapsibleState` enum
+	 * @param EventEmitter The `vscode.EventEmitter` constructor
+	 */
+	constructor(workspace: WorkspaceLike, TreeItem: any, CollapsibleState: any, EventEmitter: any) {
 		this.workspace = workspace;
 		this.TreeItem = TreeItem;
 		this.CollapsibleState = CollapsibleState;
@@ -67,16 +73,14 @@ export class WorkspaceWikiTreeProvider {
 	}
 
 	/**
-	 * Populates `nodeMap` (absolute path to node) and records each node's parent for lookups and reveal.
+	 * Populates `nodeMap` (URI string to node) and records each node's parent for lookups and reveal.
 	 *
 	 * @param nodes The nodes to index
 	 * @param parent The parent node to assign to each node, if any
 	 */
 	private buildNodeMap(nodes: TreeNode[], parent?: TreeNode): void {
 		for (const node of nodes) {
-			// Use consistent absolute fsPath for both files and folders
-			const absolutePath = node.uri ? node.uri.fsPath : node.path;
-			this.nodeMap.set(absolutePath, node);
+			this.nodeMap.set(node.uri.toString(), node);
 			if (parent) {
 				(node as any).parent = parent;
 			}
@@ -141,7 +145,7 @@ export class WorkspaceWikiTreeProvider {
 			}
 
 			// Determine which command to use for default click
-			let fileExt = node.name.split('.').pop()?.toLowerCase();
+			const fileExt = getFileExtension(node.name);
 			let defaultCommand = 'vscode.open';
 
 			// Special case: README (no extension) should always use md/markdown preview if in preview mode
@@ -160,13 +164,9 @@ export class WorkspaceWikiTreeProvider {
 			};
 		} else if (node.type === 'folder') {
 			item.contextValue = 'folder';
-			// Create a URI for the folder path so VS Code can show folder icons
-			// We'll use a simple scheme since we just need it for icon display
-			const folderPath = node.path;
-			if (folderPath) {
-				// Create a mock URI for folder icon display
-				item.resourceUri = { scheme: 'file', fsPath: folderPath };
-			}
+			// A real URI, so VS Code resolves the folder icon against the actual file system
+			// provider rather than a fabricated `file:` path.
+			item.resourceUri = node.uri;
 		}
 
 		// Store reference to tree node for getChildren
@@ -207,33 +207,24 @@ export class WorkspaceWikiTreeProvider {
 	}
 
 	/**
-	 * Finds the file tree item matching a path, using direct then normalized (cross-platform) comparison.
+	 * Finds the file tree item matching a URI.
 	 *
-	 * @param filePath The absolute file system path to locate
+	 * Lookup is by `uri.toString()`, which is exact and scheme-aware, so no path normalization
+	 * or fallback scan is needed.
+	 *
+	 * @param uri The URI of the file to locate
 	 * @returns The matching file tree item, or undefined if not found
 	 */
-	findNodeByPath(filePath: string): any | undefined {
+	findNodeByUri(uri: vscode.Uri): any | undefined {
 		// Ensure nodeMap is built before lookup
 		if (!this.nodeMapBuilt && this.treeData.length > 0) {
 			this.buildNodeMap(this.treeData);
 			this.nodeMapBuilt = true;
 		}
 
-		// Direct lookup with absolute path
-		const node = this.nodeMap.get(filePath);
+		const node = this.nodeMap.get(uri.toString());
 		if (node && node.type === 'file') {
 			return this.createTreeItem(node);
-		}
-
-		// Try normalized path comparison for cross-platform compatibility
-		const normalizedFilePath = filePath.replace(/\\/g, '/');
-		for (const [mapPath, node] of this.nodeMap.entries()) {
-			if (node.type === 'file') {
-				const normalizedMapPath = mapPath.replace(/\\/g, '/');
-				if (normalizedMapPath === normalizedFilePath) {
-					return this.createTreeItem(node);
-				}
-			}
 		}
 
 		return undefined;

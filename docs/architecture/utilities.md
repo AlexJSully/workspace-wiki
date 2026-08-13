@@ -11,7 +11,7 @@ The utilities are implemented across multiple modules:
 
 ## YAML Front Matter Support
 
-The extension now supports parsing YAML front matter from Markdown files to extract custom titles.
+The extension parses YAML front matter from Markdown files to extract custom titles.
 
 ### How Front Matter Works
 
@@ -34,21 +34,19 @@ This document provides guidance on creating accessible software.
 
 **Tree View Display:** "Introduction to Accessibility" (instead of "Accessibility")
 
-### Supported Front Matter Formats
+### Supported Front Matter Format
 
-The extension uses the [gray-matter](https://github.com/jonschlinkert/gray-matter) library, which supports:
+YAML front matter delimited by `---` is the only supported format. [`extractFrontMatter`](../../src/utils/textUtils.ts) splits the leading block with a regular expression that tolerates a UTF-8 byte order mark and CRLF line endings, then parses it with [js-yaml](https://github.com/nodeca/js-yaml).
 
-- **YAML** (default): Delimited by `---`
-- **TOML**: Delimited by `+++`
-- **JSON**: Delimited by `;;;`
+js-yaml follows the YAML specification, which forbids tab characters in indentation. A front matter block indented with tabs does not parse, and the file falls back to its filename-derived title.
 
 ### Implementation Details
 
 1. **Markdown Files Only**: Front matter parsing only applies to `.md` and `.markdown` files
 2. **Title & Description Fields**: The `title` field is used for tree item display names, and the `description` field (when present) is extracted and shown as the tree item tooltip when hovering in the tree view
 3. **Fallback**: If no front matter title exists, falls back to filename-based normalization
-4. **Performance**: Files are read asynchronously via VS Code workspace FS when available (with Node fallback for tests) and parsed during tree building
-5. **Missing Files**: Missing file paths return null values without logging to avoid noisy errors during scans
+4. **File Access**: Files are read asynchronously through `vscode.workspace.fs` and decoded with `TextDecoder`, so parsing works against any file system provider, and are parsed during tree building
+5. **Missing Files**: A `FileNotFound` or `ENOENT` error returns null values without logging, so a file deleted mid-scan does not produce noise
 
 ## Title Normalization
 
@@ -86,27 +84,9 @@ const acronyms = ['HTML', 'CSS', 'JS', 'API', 'URL', 'JSON', 'XML'];
 normalizeTitle('htmlCssGuide.md', acronyms); // → 'HTML CSS Guide'
 ```
 
-### Title Normalization Implementation
-
-```typescript
-function normalizeTitle(fileName: string, acronyms: string[] = []): string {
-	// Remove file extension
-	let title = fileName.replace(/\.[^/.]+$/, '');
-
-	// Handle README files specially
-	if (title.toLowerCase() === 'readme') {
-		return 'README';
-	}
-
-	// Convert various cases to Title Case
-	// Split on word boundaries, capitalize each word
-	// Apply acronym casing if provided
-}
-```
-
 ## File Type Detection
 
-Determines how to handle files based on extension and mime type.
+[`getFileExtension`](../../src/utils/textUtils.ts) reads the extension from the final path segment only, so a dotted directory name such as `/docs.v2/README` does not yield a spurious extension. [`previewController.ts`](../../src/controllers/previewController.ts) passes it `uri.path` to choose the command for a file, and `extractFrontMatter` uses it to restrict parsing to Markdown.
 
 See also: [Settings Manager](./settings.md)
 

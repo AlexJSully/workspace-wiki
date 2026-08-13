@@ -12,6 +12,14 @@ This guide explains how to install and configure the Workspace Wiki extension.
 
 **Direct Link:** [VS Code Marketplace - Workspace Wiki](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
 
+### In the browser
+
+The same installation steps apply in VS Code for the Web (vscode.dev, github.dev). [`package.json`](../../package.json) declares a `browser` entry point, so the browser editor loads the extension into its Web Worker extension host.
+
+### Running from source in a browser
+
+`npm run run-in-browser` builds both bundles and opens the browser editor against the [`example`](../../example/README.md) workspace. To attach a debugger instead, use the "Run Web Extension" configuration in [`launch.json`](../../.vscode/launch.json), which starts the Web Worker extension host with debugging enabled.
+
 ## Configuration
 
 The extension works out-of-the-box, but you can customize it via settings:

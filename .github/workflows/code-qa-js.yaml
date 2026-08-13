@@ -8,6 +8,7 @@ on:
       - "**/*.js"
       - "**/*.json"
       - "**/*.jsx"
+      - "**/*.mjs"
       - "**/*.ts"
       - "**/*.tsx"
       - ".github/workflows/code-qa-js.yaml"
@@ -23,6 +24,7 @@ on:
       - "**/*.js"
       - "**/*.json"
       - "**/*.jsx"
+      - "**/*.mjs"
       - "**/*.ts"
       - "**/*.tsx"
       - ".github/workflows/code-qa-js.yaml"
@@ -63,7 +65,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Build Node.js project only (unit tests do not require other language binaries)
+      # Builds the desktop and web bundles
       - name: Build extension
         run: npm run compile
 

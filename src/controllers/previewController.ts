@@ -1,10 +1,10 @@
 /**
  * Preview controller for handling file opening and interaction logic
  */
+import { getFileExtension as extensionFromPath } from '@utils';
 import * as vscode from 'vscode';
 
-// Track last click times for double-click detection
-/** Map of file paths to their last click timestamps */
+/** Map of URI strings to their last click timestamps, used to detect a double click. */
 const lastClickTimes: Map<string, number> = new Map();
 /** Time threshold (in milliseconds) to consider two clicks as a double-click */
 const DOUBLE_CLICK_THRESHOLD = 500;
@@ -18,16 +18,15 @@ const DEFAULT_OPEN_WITH: Record<string, string> = {
 
 /**
  * Gets the file extension from a URI
+ *
+ * Reads `uri.path` rather than `uri.fsPath` so the result is correct on virtual file systems,
+ * and looks only at the final path segment so a dotted directory name cannot leak in.
+ *
  * @param uri The URI to extract the file extension from
  * @returns The file extension in lowercase, or undefined if none exists
  */
 function getFileExtension(uri: vscode.Uri): string | undefined {
-	const parts = uri.fsPath.split('.');
-	if (parts.length < 2) {
-		return undefined;
-	}
-
-	return parts.pop()?.toLowerCase();
+	return extensionFromPath(uri.path) || undefined;
 }
 
 /**
@@ -77,24 +76,24 @@ export function openInEditor(uri: vscode.Uri): void {
  */
 export function handleFileClick(uri: vscode.Uri, defaultCommand: string): void {
 	const now = Date.now();
-	const path = uri.fsPath;
-	const lastClick = lastClickTimes.get(path) || 0;
+	const key = uri.toString();
+	const lastClick = lastClickTimes.get(key) || 0;
 
 	if (now - lastClick < DOUBLE_CLICK_THRESHOLD) {
 		// Double-click detected - open in editor
 		openInEditor(uri);
 
 		// Clear to prevent triple-click issues
-		lastClickTimes.delete(path);
+		lastClickTimes.delete(key);
 	} else {
 		// Single click - execute default command (preview)
 		vscode.commands.executeCommand(defaultCommand, uri);
-		lastClickTimes.set(path, now);
+		lastClickTimes.set(key, now);
 
 		// Clear old entries to prevent memory leaks
 		setTimeout(() => {
-			if (lastClickTimes.get(path) === now) {
-				lastClickTimes.delete(path);
+			if (lastClickTimes.get(key) === now) {
+				lastClickTimes.delete(key);
 			}
 		}, DOUBLE_CLICK_THRESHOLD + 100);
 	}

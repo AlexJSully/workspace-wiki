@@ -1,92 +1,117 @@
 import { WorkspaceLike } from '@types';
+import { matchesGlobPattern } from '@utils';
 import * as vscode from 'vscode';
+import { buildIgnoreIndex } from './gitignore';
+
+/** Extensions scanned when the setting is missing or malformed. */
+const DEFAULT_EXTENSIONS = ['md', 'markdown', 'txt'];
+/** Patterns excluded when the setting is missing. */
+const DEFAULT_EXCLUDE_GLOBS = ['**/node_modules/**', '**/.git/**'];
+/** Directory levels searched when the setting is missing; matches the `package.json` default. */
+const DEFAULT_MAX_SEARCH_DEPTH = 10;
+/** Extensions that make extensionless `README` files worth searching for. */
+const MARKDOWN_EXTENSIONS = ['md', 'markdown'];
+
+/** Resolved `workspaceWiki.*` settings that shape a scan. */
+interface ScanSettings {
+	supportedExtensions: string[];
+	excludeGlobs: string[];
+	maxSearchDepth: number;
+	showIgnoredFiles: boolean;
+	showHiddenFiles: boolean;
+}
+
+function asStringArray(value: unknown, fallback: string[]): string[] {
+	return Array.isArray(value) && value.every((entry) => typeof entry === 'string') ? value : fallback;
+}
 
 /**
- * Scans the workspace for documentation files (.md, .markdown, .txt)
- * Returns a list of file URIs matching supported extensions, respecting excludes and settings.
+ * Reads the settings that shape a scan. Values are type-checked, not just coalesced: settings come
+ * from user JSON, where a string in place of a number would silently disable a filter.
  *
- * @param workspace The workspace abstraction providing `findFiles` and optional `getConfiguration`
- * @returns Promise resolving to the matching file URIs (extension files plus extensionless README when Markdown is enabled)
+ * @param workspace The workspace abstraction providing optional `getConfiguration`
+ * @returns The resolved settings, with any unset or malformed value replaced by its default
  */
-export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<vscode.Uri[]> {
-	let supportedExtensions = ['md', 'markdown', 'txt'];
-	let excludeGlobs: string[] = ['**/node_modules/**', '**/.git/**'];
-	let maxSearchDepth = 10;
-	let showIgnoredFiles = false;
-	let showHiddenFiles = false;
+function readSettings(workspace: WorkspaceLike): ScanSettings {
+	const settings: ScanSettings = {
+		supportedExtensions: DEFAULT_EXTENSIONS,
+		excludeGlobs: DEFAULT_EXCLUDE_GLOBS,
+		maxSearchDepth: DEFAULT_MAX_SEARCH_DEPTH,
+		showIgnoredFiles: false,
+		showHiddenFiles: false,
+	};
 
-	if (workspace.getConfiguration) {
-		const config = workspace.getConfiguration('workspaceWiki');
-		supportedExtensions = config.get('supportedExtensions') || supportedExtensions;
-		excludeGlobs = config.get('excludeGlobs') || excludeGlobs;
-		maxSearchDepth = config.get('maxSearchDepth') || maxSearchDepth;
-		showIgnoredFiles = config.get('showIgnoredFiles') ?? false;
-		showHiddenFiles = config.get('showHiddenFiles') ?? false;
+	if (!workspace.getConfiguration) {
+		return settings;
 	}
 
-	if (!showIgnoredFiles) {
-		try {
-			if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-				const fs = require('fs');
-				const path = require('path');
-				let workspaceFolders;
-				if (typeof vscode !== 'undefined' && vscode.workspace?.workspaceFolders) {
-					workspaceFolders = vscode.workspace.workspaceFolders;
-				} else {
-					try {
-						const vscodeModule = require('vscode');
-						workspaceFolders = vscodeModule.workspace?.workspaceFolders;
-					} catch {
-						// In web environment, fs operations may not be available, continue without gitignore
-					}
-				}
-				if (workspaceFolders && workspaceFolders.length > 0) {
-					const gitignorePath = path.join(workspaceFolders[0].uri.fsPath, '.gitignore');
-					if (fs.existsSync(gitignorePath)) {
-						const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
-						const gitignorePatterns = gitignoreContent
-							.split('\n')
-							.map((line: string) => line.trim())
-							.filter((line: string) => line && !line.startsWith('#'))
-							.map((line: string) => {
-								if (line.endsWith('/')) {
-									return `**/${line}**`;
-								} else if (line.startsWith('/')) {
-									return `**${line}${line.endsWith('/') ? '**' : ''}`;
-								} else if (line.includes('*')) {
-									return `**/${line}`;
-								} else {
-									return `**/${line}`;
-								}
-							});
-						excludeGlobs = [...excludeGlobs, ...gitignorePatterns];
-					}
-				}
-			} else {
-				console.log('Workspace Wiki: Running in web environment, skipping .gitignore processing');
-			}
-		} catch (error) {
-			console.warn('Workspace Wiki: Could not process .gitignore file:', error);
-		}
-	}
+	const config = workspace.getConfiguration('workspaceWiki');
 
-	// Type check and ensure supportedExtensions is an array
-	if (!Array.isArray(supportedExtensions)) {
-		supportedExtensions = ['md', 'markdown', 'txt']; // Fallback to defaults
-	}
+	settings.supportedExtensions = asStringArray(config.get('supportedExtensions'), DEFAULT_EXTENSIONS);
+	settings.excludeGlobs = asStringArray(config.get('excludeGlobs'), DEFAULT_EXCLUDE_GLOBS);
 
-	// Add README (no extension) support if Markdown is enabled
-	let patterns = supportedExtensions.map((ext) => `**/*.${ext}`);
+	// 0 is meaningful: it disables depth filtering, so it must survive the fallback.
+	const maxSearchDepth = config.get('maxSearchDepth');
+	settings.maxSearchDepth =
+		typeof maxSearchDepth === 'number' && Number.isFinite(maxSearchDepth) && maxSearchDepth >= 0
+			? maxSearchDepth
+			: DEFAULT_MAX_SEARCH_DEPTH;
 
-	const markdownExts = ['md', 'markdown'];
-	const hasMarkdown = supportedExtensions.some((ext) => markdownExts.includes(ext.toLowerCase()));
+	const showIgnoredFiles = config.get('showIgnoredFiles');
+	settings.showIgnoredFiles = typeof showIgnoredFiles === 'boolean' ? showIgnoredFiles : false;
 
+	const showHiddenFiles = config.get('showHiddenFiles');
+	settings.showHiddenFiles = typeof showHiddenFiles === 'boolean' ? showHiddenFiles : false;
+
+	return settings;
+}
+
+function buildPatterns(supportedExtensions: string[]): string[] {
+	const patterns = supportedExtensions.map((ext) => `**/*.${ext}`);
+
+	const hasMarkdown = supportedExtensions.some((ext) => MARKDOWN_EXTENSIONS.includes(ext.toLowerCase()));
 	if (hasMarkdown) {
 		// README (no extension) at any depth, case-insensitive
 		patterns.push('**/README');
 		patterns.push('**/readme');
 	}
 
+	return patterns;
+}
+
+/**
+ * Counts directory levels below the file's own workspace folder, so each root of a multi-root
+ * workspace is measured on its own terms.
+ *
+ * @param workspace The workspace abstraction providing `asRelativePath`
+ * @param uri The file to measure
+ * @returns The one-based depth
+ */
+function getDepth(workspace: WorkspaceLike, uri: vscode.Uri): number {
+	const relativePath = workspace.asRelativePath(uri, false).replace(/\\/g, '/');
+	const separatorCount = relativePath ? (relativePath.match(/\//g) || []).length : 0;
+	return separatorCount + 1;
+}
+
+/**
+ * Finds the documentation files to show in the tree.
+ *
+ * Searches the configured `supportedExtensions`, plus extensionless `README` when Markdown is
+ * enabled, then drops anything excluded by `excludeGlobs`, a `.gitignore`, a dot-prefixed path
+ * segment, or `maxSearchDepth`. `showIgnoredFiles` and `showHiddenFiles` disable those filters.
+ *
+ * @param workspace The workspace abstraction providing `findFiles`, `workspaceFolders`, `asRelativePath`, `fs`, and optional `getConfiguration`
+ * @returns Promise resolving to the matching file URIs, in pattern order and not deduplicated
+ */
+export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<vscode.Uri[]> {
+	const { supportedExtensions, excludeGlobs, maxSearchDepth, showIgnoredFiles, showHiddenFiles } =
+		readSettings(workspace);
+
+	// findFiles takes a single glob with no way to spell negation, so .gitignore is resolved
+	// separately and applied as a filter below.
+	const ignoreIndex = showIgnoredFiles ? null : await buildIgnoreIndex(workspace, excludeGlobs);
+
+	const patterns = buildPatterns(supportedExtensions);
 	const exclude = !showIgnoredFiles && excludeGlobs.length > 0 ? `{${excludeGlobs.join(',')}}` : undefined;
 
 	const results: vscode.Uri[] = [];
@@ -99,72 +124,30 @@ export async function scanWorkspaceDocs(workspace: WorkspaceLike): Promise<vscod
 		// For README (no extension), filter to only files named exactly 'README' (case-insensitive, no extension)
 		if (pattern === '**/README' || pattern === '**/readme') {
 			uris = uris.filter((uri: vscode.Uri) => {
-				const fileName = uri.fsPath.split(/[\\\/]/).pop() || '';
+				const fileName = uri.path.split('/').pop() || '';
 				return /^readme$/i.test(fileName);
 			});
 		}
 
 		if (!showIgnoredFiles && excludeGlobs.length > 0) {
-			uris = uris.filter((uri: vscode.Uri) => {
-				const shouldExclude = excludeGlobs.some((glob) => {
-					const globPart = glob.replace(/\*\*/g, '').replace(/\*/g, '').replace(/^\//, '').replace(/\/$/, '');
-					const matches = uri.fsPath.includes(globPart) || uri.fsPath.endsWith(globPart);
-					return matches;
-				});
-				return !shouldExclude;
-			});
+			uris = uris.filter((uri: vscode.Uri) => !matchesGlobPattern(uri.path, excludeGlobs));
+		}
+
+		if (ignoreIndex) {
+			uris = uris.filter((uri: vscode.Uri) => !ignoreIndex.isIgnored(uri));
 		}
 
 		if (!showHiddenFiles) {
 			uris = uris.filter((uri: vscode.Uri) => {
-				const segments = uri.fsPath.split(/[\\\/]/);
+				const segments = uri.path.split('/');
 				return !segments.some((seg: string) => seg.startsWith('.') && seg.length > 1);
 			});
 		}
 
 		if (maxSearchDepth > 0) {
-			uris = uris.filter((uri: vscode.Uri) => {
-				const normalizedPath = uri.fsPath.replace(/\\/g, '/');
-
-				// Get workspace root path for relative calculation
-				let workspaceRoot = '';
-				if (
-					typeof vscode !== 'undefined' &&
-					vscode.workspace?.workspaceFolders &&
-					vscode.workspace.workspaceFolders.length > 0
-				) {
-					workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath.replace(/\\/g, '/');
-				} else {
-					try {
-						const vscodeModule = require('vscode');
-						if (
-							vscodeModule.workspace?.workspaceFolders &&
-							vscodeModule.workspace.workspaceFolders.length > 0
-						) {
-							workspaceRoot = vscodeModule.workspace.workspaceFolders[0].uri.fsPath.replace(/\\/g, '/');
-						}
-					} catch {
-						// Fallback: calculate common base from all paths
-						return true; // Skip depth filtering if we can't determine workspace root
-					}
-				}
-
-				// Calculate relative path from workspace root
-				let relativePath = normalizedPath;
-				if (workspaceRoot && normalizedPath.startsWith(workspaceRoot)) {
-					relativePath = normalizedPath.substring(workspaceRoot.length);
-					// Remove leading slash if present
-					if (relativePath.startsWith('/')) {
-						relativePath = relativePath.substring(1);
-					}
-				}
-
-				// Count directory separators to determine depth
-				const separatorCount = relativePath ? (relativePath.match(/\//g) || []).length : 0;
-				const depth = separatorCount + 1;
-				return depth <= maxSearchDepth;
-			});
+			uris = uris.filter((uri: vscode.Uri) => getDepth(workspace, uri) <= maxSearchDepth);
 		}
+
 		results.push(...uris);
 	}
 

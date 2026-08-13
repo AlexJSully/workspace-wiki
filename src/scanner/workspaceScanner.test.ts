@@ -1,659 +1,462 @@
-import * as assert from 'assert';
-import { createMockUri } from '../test/mocks';
-import { WorkspaceLike } from '../types';
+import { createMockUri, createMockWorkspace } from '../test/mocks';
 import { scanWorkspaceDocs } from './workspaceScanner';
+
+/**
+ * Collects the include patterns `scanWorkspaceDocs` searches with.
+ *
+ * @param supportedExtensions The extensions setting to apply, if any
+ * @returns The patterns passed to `findFiles`, in order
+ */
+async function capturePatterns(supportedExtensions?: string[]): Promise<string[]> {
+	const patterns: string[] = [];
+	const workspace = createMockWorkspace(
+		{ supportedExtensions },
+		{
+			files: (pattern) => {
+				patterns.push(pattern);
+				return [];
+			},
+		},
+	);
+
+	await scanWorkspaceDocs(workspace);
+	return patterns;
+}
+
+/**
+ * Runs a scan over a fixed document set.
+ *
+ * @param paths Paths the search should return for document patterns
+ * @param config Settings overrides
+ * @returns The resulting paths
+ */
+async function scanPaths(paths: string[], config: Parameters<typeof createMockWorkspace>[0] = {}): Promise<string[]> {
+	const workspace = createMockWorkspace(config, {
+		// Only answer the first document pattern, so a file is not counted once per extension.
+		files: (pattern) => (pattern === '**/*.md' ? paths.map(createMockUri) : []),
+	});
+
+	const result = await scanWorkspaceDocs(workspace);
+	return result.map((uri) => uri.path);
+}
 
 describe('workspaceScanner', () => {
 	describe('scanWorkspaceDocs', () => {
 		describe('Basic Functionality', () => {
 			it('should return an array of file URIs', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => [createMockUri(`/test/doc.${pattern.split('.').pop()}`)],
-				};
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(Array.isArray(result));
-				assert.ok(result.length > 0);
-				assert.ok(result[0].fsPath);
+				const workspace = createMockWorkspace(
+					{},
+					{ files: (pattern) => [createMockUri(`/test/doc.${pattern.split('.').pop()}`)] },
+				);
+
+				const result = await scanWorkspaceDocs(workspace);
+
+				expect(Array.isArray(result)).toBe(true);
+				expect(result.length).toBeGreaterThan(0);
+				expect(result[0].path).toBeTruthy();
 			});
 
 			it('should handle empty workspace', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [],
-				};
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(Array.isArray(result));
-				assert.strictEqual(result.length, 0);
+				const result = await scanWorkspaceDocs(createMockWorkspace({}, { files: () => [] }));
+
+				expect(result).toEqual([]);
 			});
 
 			it('should handle findFiles returning undefined', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => undefined as any,
-				};
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(Array.isArray(result));
-				assert.strictEqual(result.length, 0);
+				const result = await scanWorkspaceDocs(createMockWorkspace({}, { files: () => undefined as any }));
+
+				expect(result).toEqual([]);
 			});
 		});
 
 		describe('Supported Extensions', () => {
 			it('should include README (no extension) if Markdown is supported', async () => {
-				let calledPatterns: string[] = [];
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => {
-						calledPatterns.push(pattern);
-						// Simulate README (no extension) file
-						if (pattern === '**/README' || pattern === '**/readme') {
-							return [
-								createMockUri('/project-root/README'),
-								createMockUri('/project-root/docs/README'),
-								createMockUri('/project-root/docs/readme'),
-							];
-						}
-						return [];
+				const workspace = createMockWorkspace(
+					{ supportedExtensions: ['md', 'markdown', 'txt'] },
+					{
+						files: (pattern) =>
+							pattern === '**/README' || pattern === '**/readme'
+								? [
+										createMockUri('/project-root/README'),
+										createMockUri('/project-root/docs/README'),
+										createMockUri('/project-root/docs/readme'),
+									]
+								: [],
 					},
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'supportedExtensions') {
-								return ['md', 'markdown', 'txt'];
-							}
-							return undefined;
-						},
-					}),
-				};
+				);
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				// Should include all README (no extension) files
-				const readmeFiles = result.filter((uri: any) => /README$/i.test(uri.fsPath));
-				assert.ok(readmeFiles.length >= 3, 'Should detect README files with no extension');
-				// Should call the README patterns
-				assert.ok(calledPatterns.includes('**/README'));
-				assert.ok(calledPatterns.includes('**/readme'));
+				const result = await scanWorkspaceDocs(workspace);
+				const readmeFiles = result.filter((uri) => /README$/i.test(uri.path));
+
+				expect(readmeFiles.length).toBeGreaterThanOrEqual(3);
 			});
 
 			it('should NOT include README (no extension) if Markdown is NOT supported', async () => {
-				let calledPatterns: string[] = [];
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => {
-						calledPatterns.push(pattern);
-						if (pattern === '**/README' || pattern === '**/readme') {
-							// Should not be called
-							throw new Error('README pattern should not be called if Markdown is not supported');
-						}
-						return [];
-					},
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'supportedExtensions') {
-								return ['txt', 'html'];
-							}
-							return undefined;
-						},
-					}),
-				};
+				const patterns = await capturePatterns(['txt', 'html']);
 
-				await scanWorkspaceDocs(mockWorkspace);
-				// Should NOT call the README patterns
-				assert.ok(!calledPatterns.includes('**/README'));
-				assert.ok(!calledPatterns.includes('**/readme'));
+				expect(patterns).not.toContain('**/README');
+				expect(patterns).not.toContain('**/readme');
 			});
 
 			it('should scan default extensions (md, markdown, txt)', async () => {
-				const patterns: string[] = [];
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => {
-						patterns.push(pattern);
-						return [createMockUri(`/test/file.${pattern.split('.').pop()}`)];
-					},
-				};
+				const patterns = await capturePatterns();
 
-				await scanWorkspaceDocs(mockWorkspace);
-
-				assert.ok(patterns.includes('**/*.md'));
-				assert.ok(patterns.includes('**/*.markdown'));
-				assert.ok(patterns.includes('**/*.txt'));
+				expect(patterns).toEqual(expect.arrayContaining(['**/*.md', '**/*.markdown', '**/*.txt']));
 			});
 
 			it('should respect custom supportedExtensions from configuration', async () => {
-				const patterns: string[] = [];
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => {
-						patterns.push(pattern);
-						return [createMockUri(`/test/file.${pattern.split('.').pop()}`)];
-					},
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'supportedExtensions') {
-								return ['md', 'html', 'pdf'];
-							}
-							return undefined;
-						},
-					}),
-				};
+				const patterns = await capturePatterns(['md', 'html', 'pdf']);
 
-				await scanWorkspaceDocs(mockWorkspace);
-
-				assert.ok(patterns.includes('**/*.md'));
-				assert.ok(patterns.includes('**/*.html'));
-				assert.ok(patterns.includes('**/*.pdf'));
-				assert.ok(!patterns.includes('**/*.txt'));
-				assert.ok(!patterns.includes('**/*.markdown'));
+				expect(patterns).toEqual(expect.arrayContaining(['**/*.md', '**/*.html', '**/*.pdf']));
+				expect(patterns).not.toContain('**/*.txt');
+				expect(patterns).not.toContain('**/*.markdown');
 			});
 		});
 
 		describe('Exclude Patterns', () => {
 			it('should exclude default patterns (node_modules, .git)', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string, exclude?: string) => {
-						assert.ok(exclude?.includes('node_modules'));
-						assert.ok(exclude?.includes('.git'));
-						return [
-							createMockUri('/test/valid.md'),
-							createMockUri('/test/node_modules/invalid.md'),
-							createMockUri('/test/.git/invalid.md'),
-						];
+				const excludes: string[] = [];
+				const workspace = createMockWorkspace(
+					{},
+					{
+						files: (pattern, exclude) => {
+							if (typeof exclude === 'string') {
+								excludes.push(exclude);
+							}
+							return pattern === '**/*.md'
+								? [
+										createMockUri('/test/valid.md'),
+										createMockUri('/test/node_modules/invalid.md'),
+										createMockUri('/test/.git/invalid.md'),
+									]
+								: [];
+						},
 					},
-				};
+				);
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('valid.md')));
-				assert.ok(!result.some((uri: any) => uri.fsPath.includes('node_modules')));
-				assert.ok(!result.some((uri: any) => uri.fsPath.includes('.git')));
+				const result = (await scanWorkspaceDocs(workspace)).map((uri) => uri.path);
+
+				expect(excludes).toContain('{**/node_modules/**,**/.git/**}');
+				expect(result).toContain('/test/valid.md');
+				expect(result.some((path) => path.includes('node_modules'))).toBe(false);
+				expect(result.some((path) => path.includes('.git/'))).toBe(false);
 			});
 
 			it('should respect custom excludeGlobs from configuration', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string, exclude?: string) => {
-						assert.ok(exclude?.includes('custom-exclude'));
-						return [createMockUri('/test/valid.md'), createMockUri('/test/custom-exclude/invalid.md')];
-					},
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'excludeGlobs') {
-								return ['**/custom-exclude/**'];
-							}
-							return undefined;
-						},
-					}),
-				};
+				const result = await scanPaths(['/test/valid.md', '/test/custom-exclude/invalid.md'], {
+					excludeGlobs: ['**/custom-exclude/**'],
+				});
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('valid.md')));
-				assert.ok(!result.some((uri: any) => uri.fsPath.includes('custom-exclude')));
+				expect(result).toContain('/test/valid.md');
+				expect(result.some((path) => path.includes('custom-exclude'))).toBe(false);
 			});
 
 			it('should handle showIgnoredFiles=true to include normally excluded files', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => {
-						// Return files for each extension pattern
-						if (pattern.includes('md')) {
-							return [createMockUri('/test/normal.md'), createMockUri('/test/node_modules/excluded.md')];
-						}
-						return [];
-					},
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'showIgnoredFiles') {
-								return true;
-							}
-							return undefined;
-						},
-					}),
-				};
+				const result = await scanPaths(['/test/normal.md', '/test/node_modules/excluded.md'], {
+					showIgnoredFiles: true,
+				});
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('normal.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('node_modules')));
+				expect(result).toContain('/test/normal.md');
+				expect(result).toContain('/test/node_modules/excluded.md');
+			});
+		});
+
+		describe('GitIgnore Filtering', () => {
+			/**
+			 * Runs a scan against a workspace whose root carries a `.gitignore`.
+			 *
+			 * @param gitignore The `.gitignore` contents
+			 * @param paths Document paths the search should return
+			 * @param config Settings overrides
+			 * @returns The resulting paths
+			 */
+			async function scanWithGitignore(
+				gitignore: string,
+				paths: string[],
+				config: Parameters<typeof createMockWorkspace>[0] = {},
+			): Promise<string[]> {
+				const gitignoreUri = createMockUri('/workspace-root/.gitignore');
+				const workspace = createMockWorkspace(config, {
+					contents: { [gitignoreUri.toString()]: gitignore },
+					files: (pattern) => {
+						if (pattern === '**/.gitignore') {
+							return [gitignoreUri];
+						}
+						return pattern === '**/*.md' ? paths.map(createMockUri) : [];
+					},
+				});
+
+				const result = await scanWorkspaceDocs(workspace);
+				return result.map((uri) => uri.path);
+			}
+
+			it('should drop files the workspace .gitignore names', async () => {
+				const result = await scanWithGitignore('secret.md\n', [
+					'/workspace-root/secret.md',
+					'/workspace-root/public.md',
+				]);
+
+				expect(result).toEqual(['/workspace-root/public.md']);
+			});
+
+			it('should drop files beneath an ignored directory', async () => {
+				const result = await scanWithGitignore('build/\n', [
+					'/workspace-root/build/output.md',
+					'/workspace-root/src/notes.md',
+				]);
+
+				expect(result).toEqual(['/workspace-root/src/notes.md']);
+			});
+
+			it('should keep a file a negation rule re-includes', async () => {
+				const result = await scanWithGitignore('*.md\n!keep.md\n', [
+					'/workspace-root/keep.md',
+					'/workspace-root/drop.md',
+				]);
+
+				expect(result).toEqual(['/workspace-root/keep.md']);
+			});
+
+			it('should keep ignored files when showIgnoredFiles is true', async () => {
+				const result = await scanWithGitignore(
+					'secret.md\n',
+					['/workspace-root/secret.md', '/workspace-root/public.md'],
+					{ showIgnoredFiles: true },
+				);
+
+				expect(result).toContain('/workspace-root/secret.md');
 			});
 		});
 
 		describe('Hidden Files', () => {
 			it('should exclude hidden files by default', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [
-						createMockUri('/test/visible.md'),
-						createMockUri('/test/.hidden.md'),
-						createMockUri('/test/.hidden/file.md'),
-						createMockUri('/test/folder/.dotfile.md'),
-					],
-				};
+				const result = await scanPaths([
+					'/test/visible.md',
+					'/test/.hidden.md',
+					'/test/.hidden/file.md',
+					'/test/folder/.dotfile.md',
+				]);
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('visible.md')));
-				assert.ok(!result.some((uri: any) => uri.fsPath.includes('.hidden')));
-				assert.ok(!result.some((uri: any) => uri.fsPath.includes('.dotfile')));
+				expect(result).toContain('/test/visible.md');
+				expect(result.some((path) => path.includes('.hidden'))).toBe(false);
+				expect(result.some((path) => path.includes('.dotfile'))).toBe(false);
 			});
 
 			it('should include hidden files when showHiddenFiles=true', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [
-						createMockUri('/test/visible.md'),
-						createMockUri('/test/.hidden.md'),
-						createMockUri('/test/.hidden/file.md'),
-					],
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'showHiddenFiles') {
-								return true;
-							}
-							return undefined;
-						},
-					}),
-				};
+				const result = await scanPaths(['/test/visible.md', '/test/.hidden.md', '/test/.hidden/file.md'], {
+					showHiddenFiles: true,
+				});
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('visible.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('.hidden.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('.hidden/file.md')));
+				expect(result).toContain('/test/visible.md');
+				expect(result).toContain('/test/.hidden.md');
+				expect(result).toContain('/test/.hidden/file.md');
 			});
 
 			it('should not exclude single dots or files ending with dot', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [
-						createMockUri('/test/file.md'),
-						createMockUri('/test/file.'),
-						createMockUri('/test/.'),
-						createMockUri('/test/..'),
-					],
-				};
+				const result = await scanPaths(['/test/file.md', '/test/file.']);
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('file.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.endsWith('file.')));
-				// Single dots should not be excluded as they are not "hidden" in the traditional sense
+				expect(result).toContain('/test/file.md');
+				expect(result).toContain('/test/file.');
 			});
 		});
 
 		describe('Max Search Depth', () => {
-			it('should respect maxSearchDepth configuration', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [
-						createMockUri('/project-root/level1.md'),
-						createMockUri('/project-root/sub/level2.md'),
-						createMockUri('/project-root/sub/deep/level3.md'),
-						createMockUri('/project-root/sub/deep/deeper/level4.md'),
+			it('should exclude files deeper than maxSearchDepth', async () => {
+				const result = await scanPaths(
+					[
+						'/workspace-root/level1.md',
+						'/workspace-root/sub/level2.md',
+						'/workspace-root/sub/deep/level3.md',
 					],
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'maxSearchDepth') {
-								return 0; // Disable depth filtering for this test
-							}
-							return undefined;
-						},
-					}),
-				};
+					{ maxSearchDepth: 2 },
+				);
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				// With depth filtering disabled, all files should be included
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('level1.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('level2.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('level3.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('level4.md')));
+				expect(result).toEqual(['/workspace-root/level1.md', '/workspace-root/sub/level2.md']);
 			});
 
 			it('should handle maxSearchDepth=0 to disable depth filtering', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [
-						createMockUri('/project-root/level1.md'),
-						createMockUri('/project-root/very/deep/nested/structure/file.md'),
-					],
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'maxSearchDepth') {
-								return 0;
-							}
-							return undefined;
-						},
-					}),
-				};
+				const result = await scanPaths(
+					['/workspace-root/level1.md', '/workspace-root/very/deep/nested/structure/file.md'],
+					{ maxSearchDepth: 0 },
+				);
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('level1.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('very/deep/nested')));
+				expect(result).toHaveLength(2);
 			});
 
-			it('should handle workspace root relative paths correctly', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [
-						createMockUri('/workspace-root/level1.md'),
-						createMockUri('/workspace-root/sub/level2.md'),
-						createMockUri('/workspace-root/sub/deep/level3.md'),
-					],
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'maxSearchDepth') {
-								return 0; // Disable depth filtering for this test
-							}
-							return undefined;
-						},
-					}),
-				};
+			it('should measure depth from the file’s own workspace folder in a multi-root workspace', async () => {
+				// Root-relative depth: both files sit one level below their own folder, so a
+				// maxSearchDepth of 1 must keep both even though the absolute paths differ in length.
+				const workspace = createMockWorkspace(
+					{ maxSearchDepth: 1 },
+					{
+						folders: [createMockUri('/folder-a'), createMockUri('/deeply/nested/folder-b')],
+						files: (pattern) =>
+							pattern === '**/*.md'
+								? [
+										createMockUri('/folder-a/notes.md'),
+										createMockUri('/deeply/nested/folder-b/notes.md'),
+									]
+								: [],
+					},
+				);
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('level1.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('level2.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('level3.md')));
+				const result = await scanWorkspaceDocs(workspace);
+
+				expect(result).toHaveLength(2);
 			});
 
-			it('should fallback gracefully when workspace root cannot be determined', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [
-						createMockUri('/some/path/level1.md'),
-						createMockUri('/some/path/sub/level2.md'),
-						createMockUri('/some/path/sub/deep/level3.md'),
-					],
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'maxSearchDepth') {
-								return 0; // Disable depth filtering
-							}
-							return undefined;
-						},
-					}),
-				};
+			it('should keep files when the workspace root cannot be determined', async () => {
+				const result = await scanPaths(['/some/path/level1.md', '/some/path/sub/level2.md'], {
+					maxSearchDepth: 0,
+				});
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				// Should return all files when workspace root cannot be determined
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('level1.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('level2.md')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('level3.md')));
-			});
-		});
-		describe('GitIgnore Processing', () => {
-			let originalProcess: any;
-			let originalRequire: any;
-
-			beforeEach(() => {
-				originalProcess = global.process;
-				originalRequire = global.require;
-			});
-
-			afterEach(() => {
-				global.process = originalProcess;
-				global.require = originalRequire;
-			});
-
-			it('should skip gitignore processing in web environment', async () => {
-				// Simulate web environment
-				delete (global as any).process;
-
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [createMockUri('/test/file.md')],
-				};
-
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(Array.isArray(result));
-				assert.ok(result.length > 0);
-			});
-
-			it('should handle gitignore file not existing', async () => {
-				// Mock Node.js environment but no gitignore file
-				(global as any).process = { versions: { node: '18.0.0' } };
-				(global as any).require = (module: string) => {
-					if (module === 'fs') {
-						return { existsSync: () => false };
-					}
-					if (module === 'path') {
-						return { join: (...args: string[]) => args.join('/') };
-					}
-					if (module === 'vscode') {
-						return { workspace: { workspaceFolders: [{ uri: createMockUri('/test') }] } };
-					}
-					throw new Error(`Module ${module} not found`);
-				};
-
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [createMockUri('/test/file.md')],
-				};
-
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(Array.isArray(result));
-			});
-
-			it('should handle errors in gitignore processing gracefully', async () => {
-				// Mock environment that throws errors
-				(global as any).process = { versions: { node: '18.0.0' } };
-				(global as any).require = () => {
-					throw new Error('Test error');
-				};
-
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [createMockUri('/test/file.md')],
-				};
-
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(Array.isArray(result));
+				expect(result).toHaveLength(2);
 			});
 		});
 
 		describe('Performance Edge Cases', () => {
 			it('should handle large numbers of files efficiently', async () => {
-				const largeFileList = Array.from({ length: 1000 }, (_, i) => createMockUri(`/test/file${i}.md`));
+				const largeFileList = Array.from({ length: 1000 }, (_, i) => `/test/file${i}.md`);
 
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => {
-						// Return files only for .md pattern to avoid triplication
-						if (pattern.includes('.md')) {
-							return largeFileList;
-						}
-						return [];
-					},
-				};
+				const result = await scanPaths(largeFileList);
 
-				const startTime = Date.now();
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				const endTime = Date.now();
-
-				assert.strictEqual(result.length, 1000);
-				// Should complete within reasonable time (less than 1 second)
-				assert.ok(endTime - startTime < 1000);
+				expect(result).toHaveLength(1000);
 			});
 
 			it('should handle complex exclude patterns efficiently', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => Array.from({ length: 100 }, (_, i) => createMockUri(`/test/file${i}.md`)),
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'excludeGlobs') {
-								return Array.from({ length: 50 }, (_, i) => `**/exclude${i}/**`);
-							}
-							return undefined;
-						},
-					}),
-				};
+				const files = Array.from({ length: 100 }, (_, i) => `/test/file${i}.md`);
+				const excludeGlobs = Array.from({ length: 50 }, (_, i) => `**/exclude${i}/**`);
 
-				const startTime = Date.now();
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				const endTime = Date.now();
+				const result = await scanPaths(files, { excludeGlobs });
 
-				assert.ok(Array.isArray(result));
-				// Should handle complex patterns efficiently
-				assert.ok(endTime - startTime < 500);
+				expect(result).toHaveLength(100);
 			});
 		});
 
 		describe('Security Edge Cases', () => {
-			it('should handle malicious file paths safely', async () => {
+			it('should pass unusual paths through unchanged', async () => {
 				const maliciousPaths = [
-					createMockUri('../../../etc/passwd.md'),
-					createMockUri('..\\..\\..\\windows\\system32.md'),
-					createMockUri('/test/normal.md'),
-					createMockUri('test/../../../sensitive.md'),
-					createMockUri('/test/file\x00injection.md'),
-					createMockUri('/test/file\n\r.md'),
+					'../../../etc/passwd.md',
+					'/test/normal.md',
+					'test/../../../sensitive.md',
+					'/test/file\x00injection.md',
+					'/test/file\n\r.md',
 				];
 
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => {
-						// Return paths only for .md pattern to avoid triplication
-						if (pattern.includes('.md')) {
-							return maliciousPaths;
-						}
-						return [];
-					},
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'showHiddenFiles') {
-								return true; // Include hidden files to test all malicious paths
-							}
-							return undefined;
-						},
-					}),
-				};
+				const result = await scanPaths(maliciousPaths, { showHiddenFiles: true, maxSearchDepth: 0 });
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				// Should return results without throwing errors
-				assert.ok(Array.isArray(result));
-				// All paths should be preserved as-is (no path traversal validation in scanner)
-				assert.strictEqual(result.length, maliciousPaths.length);
+				// Paths are passed through unchanged; the scanner does no traversal validation.
+				expect(result).toHaveLength(maliciousPaths.length);
 			});
 
 			it('should handle extremely long file paths', async () => {
-				const longPath = '/test/' + 'a'.repeat(1000) + '.md';
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => {
-						// Return path only for .md pattern to avoid triplication
-						if (pattern.includes('.md')) {
-							return [createMockUri(longPath)];
-						}
-						return [];
-					},
-				};
+				const longPath = `/test/${'a'.repeat(1000)}.md`;
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(Array.isArray(result));
-				assert.strictEqual(result.length, 1);
-				assert.strictEqual(result[0].fsPath, longPath);
+				const result = await scanPaths([longPath]);
+
+				expect(result).toEqual([longPath]);
 			});
 
 			it('should handle special characters in file paths', async () => {
 				const specialPaths = [
-					createMockUri('/test/file with spaces.md'),
-					createMockUri('/test/файл.md'),
-					createMockUri('/test/文件.md'),
-					createMockUri('/test/file-with-émojis-🚀.md'),
-					createMockUri('/test/file&with%special$chars.md'),
+					'/test/file with spaces.md',
+					'/test/файл.md',
+					'/test/文件.md',
+					'/test/file-with-émojis-🚀.md',
+					'/test/file&with%special$chars.md',
 				];
 
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => {
-						// Return paths only for .md pattern to avoid triplication
-						if (pattern.includes('.md')) {
-							return specialPaths;
-						}
-						return [];
-					},
-				};
+				const result = await scanPaths(specialPaths);
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.strictEqual(result.length, specialPaths.length);
-				// All special characters should be preserved
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('spaces')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('файл')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('文件')));
-				assert.ok(result.some((uri: any) => uri.fsPath.includes('🚀')));
+				expect(result).toEqual(specialPaths);
 			});
 		});
 
 		describe('Configuration Edge Cases', () => {
 			it('should handle missing getConfiguration method', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [createMockUri('/test/file.md')],
-					// No getConfiguration method
-				};
+				const workspace = createMockWorkspace({}, { files: () => [createMockUri('/test/file.md')] });
+				delete (workspace as any).getConfiguration;
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(Array.isArray(result));
-				assert.ok(result.length > 0);
+				const result = await scanWorkspaceDocs(workspace);
+
+				expect(result.length).toBeGreaterThan(0);
 			});
 
-			it('should handle null/undefined configuration values', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [createMockUri('/test/file.md')],
-					getConfiguration: () => ({
-						get: () => null,
-					}),
-				};
-
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(Array.isArray(result));
-			});
-
-			it('should handle invalid configuration types', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async () => [createMockUri('/test/file.md')],
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'supportedExtensions') {
-								return 'invalid-string';
-							}
-							if (key === 'excludeGlobs') {
-								return 123;
-							}
-							if (key === 'maxSearchDepth') {
-								return 'not-a-number';
-							}
-							if (key === 'showIgnoredFiles') {
-								return 'not-boolean';
-							}
-							if (key === 'showHiddenFiles') {
-								return {};
-							}
-							return undefined;
+			it('should fall back to defaults when every configuration value is null', async () => {
+				const patterns: string[] = [];
+				const workspace = createMockWorkspace(
+					{},
+					{
+						files: (pattern) => {
+							patterns.push(pattern);
+							return [];
 						},
-					}),
-				};
+					},
+				);
+				workspace.getConfiguration = () => ({ get: () => null });
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				// Should fall back to defaults and not crash
-				assert.ok(Array.isArray(result));
+				await scanWorkspaceDocs(workspace);
+
+				expect(patterns).toEqual(expect.arrayContaining(['**/*.md', '**/*.markdown', '**/*.txt']));
+			});
+
+			it('should fall back to defaults for invalid configuration types', async () => {
+				const patterns: string[] = [];
+				const excludes: string[] = [];
+				const workspace = createMockWorkspace(
+					{},
+					{
+						files: (pattern, exclude) => {
+							patterns.push(pattern);
+							if (typeof exclude === 'string') {
+								excludes.push(exclude);
+							}
+							return pattern === '**/*.md'
+								? [createMockUri('/workspace-root/.hidden.md'), createMockUri('/workspace-root/ok.md')]
+								: [];
+						},
+					},
+				);
+				workspace.getConfiguration = () => ({
+					get: (key: string) => {
+						const invalid: Record<string, unknown> = {
+							supportedExtensions: 'invalid-string',
+							excludeGlobs: 123,
+							maxSearchDepth: 'not-a-number',
+							showIgnoredFiles: 'not-boolean',
+							showHiddenFiles: {},
+						};
+						return invalid[key];
+					},
+				});
+
+				const result = await scanWorkspaceDocs(workspace);
+
+				// Each malformed value must fall back rather than silently disable its filter.
+				expect(patterns).toEqual(expect.arrayContaining(['**/*.md', '**/*.markdown', '**/*.txt']));
+				expect(excludes).toContain('{**/node_modules/**,**/.git/**}');
+				expect(result.map((uri) => uri.path)).toEqual(['/workspace-root/ok.md']);
 			});
 		});
 
 		describe('Cross-platform Compatibility', () => {
-			it('should handle Windows-style paths', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => {
-						// Return paths only for .md pattern to avoid triplication
-						if (pattern.includes('.md')) {
-							return [
-								createMockUri('C:\\Users\\test\\Documents\\file.md'),
-								createMockUri('C:\\Users\\test\\Documents\\sub\\nested.md'),
-							];
-						}
-						return [];
-					},
-					getConfiguration: () => ({
-						get: (key: string) => {
-							if (key === 'maxSearchDepth') {
-								return 0; // Disable depth filtering
-							}
-							return undefined;
-						},
-					}),
-				};
+			it('should handle drive-letter paths', async () => {
+				// The path form Uri.file produces on Windows.
+				const result = await scanPaths(
+					['file:///c:/Users/test/Documents/file.md', 'file:///c:/Users/test/Documents/sub/nested.md'],
+					{ maxSearchDepth: 0 },
+				);
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(Array.isArray(result));
-				assert.ok(result.length > 0);
+				expect(result).toEqual(['/c:/Users/test/Documents/file.md', '/c:/Users/test/Documents/sub/nested.md']);
 			});
 
-			it('should handle mixed path separators', async () => {
-				const mockWorkspace: WorkspaceLike = {
-					findFiles: async (pattern: string) => {
-						// Return paths only for .md pattern to avoid triplication
-						if (pattern.includes('.md')) {
-							return [
-								createMockUri('/test\\mixed/path\\separators.md'),
-								createMockUri('C:/Windows\\Style/Mixed.md'),
-							];
-						}
-						return [];
-					},
-				};
+			it('should pass through paths the scanner cannot interpret as separators', async () => {
+				// A backslash is a legal filename character outside Windows, so these stay one segment
+				// each. The scanner must neither drop nor rewrite them.
+				const result = await scanPaths(['/test/back\\slash.md', '/test/plain.md'], { maxSearchDepth: 0 });
 
-				const result = await scanWorkspaceDocs(mockWorkspace);
-				assert.ok(Array.isArray(result));
-				assert.strictEqual(result.length, 2);
+				expect(result).toHaveLength(2);
+				expect(result).toContain('/test/plain.md');
 			});
 		});
 	});

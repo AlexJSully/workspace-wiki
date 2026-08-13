@@ -1,71 +1,89 @@
-// Jest configuration for VS Code extension testing
-import '@testing-library/jest-dom';
-
-// Mock vscode module for Jest tests
+// The `vscode` module only exists inside the extension host, so Jest needs a stand-in. `Uri` is
+// the real implementation from `vscode-uri`, and `workspace.fs` reads from disk, so the front
+// matter path is exercised rather than stubbed.
 jest.mock(
 	'vscode',
-	() => ({
-		commands: {
-			executeCommand: jest.fn(),
-			registerCommand: jest.fn().mockReturnValue({ dispose: jest.fn() }),
-		},
-		workspace: {
-			findFiles: jest.fn(),
-			getConfiguration: jest.fn().mockReturnValue({
-				get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
-					// Return defaults for common configuration keys
-					const defaults = {
-						supportedExtensions: ['md', 'markdown', 'txt'],
-						excludeGlobs: ['**/node_modules/**', '**/.git/**'],
-						directorySort: 'readme-first',
-						acronymCasing: [],
-						autoReveal: true,
-						autoRevealDelay: 500,
-						openWith: {},
-						defaultOpenMode: 'preview',
-						maxSearchDepth: 10,
-						showHiddenFiles: false,
-						showIgnoredFiles: false,
-					};
-					return defaults[key as keyof typeof defaults] ?? defaultValue;
+	() => {
+		// Required inside the factory: jest.mock is hoisted above imports.
+		const nodeFs = require('fs');
+		const { URI, Utils } = require('vscode-uri');
+
+		return {
+			commands: {
+				executeCommand: jest.fn(),
+				registerCommand: jest.fn().mockReturnValue({ dispose: jest.fn() }),
+			},
+			workspace: {
+				findFiles: jest.fn(),
+				fs: {
+					readFile: jest.fn(async (uri: any) => {
+						try {
+							return new Uint8Array(nodeFs.readFileSync(uri.fsPath));
+						} catch (error: any) {
+							// Surface the code VS Code's FileSystemError would use, so production
+							// code's "missing file is not an error" branch is exercised for real.
+							if (error?.code === 'ENOENT') {
+								const notFound: any = new Error(`File not found: ${uri.toString()}`);
+								notFound.code = 'FileNotFound';
+								throw notFound;
+							}
+							throw error;
+						}
+					}),
+				},
+				// No settings defaults here: they would duplicate package.json and mask the production
+				// fallbacks under test. Callers get whatever default they pass to `get`.
+				getConfiguration: jest.fn().mockReturnValue({
+					get: jest.fn().mockImplementation((_key: string, defaultValue?: any) => defaultValue),
 				}),
-			}),
-			onDidChangeConfiguration: jest.fn().mockReturnValue({ dispose: jest.fn() }),
-		},
-		window: {
-			registerTreeDataProvider: jest.fn(),
-			createTreeView: jest.fn().mockReturnValue({
-				visible: true,
-				reveal: jest.fn(),
-				onDidChangeVisibility: jest.fn().mockReturnValue({ dispose: jest.fn() }),
-			}),
-			activeTextEditor: {
-				document: {
-					uri: {
-						fsPath: '/test/file.md',
+				workspaceFolders: [{ uri: URI.file('/workspace-root'), name: 'workspace-root', index: 0 }],
+				asRelativePath: jest.fn((pathOrUri: any, _includeWorkspaceFolder?: boolean) => {
+					const path = typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.path;
+					return path.replace(/^\/workspace-root\/?/, '');
+				}),
+				getWorkspaceFolder: jest.fn(() => undefined),
+				onDidChangeConfiguration: jest.fn().mockReturnValue({ dispose: jest.fn() }),
+			},
+			window: {
+				registerTreeDataProvider: jest.fn(),
+				createTreeView: jest.fn().mockReturnValue({
+					visible: true,
+					reveal: jest.fn(),
+					onDidChangeVisibility: jest.fn().mockReturnValue({ dispose: jest.fn() }),
+				}),
+				activeTextEditor: {
+					document: {
+						uri: URI.file('/test/file.md'),
 					},
 				},
+				onDidChangeActiveTextEditor: jest.fn().mockReturnValue({ dispose: jest.fn() }),
 			},
-			onDidChangeActiveTextEditor: jest.fn().mockReturnValue({ dispose: jest.fn() }),
-		},
-		TreeItem: jest.fn().mockImplementation((uri, state) => ({
-			resourceUri: uri,
-			collapsibleState: state,
-		})),
-		TreeItemCollapsibleState: {
-			None: 0,
-			Collapsed: 1,
-			Expanded: 2,
-		},
-		EventEmitter: jest.fn().mockImplementation(() => ({
-			event: jest.fn(),
-			fire: jest.fn(),
-			dispose: jest.fn(),
-		})),
-		Uri: {
-			file: jest.fn((path: string) => ({ fsPath: path })),
-			parse: jest.fn((path: string) => ({ fsPath: path })),
-		},
-	}),
+			TreeItem: jest.fn().mockImplementation((label, state) => ({
+				label,
+				collapsibleState: state,
+			})),
+			TreeItemCollapsibleState: {
+				None: 0,
+				Collapsed: 1,
+				Expanded: 2,
+			},
+			EventEmitter: jest.fn().mockImplementation(() => ({
+				event: jest.fn(),
+				fire: jest.fn(),
+				dispose: jest.fn(),
+			})),
+			RelativePattern: jest.fn().mockImplementation(function (this: any, base: any, pattern: string) {
+				this.baseUri = typeof base === 'string' ? URI.file(base) : (base.uri ?? base);
+				this.base = this.baseUri.path;
+				this.pattern = pattern;
+			}),
+			Uri: {
+				file: jest.fn(URI.file),
+				parse: jest.fn(URI.parse),
+				joinPath: jest.fn(Utils.joinPath),
+				from: jest.fn(URI.from),
+			},
+		};
+	},
 	{ virtual: true },
 );
