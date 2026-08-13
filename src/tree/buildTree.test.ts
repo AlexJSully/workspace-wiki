@@ -219,6 +219,21 @@ describe('buildTree', () => {
 			expect(docsFolder.children![0].isIndex).toBe(true);
 		});
 
+		it('should rank an extensionless README first among its siblings', async () => {
+			const uris = [
+				createMockUri('/workspace-root/docs/index.md'),
+				createMockUri('/workspace-root/docs/alpha.md'),
+				createMockUri('/workspace-root/docs/README'),
+			];
+
+			const result = await buildTree(uris);
+
+			// "README" sorts after "Alpha" and "Index" alphabetically, so ranking it first can only
+			// come from the README rule rather than from the ordinary comparison.
+			expect(result[0].name).toBe('README');
+			expect(result[0].isReadme).toBe(true);
+		});
+
 		it('should identify an index file of any supported type', async () => {
 			const uris = [createMockUri('/workspace-root/index.mdx'), createMockUri('/workspace-root/docs/index.txt')];
 			const result = await buildTree(uris);

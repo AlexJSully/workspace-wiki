@@ -10,10 +10,10 @@ The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tr
 
 - Implements VS Code's `TreeDataProvider` interface.
 - Applies ordering rules:
-    - `README.md` at root always first
+    - A README at root always first, whatever its extension — `README.md`, `readme.txt`, or an extensionless `README`
     - Root-level docs next (alphabetical)
     - Folders (displayed by their own normalized name; an `index.md` appears as a child file, not as the folder node)
-    - Files inside folders (alphabetical, with `README.md` at top)
+    - Files inside folders (alphabetical, with any README at top)
 - Normalizes file names to human-friendly titles.
 - Addresses nodes by URI, so the tree behaves the same on local, remote, and virtual file systems
 - Supports sync functionality with active editor

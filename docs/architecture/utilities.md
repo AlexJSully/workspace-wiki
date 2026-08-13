@@ -94,10 +94,13 @@ normalizeTitle('htmlCssGuide.md', acronyms); // → 'HTML CSS Guide'
 
 [`toSearchGlob`](../../src/utils/fileUtils.ts) prefixes a pattern with `**/` when it names a file rather than a path, because both `findFiles` and [`matchesGlobPattern`](../../src/utils/fileUtils.ts) anchor a slashless pattern to the start of the path. Without it, `doc.go` in `includeGlobs` would match only at the workspace root. The [scanner](./scanner.md) applies it when building search patterns and the [sync module](./sync.md) applies it when deciding whether to reveal the active file, so both agree on what a pattern means.
 
+Separators are normalized before that decision, through `normalizePath`. The setting is typed by hand, so a Windows user may write `docs\notes\*.adoc`; left alone it holds no forward slash, would be read as a bare file name, and would then match nothing, since `findFiles` understands only forward slashes.
+
 ```typescript
 toSearchGlob('doc.go'); // → '**/doc.go'
 toSearchGlob('*.guide.ts'); // → '**/*.guide.ts'
 toSearchGlob('docs/notes/*.adoc'); // → 'docs/notes/*.adoc'
+toSearchGlob('docs\\notes\\*.adoc'); // → 'docs/notes/*.adoc'
 ```
 
 See also: [Settings Manager](./settings.md)

@@ -146,9 +146,11 @@ export function matchesGlobPattern(filePath: string, patterns: string[]): boolea
 /**
  * Turns an include pattern into one that matches at any depth.
  *
- * A pattern naming a file and nothing else (`doc.go`) is anchored to the workspace root by both
- * `findFiles` and `matchesGlobPattern`, which is never what naming a file means here, so it gains a
- * `**\/` prefix. A pattern that already spells out path structure passes through unchanged.
+ * Separators are normalized first: the setting is typed by hand, so a Windows user may write
+ * `docs\notes\*.adoc`, which would otherwise read as a bare file name and never match. A pattern
+ * naming a file and nothing else (`doc.go`) is anchored to the workspace root by both `findFiles`
+ * and `matchesGlobPattern`, which is never what naming a file means here, so it gains a `**\/`
+ * prefix. A pattern that already spells out path structure passes through with its separators fixed.
  *
  * @param pattern The include pattern to normalize
  * @returns The search glob, or `''` for invalid input
@@ -158,7 +160,8 @@ export function toSearchGlob(pattern: string): string {
 		return '';
 	}
 
-	return pattern.includes('/') ? pattern : `**/${pattern}`;
+	const normalized = normalizePath(pattern);
+	return normalized.includes('/') ? normalized : `**/${normalized}`;
 }
 
 /**

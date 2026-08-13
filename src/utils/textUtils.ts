@@ -220,13 +220,17 @@ export function isIndexFile(fileName: string): boolean {
 /**
  * Checks if a file name represents a README file
  *
+ * An extensionless `README` counts: the scanner searches for those wherever Markdown is enabled, and
+ * they carry the same meaning as `README.md`, so they earn the same first place in the tree.
+ *
  * @param fileName The file name to check
- * @returns `true` if the name starts with `readme.` (case-insensitive)
+ * @returns `true` if the name is `readme` or starts with `readme.` (case-insensitive)
  */
 export function isReadmeFile(fileName: string): boolean {
 	if (!fileName || typeof fileName !== 'string') {
 		return false;
 	}
 
-	return fileName.toLowerCase().startsWith('readme.');
+	const name = fileName.toLowerCase();
+	return name === 'readme' || name.startsWith('readme.');
 }

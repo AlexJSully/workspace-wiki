@@ -225,9 +225,26 @@ describe('fileUtils', () => {
 			expect(toSearchGlob(input as any)).toBe(expected);
 		});
 
+		// A setting is typed by hand, so a Windows user may separate a path pattern with backslashes.
+		// Those carry the same meaning and must not be mistaken for a bare file name.
+		test.each([
+			{ input: 'docs\\notes\\*.adoc', expected: 'docs/notes/*.adoc', description: 'backslash path' },
+			{ input: '**\\doc.go', expected: '**/doc.go', description: 'backslash prefixed pattern' },
+			{ input: 'docs\\guide.md', expected: 'docs/guide.md', description: 'single backslash' },
+		])('should normalize a $description: $input', ({ input, expected }: { input: string; expected: string }) => {
+			expect(toSearchGlob(input)).toBe(expected);
+		});
+
 		it('should produce a pattern matchesGlobPattern accepts for a nested file', () => {
 			expect(matchesGlobPattern('/workspace-root/pkg/doc.go', [toSearchGlob('doc.go')])).toBe(true);
 			expect(matchesGlobPattern('/workspace-root/pkg/other.go', [toSearchGlob('doc.go')])).toBe(false);
+		});
+
+		it('should match a real path from a backslash-written pattern', () => {
+			const pattern = toSearchGlob('docs\\notes\\*.adoc');
+
+			expect(matchesGlobPattern('/workspace-root/docs/notes/spec.adoc', [pattern])).toBe(true);
+			expect(matchesGlobPattern('/workspace-root/docs/other/spec.adoc', [pattern])).toBe(false);
 		});
 	});
 });

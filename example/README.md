@@ -83,8 +83,8 @@ Workspace Wiki
     ├── Subdirectory 2                 (subdirectory-2/)
     │   └── README                     (from rEaDmE.md)
     └── Subdirectory 3                 (subdirectory-3/)
+        ├── README                     (from README, no extension — README ranks first)
         ├── Index                      (from index.md)
-        ├── README                     (from README, no extension)
         └── Subsubdirectory 1          (subsubdirectory-1/)
             └── Index                  (from index.md)
 ```

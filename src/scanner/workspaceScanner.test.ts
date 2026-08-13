@@ -146,6 +146,14 @@ describe('workspaceScanner', () => {
 				expect(patterns).toContain('**/*.guide.ts');
 			});
 
+			it('should search a backslash-written path pattern with forward slashes', async () => {
+				// findFiles only understands forward slashes, so a hand-typed Windows pattern has to
+				// arrive normalized rather than as a bare name prefixed with `**/`.
+				const patterns = await capturePatterns(['md'], ['docs\\notes\\*.adoc']);
+
+				expect(patterns).toContain('docs/notes/*.adoc');
+			});
+
 			it('should pass a path-scoped pattern through unchanged', async () => {
 				const patterns = await capturePatterns(['md'], ['docs/notes/*.adoc']);
 
