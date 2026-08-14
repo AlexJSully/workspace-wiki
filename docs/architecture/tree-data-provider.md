@@ -10,7 +10,7 @@ The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tr
 
 - Implements VS Code's `TreeDataProvider` interface.
 - Applies ordering rules:
-    - A README at root always first, whatever its extension — `README.md`, `readme.txt`, or an extensionless `README`
+    - A README at root always first, whatever its extension, `README.md`, `readme.txt`, or an extensionless `README`
     - Root-level docs next (alphabetical)
     - Folders (displayed by their own normalized name; an index file such as `index.md`, `index.mdx`, or `index.txt` appears as a child file, not as the folder node)
     - Files inside folders (alphabetical, with any README at top)
@@ -19,6 +19,8 @@ The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tr
 - Supports sync functionality with active editor
 - Provides efficient URI lookups via node mapping
 - Handles tree view enhancements (collapse all, inline actions)
+- Validates `workspaceWiki.openWith` before using it, and falls back to extension defaults when the setting is malformed
+- In preview mode, opens an extensionless `README` using the Markdown command path (`md` or `markdown` mapping, then default)
 
 ## Path and identity handling
 
@@ -35,7 +37,20 @@ Every node carries a `uri`, folders included. A folder's URI is derived from a c
 - `getParent()` - Returns parent node for sync and reveal functionality
 - `createTreeItem()` - Creates tree items with proper commands and icons
 - `findNodeByUri()` - Node lookup by URI for the sync module
-- `refresh()` - Triggers tree data change event; node map is cleared and rebuilt lazily on next `getChildren()` call
+- `refresh()` - Triggers tree data change event; node map is cleared and rebuilt lazily on the next lookup or root rebuild
+
+## Default click command resolution
+
+`createTreeItem()` reads `workspaceWiki.defaultOpenMode` and `workspaceWiki.openWith`, validates the
+`openWith` object through [`validateOpenWith`](../../src/controllers/previewController.ts), then
+chooses the default click command for each file. The shared default map comes from
+[`DEFAULT_OPEN_WITH`](../../src/controllers/previewController.ts), which keeps the tree provider and
+preview controller on one fallback path.
+
+For extensionless `README` files in preview mode, the provider uses the Markdown mapping (`md`, then
+`markdown`) and finally falls back to `DEFAULT_OPEN_WITH.md`. For extension-based files, it uses the
+resolved `openWith` command only when that extension exists as an own property on the validated map;
+otherwise it falls back to `vscode.open`. Implementation: [`createTreeItem`](../../src/tree/treeProvider.ts)
 
 ## Testing
 

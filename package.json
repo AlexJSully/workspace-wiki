@@ -137,12 +137,12 @@
 				"workspaceWiki.openWith": {
 					"type": "object",
 					"default": {
-						"md": "markdown.showPreview",
-						"markdown": "markdown.showPreview",
-						"mdx": "markdown.showPreview",
+						"md": "workspace-wiki.openMarkdown",
+						"markdown": "workspace-wiki.openMarkdown",
+						"mdx": "workspace-wiki.openMarkdown",
 						"txt": "vscode.open"
 					},
-					"description": "Commands to use for opening different file types",
+					"description": "Commands to use for opening different file types. The default for Markdown, \"workspace-wiki.openMarkdown\", picks the best surface the running VS Code offers: the built-in Markdown Editor (VS Code 1.131+, .md only), otherwise Markdown Preview, otherwise a plain open. Set \"md\" to \"markdown.showPreview\" to always use the preview.",
 					"patternProperties": {
 						".*": {
 							"type": "string",

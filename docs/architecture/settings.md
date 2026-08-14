@@ -17,7 +17,7 @@ The Settings Manager reads and applies user configuration for the Workspace Wiki
 ### File Opening & Display
 
 - `workspaceWiki.defaultOpenMode`: `preview` or `editor` (default: `preview`).
-- `workspaceWiki.openWith`: Commands to use for opening different file types (default: `markdown.showPreview` for `.md`/`.markdown`/`.mdx`, `vscode.open` for `.txt`). An extension with no entry opens with `vscode.open`.
+- `workspaceWiki.openWith`: Commands to use for opening different file types (default: `workspace-wiki.openMarkdown` for `.md`/`.markdown`/`.mdx`, `vscode.open` for `.txt`). `workspace-wiki.openMarkdown` is a command this extension registers, not a VS Code one; it picks the best Markdown surface the running VS Code offers, described in [Preview/Open Controller](./preview-controller.md). An extension with no entry opens with `vscode.open`.
 - `workspaceWiki.directorySort`: How to sort files and folders: `files-first`, `folders-first`, or `alphabetical` (default: `files-first`).
 
 ### Title Formatting

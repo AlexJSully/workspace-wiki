@@ -157,3 +157,63 @@ export function createFileDiscoveryMockWorkspace(
 		excludeGlobs,
 	});
 }
+
+/**
+ * Stands in for the built-in `markdown-language-features` extension, whose contributions decide
+ * which Markdown surfaces the running VS Code can offer.
+ *
+ * The `customEditors` entry mirrors the real one: viewType, display name, and a `*.md`-only
+ * selector. Values are copied from the extension shipped with VS Code 1.133 rather than invented,
+ * so a test asserting the selector is asserting what VS Code actually publishes.
+ *
+ * @param options `markdownEditor` adds the `vscode.markdown.editor` contribution, absent before
+ * VS Code 1.131; `selectorPatterns` overrides the filename patterns that editor claims
+ * @returns An object shaped like the `packageJSON`-bearing entries of `vscode.extensions.all`
+ */
+export function createMockMarkdownExtension(options: { markdownEditor?: boolean; selectorPatterns?: string[] } = {}): {
+	id: string;
+	packageJSON: Record<string, unknown>;
+} {
+	const { markdownEditor = true, selectorPatterns = ['*.md'] } = options;
+
+	const customEditors: Record<string, unknown>[] = [
+		{
+			viewType: 'vscode.markdown.preview.editor',
+			displayName: 'Markdown Preview',
+			selector: [{ filenamePattern: '*.md' }],
+		},
+	];
+
+	if (markdownEditor) {
+		customEditors.push({
+			viewType: 'vscode.markdown.editor',
+			displayName: 'Markdown Editor',
+			selector: selectorPatterns.map((filenamePattern) => ({ filenamePattern })),
+		});
+	}
+
+	return {
+		id: 'vscode.markdown-language-features',
+		packageJSON: {
+			contributes: {
+				customEditors,
+				commands: [{ command: 'markdown.showPreview', title: 'Open Preview' }],
+			},
+		},
+	};
+}
+
+/**
+ * Replaces what `vscode.extensions.all` reports for the rest of the current test.
+ *
+ * Tests must call this in `beforeEach`, including with an empty list: the `vscode` stub is built
+ * once per test file, so a list one test installs is still there for the next one.
+ *
+ * @param extensions The extensions to report, in the order VS Code would enumerate them
+ */
+export function setMockExtensions(extensions: unknown[]): void {
+	// The `vscode` module is the platform API Jest has no host for; this reaches into the same
+	// boundary stub `setupTests.ts` installs rather than adding a second seam.
+	const mockVscode = require('vscode') as { extensions: { all: unknown[] } };
+	mockVscode.extensions.all = extensions;
+}

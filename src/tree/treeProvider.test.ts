@@ -1,3 +1,4 @@
+import { OPEN_MARKDOWN_COMMAND } from '../controllers';
 import { scanWorkspaceDocs } from '../scanner';
 import { createMockUri, createMockWorkspace as createSharedMockWorkspace } from '../test/mocks';
 import { buildTree } from '../tree/buildTree';
@@ -265,7 +266,64 @@ describe('WorkspaceWikiTreeProvider', () => {
 			expect(createdItem.command.arguments[1]).toBe('markdown.customPreview');
 		});
 
-		it('should fallback to markdown.showPreview for README (no extension) if no openWith entry', async () => {
+		it('should not resolve a file named after an Object.prototype member to one', async () => {
+			mockWorkspace = createMockWorkspace({ defaultOpenMode: 'preview' });
+			provider = new WorkspaceWikiTreeProvider(
+				mockWorkspace,
+				mockTreeItem,
+				mockCollapsibleState,
+				mockEventEmitter,
+			);
+
+			const mockNode: MockTreeNode = {
+				type: 'file',
+				name: 'notes.constructor',
+				title: 'Notes',
+				path: '/workspace-root/notes.constructor',
+				uri: createMockUri('/workspace-root/notes.constructor'),
+			};
+
+			mockScanWorkspaceDocs.mockResolvedValue([]);
+			mockBuildTree.mockResolvedValue([mockNode]);
+
+			await provider.getChildren();
+
+			const createdItem = mockTreeItem.mock.results[0].value;
+			expect(createdItem.command.arguments[1]).toBe('vscode.open');
+		});
+
+		it('should fall back to the defaults when openWith is malformed', async () => {
+			// A hand-edited setting whose values are not commands used to reach the tree item unchecked,
+			// giving a click nothing to execute while the context menu, which validates, still worked.
+			mockWorkspace = createMockWorkspace({
+				defaultOpenMode: 'preview',
+				openWith: { md: 42 } as unknown as Record<string, string>,
+			});
+			provider = new WorkspaceWikiTreeProvider(
+				mockWorkspace,
+				mockTreeItem,
+				mockCollapsibleState,
+				mockEventEmitter,
+			);
+
+			const mockNode: MockTreeNode = {
+				type: 'file',
+				name: 'guide.md',
+				title: 'Guide',
+				path: '/workspace-root/guide.md',
+				uri: createMockUri('/workspace-root/guide.md'),
+			};
+
+			mockScanWorkspaceDocs.mockResolvedValue([]);
+			mockBuildTree.mockResolvedValue([mockNode]);
+
+			await provider.getChildren();
+
+			const createdItem = mockTreeItem.mock.results[0].value;
+			expect(createdItem.command.arguments[1]).toBe(OPEN_MARKDOWN_COMMAND);
+		});
+
+		it('should fallback to the Markdown open command for README (no extension) if no openWith entry', async () => {
 			const mockConfig = {
 				defaultOpenMode: 'preview',
 				openWith: {
@@ -293,14 +351,14 @@ describe('WorkspaceWikiTreeProvider', () => {
 
 			await provider.getChildren();
 
-			// The created tree item should fallback to markdown.showPreview
+			// The created tree item should fallback to the Markdown open command
 			expect(mockTreeItem).toHaveBeenCalledWith('README', mockCollapsibleState.None);
 			const createdItem = mockTreeItem.mock.results[0].value;
 			expect(createdItem.command).toBeDefined();
-			expect(createdItem.command.arguments[1]).toBe('markdown.showPreview');
+			expect(createdItem.command.arguments[1]).toBe(OPEN_MARKDOWN_COMMAND);
 		});
 
-		it('should fallback to markdown.showPreview for an MDX file when openWith is unset', async () => {
+		it('should fallback to the Markdown open command for an MDX file when openWith is unset', async () => {
 			mockWorkspace = createMockWorkspace({ defaultOpenMode: 'preview' });
 			provider = new WorkspaceWikiTreeProvider(
 				mockWorkspace,
@@ -323,7 +381,7 @@ describe('WorkspaceWikiTreeProvider', () => {
 			await provider.getChildren();
 
 			const createdItem = mockTreeItem.mock.results[0].value;
-			expect(createdItem.command.arguments[1]).toBe('markdown.showPreview');
+			expect(createdItem.command.arguments[1]).toBe(OPEN_MARKDOWN_COMMAND);
 		});
 
 		it('should create tree item for file nodes', async () => {
