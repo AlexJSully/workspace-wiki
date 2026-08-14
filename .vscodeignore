@@ -40,7 +40,7 @@ esbuild.js
 jest.config.js
 tsconfig*.json
 .markdownlint.json
-.markdownlintignore
+.markdownlint-cli2.jsonc
 
 # Development tools
 Makefile

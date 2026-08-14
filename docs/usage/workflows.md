@@ -1,6 +1,6 @@
 # CI/CD Workflows
 
-The project uses GitHub Actions for continuous integration and code quality assurance. All workflows are located in [`.github/workflows/`](../../.github/workflows/).
+The project uses GitHub Actions for continuous integration and code quality assurance. The workflows are [`code-qa-js.yaml`](../../.github/workflows/code-qa-js.yaml) and [`code-qa-markdown.yaml`](../../.github/workflows/code-qa-markdown.yaml).
 
 ## Available Workflows
 
@@ -20,23 +20,26 @@ The project uses GitHub Actions for continuous integration and code quality assu
 
 - `**/*.css` - Stylesheets
 - `**/*.js`, `**/*.jsx` - JavaScript files
+- `**/*.mjs` - ECMAScript module files
 - `**/*.ts`, `**/*.tsx` - TypeScript files
 - `**/*.json` - Configuration files
-- `esbuild.js` - Build configuration
-- `jest.config.js` - Test configuration
+- [`esbuild.js`](../../esbuild.js) - Build configuration
+- [`jest.config.js`](../../jest.config.js) - Test configuration
 - `package*.json` - Dependencies
 - `src/**` - Source code directory
 - `tsconfig*.json` - TypeScript configuration
 
 **Quality Checks:**
 
-- **TypeScript Compilation:** Validates TypeScript syntax and types
-- **ESLint:** Code style and potential bug detection
-- **Jest Unit Tests:** Runs all unit tests in `src/**/*.test.ts`
-- **Extension E2E Tests:** Tests extension behavior in VS Code environment
-- **Build Validation:** Ensures the extension bundles correctly with esbuild
+- **Build Extension:** Runs `npm run compile`
+- **Code Formatting Check:** Runs `npm run prettier:check`
+- **TypeScript Type Check:** Runs `npm run check-types`
+- **ESLint Check:** Runs `npm run lint`
+- **Unit Tests:** Runs `npm run test:jest`
+- **Desktop Extension Tests:** Runs `xvfb-run -a npm run test:extension`
+- **Web Extension Tests:** Runs `npm run test:web`
 
-**Node.js Version:** 22.x
+**Node.js Version:** 24.x
 
 ### Markdown Quality Assurance
 
@@ -52,18 +55,17 @@ The project uses GitHub Actions for continuous integration and code quality assu
 
 **File Patterns Monitored:**
 
-- `**/*.md` - All markdown files
-- `.markdownlint.json` - Linting configuration
-- `.markdownlintignore` - Files to exclude from linting
+- `**/*.md` - All `.md` files
+- [`.markdownlint.json`](../../.markdownlint.json) - Rule configuration
+- [`.markdownlint-cli2.jsonc`](../../.markdownlint-cli2.jsonc) - CLI configuration: lint globs and explicitly excluded files
+- [`.gitignore`](../../.gitignore) - Ignored paths are also excluded from linting (the config's `gitignore` option)
 - `package*.json` - Dependencies for markdown tools
 
 **Quality Checks:**
 
-- **Markdownlint:** Validates markdown syntax and formatting
-- **Link Validation:** Ensures internal links work correctly
-- **Formatting Consistency:** Enforces uniform style across documentation
+- **Markdownlint:** Runs `npm run lint:markdown` using `markdownlint-cli2`
 
-**Node.js Version:** 22.x
+**Node.js Version:** 24.x
 
 ## Workflow Integration
 
@@ -80,13 +82,14 @@ To run the same checks locally before pushing:
 
 ```bash
 # Install dependencies
-npm install
+npm ci
 
 # Run all validation checks (same as CI)
 npm run validate
 
 # Individual checks
 npm run lint              # ESLint validation
+npm run lint:markdown     # Markdown linting
 npm run test:jest         # Jest unit tests
 npm run test:extension    # E2E tests
 npm run compile           # TypeScript compilation
@@ -104,14 +107,14 @@ Both workflows use minimal permissions:
 ### Strategy
 
 - **Operating System:** Ubuntu Latest (Linux)
-- **Node.js Version:** 22.x (matrix strategy for future multi-version support)
+- **Node.js Version:** 24.x (configured through a matrix with one entry)
 - **Dependency Caching:** Automatic npm cache management
 
 ### Performance Optimizations
 
 - **Path-based Triggers:** Workflows only run when relevant files change
 - **Dependency Caching:** npm dependencies are cached between runs
-- **Parallel Execution:** Multiple quality checks run concurrently when possible
+- **Parallel Execution:** The two workflows run concurrently when a change triggers both
 
 ## Best Practices
 

@@ -1,0 +1,12 @@
+{
+	// Rules live in .markdownlint.json; this file configures markdownlint-cli2 itself.
+	"globs": ["**/*.md", "#node_modules"],
+	// Exclusions come from .gitignore (node_modules, dist, out, .vscode-test*, coverage, ...)
+	"gitignore": true,
+	"ignores": [
+		// Fixtures whose exact bytes are the point
+		"example/front-matter-test/byte-order-mark.md",
+		"example/front-matter-test/crlf-line-endings.md",
+		"example/front-matter-test/tab-indented.md",
+	],
+}

@@ -21,7 +21,7 @@ For new features or enhancements, please [submit a feature request](https://gith
 
 ### 🔒 Security Issues
 
-For security-related issues, please see our [Security Policy](SECURITY.MD) for responsible disclosure guidelines.
+For security-related issues, please see our [Security Policy](SECURITY.md) for responsible disclosure guidelines.
 
 ### 💬 Discussions
 
