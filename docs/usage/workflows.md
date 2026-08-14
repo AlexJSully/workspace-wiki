@@ -1,6 +1,6 @@
 # CI/CD Workflows
 
-The project uses GitHub Actions for continuous integration and code quality assurance. All workflows are located in [`.github/workflows/`](../../.github/workflows/).
+The project uses GitHub Actions for continuous integration and code quality assurance. The workflows are [`code-qa-js.yaml`](../../.github/workflows/code-qa-js.yaml) and [`code-qa-markdown.yaml`](../../.github/workflows/code-qa-markdown.yaml).
 
 ## Available Workflows
 
@@ -36,7 +36,7 @@ The project uses GitHub Actions for continuous integration and code quality assu
 - **Extension E2E Tests:** Tests extension behavior in VS Code environment
 - **Build Validation:** Ensures the extension bundles correctly with esbuild
 
-**Node.js Version:** 22.x
+**Node.js Version:** 24.x
 
 ### Markdown Quality Assurance
 
@@ -52,18 +52,19 @@ The project uses GitHub Actions for continuous integration and code quality assu
 
 **File Patterns Monitored:**
 
-- `**/*.md` - All markdown files
-- `.markdownlint.json` - Linting configuration
-- `.markdownlintignore` - Files to exclude from linting
+- `**/*.md` - All `.md` files
+- `.markdownlint.json` - Rule configuration
+- `.markdownlint-cli2.jsonc` - CLI configuration: lint globs and explicitly excluded files
+- `.gitignore` - Ignored paths are also excluded from linting (the config's `gitignore` option)
 - `package*.json` - Dependencies for markdown tools
 
 **Quality Checks:**
 
 - **Markdownlint:** Validates markdown syntax and formatting
-- **Link Validation:** Ensures internal links work correctly
+- **Link Validation:** Validates in-document link fragments and reference definitions
 - **Formatting Consistency:** Enforces uniform style across documentation
 
-**Node.js Version:** 22.x
+**Node.js Version:** 24.x
 
 ## Workflow Integration
 
@@ -87,6 +88,7 @@ npm run validate
 
 # Individual checks
 npm run lint              # ESLint validation
+npm run lint:markdown     # Markdown linting
 npm run test:jest         # Jest unit tests
 npm run test:extension    # E2E tests
 npm run compile           # TypeScript compilation
@@ -104,14 +106,14 @@ Both workflows use minimal permissions:
 ### Strategy
 
 - **Operating System:** Ubuntu Latest (Linux)
-- **Node.js Version:** 22.x (matrix strategy for future multi-version support)
+- **Node.js Version:** 24.x (matrix strategy for future multi-version support)
 - **Dependency Caching:** Automatic npm cache management
 
 ### Performance Optimizations
 
 - **Path-based Triggers:** Workflows only run when relevant files change
 - **Dependency Caching:** npm dependencies are cached between runs
-- **Parallel Execution:** Multiple quality checks run concurrently when possible
+- **Parallel Execution:** The two workflows run concurrently when a change triggers both
 
 ## Best Practices
 

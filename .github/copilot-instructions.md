@@ -87,6 +87,7 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 - Use Jest's `test.each()` or `describe.each()` for testing multiple similar scenarios with different inputs.
 - **Benefits**: Reduces code duplication, improves readability, makes it easy to add new test cases.
 - **Format**: Use array of objects with descriptive properties for clarity:
+
     ```typescript
     test.each([
     	{ input: 'test.md', expected: 'md', description: 'markdown file' },
@@ -96,6 +97,7 @@ This guide enables AI coding agents to be immediately productive in the Workspac
     	expect(getFileExtension(input as any)).toBe(expected);
     });
     ```
+
 - **When to Use**:
     - Testing the same function with different inputs and expected outputs
     - Validating edge cases (null, undefined, empty string, invalid types)
