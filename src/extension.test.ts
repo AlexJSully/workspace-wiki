@@ -5,10 +5,14 @@
 import { activate, deactivate } from './extension';
 
 // Mock the imported modules (vscode is already mocked in setupTests.ts)
+// Only the four open handlers are replaced; the command id and default map stay real, so a test
+// asserting a command id is asserting the one activate() actually registers rather than a copy.
 jest.mock('./controllers/previewController', () => ({
+	...jest.requireActual('./controllers/previewController'),
 	handleFileClick: jest.fn(),
 	openInEditor: jest.fn(),
 	openInPreview: jest.fn(),
+	openMarkdown: jest.fn(),
 }));
 
 jest.mock('./tree/treeProvider', () => ({
@@ -64,10 +68,15 @@ describe('extension', () => {
 
 			const registeredCommands = vscode.commands.registerCommand.mock.calls.map((call: any) => call[0]);
 
-			expect(registeredCommands).toContain('workspace-wiki.handleClick');
-			expect(registeredCommands).toContain('workspace-wiki.openPreview');
-			expect(registeredCommands).toContain('workspace-wiki.openEditor');
-			expect(registeredCommands).toContain('workspace-wiki.refresh');
+			// The whole set, not one `toContain` per id: a command registered under an undefined id
+			// satisfies every individual containment check while registering nothing usable.
+			expect([...registeredCommands].sort()).toEqual([
+				'workspace-wiki.handleClick',
+				'workspace-wiki.openEditor',
+				'workspace-wiki.openMarkdown',
+				'workspace-wiki.openPreview',
+				'workspace-wiki.refresh',
+			]);
 		});
 
 		it('should register event listeners for editor changes and configuration changes', () => {

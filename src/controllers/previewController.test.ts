@@ -1,11 +1,15 @@
-import { createMockUri } from '../test/mocks';
+import { createMockMarkdownExtension, createMockUri, setMockExtensions } from '../test/mocks';
 import {
+	DEFAULT_OPEN_WITH,
+	OPEN_MARKDOWN_COMMAND,
 	clearClickTimes,
 	getDoubleClickThreshold,
 	getOpenCommand,
 	handleFileClick,
 	openInEditor,
 	openInPreview,
+	openMarkdown,
+	validateOpenWith,
 } from './previewController';
 
 describe('previewController', () => {
@@ -18,6 +22,8 @@ describe('previewController', () => {
 		mockVscode.commands.executeCommand.mockClear();
 		mockVscode.workspace.getConfiguration().get.mockClear();
 		mockVscode.workspace.getConfiguration.mockClear();
+		// A VS Code with no extensions at all, so every test installs the contributions it depends on.
+		setMockExtensions([]);
 		jest.useFakeTimers();
 	});
 
@@ -48,18 +54,110 @@ describe('previewController', () => {
 			expect(mockVscode.commands.executeCommand).toHaveBeenCalledWith('vscode.open', mockUri);
 		});
 
-		it('should handle missing configuration gracefully', () => {
+		it('should route to the capability chain when configuration is missing', () => {
 			const mockUri = createMockUri('/test/file.md');
 			mockVscode.workspace.getConfiguration().get.mockReturnValue(undefined);
 
 			openInPreview(mockUri);
 
+			expect(mockVscode.commands.executeCommand).toHaveBeenCalledWith(OPEN_MARKDOWN_COMMAND, mockUri);
+		});
+	});
+
+	describe('openMarkdown', () => {
+		it('should open a .md file in the Markdown Editor when VS Code contributes it', () => {
+			const mockUri = createMockUri('/test/file.md');
+			setMockExtensions([createMockMarkdownExtension()]);
+
+			openMarkdown(mockUri);
+
+			expect(mockVscode.commands.executeCommand).toHaveBeenCalledWith(
+				'vscode.openWith',
+				mockUri,
+				'vscode.markdown.editor',
+			);
+		});
+
+		it('should fall back to the preview for .mdx, which the Markdown Editor does not claim', () => {
+			const mockUri = createMockUri('/test/guide.mdx');
+			setMockExtensions([createMockMarkdownExtension()]);
+
+			openMarkdown(mockUri);
+
 			expect(mockVscode.commands.executeCommand).toHaveBeenCalledWith('markdown.showPreview', mockUri);
+		});
+
+		it('should fall back to the preview for an extensionless README', () => {
+			const mockUri = createMockUri('/test/README');
+			setMockExtensions([createMockMarkdownExtension()]);
+
+			openMarkdown(mockUri);
+
+			expect(mockVscode.commands.executeCommand).toHaveBeenCalledWith('markdown.showPreview', mockUri);
+		});
+
+		it('should follow a widened selector rather than assuming .md', () => {
+			const mockUri = createMockUri('/test/guide.mdx');
+			setMockExtensions([createMockMarkdownExtension({ selectorPatterns: ['*.md', '*.mdx'] })]);
+
+			openMarkdown(mockUri);
+
+			expect(mockVscode.commands.executeCommand).toHaveBeenCalledWith(
+				'vscode.openWith',
+				mockUri,
+				'vscode.markdown.editor',
+			);
+		});
+
+		it('should fall back to the preview when VS Code predates the Markdown Editor', () => {
+			const mockUri = createMockUri('/test/file.md');
+			setMockExtensions([createMockMarkdownExtension({ markdownEditor: false })]);
+
+			openMarkdown(mockUri);
+
+			expect(mockVscode.commands.executeCommand).toHaveBeenCalledWith('markdown.showPreview', mockUri);
+		});
+
+		it('should fall back to a plain open when no markdown extension is present', () => {
+			const mockUri = createMockUri('/test/file.md');
+
+			openMarkdown(mockUri);
+
+			expect(mockVscode.commands.executeCommand).toHaveBeenCalledWith('vscode.open', mockUri);
+		});
+
+		it('should not dispatch its own command when openWith maps md back to it', () => {
+			const mockUri = createMockUri('/test/file.md');
+			mockVscode.workspace.getConfiguration().get.mockReturnValue({ md: OPEN_MARKDOWN_COMMAND });
+			setMockExtensions([createMockMarkdownExtension()]);
+
+			openMarkdown(mockUri);
+
+			expect(mockVscode.commands.executeCommand).not.toHaveBeenCalledWith(OPEN_MARKDOWN_COMMAND, mockUri);
+			expect(mockVscode.commands.executeCommand).toHaveBeenCalledTimes(1);
 		});
 	});
 
 	describe('openInEditor', () => {
-		it('should execute vscode.open command', () => {
+		it('should force the text editor for a file the Markdown Editor would claim', () => {
+			const mockUri = createMockUri('/test/file.md');
+			setMockExtensions([createMockMarkdownExtension()]);
+
+			openInEditor(mockUri);
+
+			expect(mockVscode.commands.executeCommand).toHaveBeenCalledWith('vscode.openWith', mockUri, 'default');
+		});
+
+		it('should leave every other file to the default opener', () => {
+			const mockUri = createMockUri('/test/handbook.pdf');
+			setMockExtensions([createMockMarkdownExtension()]);
+
+			openInEditor(mockUri);
+
+			expect(mockVscode.commands.executeCommand).toHaveBeenCalledWith('vscode.open', mockUri);
+		});
+
+		it('should execute vscode.open when the Markdown Editor is unavailable', () => {
 			const mockUri = createMockUri('/test/file.md');
 
 			openInEditor(mockUri);
@@ -170,16 +268,16 @@ describe('previewController', () => {
 
 			const command = getOpenCommand(mockUri, 'preview');
 
-			expect(command).toBe('markdown.showPreview');
+			expect(command).toBe(OPEN_MARKDOWN_COMMAND);
 		});
 
-		it('should preview MDX files with the markdown preview by default', () => {
+		it('should route MDX files through the capability chain by default', () => {
 			const mockUri = createMockUri('/test/guide.mdx');
 			mockVscode.workspace.getConfiguration().get.mockReturnValue(undefined);
 
 			const command = getOpenCommand(mockUri, 'preview');
 
-			expect(command).toBe('markdown.showPreview');
+			expect(command).toBe(OPEN_MARKDOWN_COMMAND);
 		});
 
 		it('should default to preview mode', () => {
@@ -214,6 +312,25 @@ describe('previewController', () => {
 	describe('getDoubleClickThreshold', () => {
 		it('should return the correct threshold value', () => {
 			expect(getDoubleClickThreshold()).toBe(500);
+		});
+	});
+
+	describe('validateOpenWith', () => {
+		it('should pass through a map of string values', () => {
+			const configured = { md: 'markdown.showPreview', pdf: 'vscode.open' };
+
+			expect(validateOpenWith(configured)).toBe(configured);
+		});
+
+		it.each([
+			['undefined', undefined],
+			['null', null],
+			['an array', ['markdown.showPreview']],
+			['a bare string', 'markdown.showPreview'],
+			['a map with a non-string value', { md: 42 }],
+			['a map with a nested object', { md: { command: 'markdown.showPreview' } }],
+		])('should fall back to the defaults for %s', (_label, value) => {
+			expect(validateOpenWith(value)).toBe(DEFAULT_OPEN_WITH);
 		});
 	});
 });

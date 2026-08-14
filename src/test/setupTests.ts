@@ -44,6 +44,11 @@ jest.mock(
 				getWorkspaceFolder: jest.fn(() => undefined),
 				onDidChangeConfiguration: jest.fn().mockReturnValue({ dispose: jest.fn() }),
 			},
+			// Starts empty so a test that reads a contribution has to install the extension it expects,
+			// rather than inheriting one and passing for the wrong reason. `setMockExtensions` sets it.
+			extensions: {
+				all: [] as unknown[],
+			},
 			window: {
 				registerTreeDataProvider: jest.fn(),
 				createTreeView: jest.fn().mockReturnValue({

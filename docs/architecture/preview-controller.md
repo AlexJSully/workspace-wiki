@@ -8,13 +8,14 @@ The Preview/Open Controller is implemented in [`src/controllers/previewControlle
 
 - `handleFileClick()` - Handles file clicks with double-click detection
 - `openInPreview()` - Opens files in preview mode
-- `openInEditor()` - Opens files in editor mode
+- `openInEditor()` - Opens files in editor mode, pinning the plain text editor for files the Markdown Editor would claim
+- `openMarkdown()` - Opens a Markdown file in the best surface the running VS Code offers
 
 ## Features
 
-- Single-click: Opens file in preview mode using the command configured in `workspaceWiki.openWith` (e.g., `markdown.showPreview` for `.md` files).
-- Double-click: Opens file in full editor mode via `vscode.open`.
-- Context menu: Additional actions (e.g., open to the side).
+- Single-click: Opens file in preview mode using the command configured in `workspaceWiki.openWith`. The shipped default for `.md`, `.markdown`, and `.mdx` is `workspace-wiki.openMarkdown`, described in [Markdown Open Chain](#markdown-open-chain) below.
+- Double-click: Opens file in full editor mode. Markdown files the Markdown Editor claims are pinned to the plain text editor; every other file goes through `vscode.open`.
+- Context menu: Open in Preview and Edit, mirroring single-click and double-click.
 
 ## Double-Click Detection
 
@@ -29,12 +30,35 @@ const DOUBLE_CLICK_THRESHOLD = 500; // milliseconds
 ## Example
 
 ```ts
-// Single click: opens via configured openWith command (e.g. markdown.showPreview)
+// Single click: opens via the configured openWith command
+// (default workspace-wiki.openMarkdown for Markdown, vscode.open otherwise)
 openInPreview(uri);
 
-// Double click: always opens in editor
-openInEditor(uri); // executes vscode.open
+// Double click: opens in editor, pinning the text editor for Markdown
+openInEditor(uri);
 ```
+
+## Markdown Open Chain
+
+`workspace-wiki.openMarkdown` is a command this extension registers, not a VS Code one. Which
+Markdown surface exists depends on the running version, so the choice is made at click time rather
+than baked into a setting:
+
+1. **Markdown Editor** (`vscode.openWith` with viewType `vscode.markdown.editor`) when some
+   extension contributes that custom editor and one of its selector patterns matches the file name.
+   VS Code contributes it from 1.131 onward, with a `*.md` selector.
+2. **Markdown Preview** (`markdown.showPreview`) when the Markdown Editor does not claim the file, or
+   is not present at all. This covers `.mdx`, `.markdown`, an extensionless `README`, and every
+   VS Code before 1.131.
+3. **A plain open** (`vscode.open`), which resolves whatever the user set in
+   `workbench.editorAssociations`, when neither of the above is available.
+
+The claim in step 1 is read from the live `customEditors` contribution rather than tested against a
+hardcoded `.md`, so a VS Code that changes the selector is followed without a code change.
+
+`vscode.openWith` given a viewType no registered editor matches resolves to nothing and reports no
+error, so the click would do nothing at all. That is why availability is checked before the call
+rather than by catching a failure.
 
 ## Customization
 
@@ -61,7 +85,7 @@ sequenceDiagram
 		Handler->>Command: Execute Default Command
 		Command->>User: Open Preview
 	else Double Click (< 500ms since last click)
-		Handler->>Command: Execute vscode.open
+		Handler->>Command: Call openInEditor
 		Command->>User: Open in Editor
 	end
 	deactivate Handler

@@ -40,6 +40,7 @@ test('registers its commands', async () => {
 	for (const command of [
 		'workspace-wiki.handleClick',
 		'workspace-wiki.openPreview',
+		'workspace-wiki.openMarkdown',
 		'workspace-wiki.openEditor',
 		'workspace-wiki.refresh',
 	]) {

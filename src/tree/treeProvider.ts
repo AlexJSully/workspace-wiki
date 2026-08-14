@@ -1,3 +1,4 @@
+import { DEFAULT_OPEN_WITH, validateOpenWith } from '@controllers';
 import { scanWorkspaceDocs } from '@scanner';
 import { TreeNode, WorkspaceLike } from '@types';
 import { getFileExtension } from '@utils';
@@ -132,27 +133,25 @@ export class WorkspaceWikiTreeProvider {
 
 			// Get default open mode and file extension
 			let defaultOpenMode = 'preview';
-			let openWith: Record<string, string> = {
-				md: 'markdown.showPreview',
-				markdown: 'markdown.showPreview',
-				mdx: 'markdown.showPreview',
-				txt: 'vscode.open',
-			};
+			let openWith: Readonly<Record<string, string>> = DEFAULT_OPEN_WITH;
 
 			if (this.workspace.getConfiguration) {
 				const config = this.workspace.getConfiguration('workspaceWiki');
 				defaultOpenMode = config.get('defaultOpenMode') || 'preview';
-				openWith = config.get('openWith') || openWith;
+				// Validated through the same check the controller applies, so a malformed setting
+				// resolves one way rather than giving the tree a dead click the context menu survives.
+				// Read through the injected workspace, which keeps this on the seam the tests drive.
+				openWith = validateOpenWith(config.get('openWith'));
 			}
 
 			// Determine which command to use for default click
 			const fileExt = getFileExtension(node.name);
 			let defaultCommand = 'vscode.open';
 
-			// Special case: README (no extension) should always use md/markdown preview if in preview mode
+			// Special case: README (no extension) opens the way an `.md` file would, if in preview mode
 			if (defaultOpenMode === 'preview') {
 				if (!node.name.includes('.') && node.name.toLowerCase() === 'readme') {
-					defaultCommand = openWith['md'] || openWith['markdown'] || 'markdown.showPreview';
+					defaultCommand = openWith['md'] || openWith['markdown'] || DEFAULT_OPEN_WITH.md;
 				} else if (fileExt && openWith[fileExt]) {
 					defaultCommand = openWith[fileExt];
 				}

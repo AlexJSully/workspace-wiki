@@ -81,3 +81,11 @@ jobs:
 
       - name: Run unit tests
         run: npm run test:jest
+
+      # Jest excludes *.e2e.test.ts, so these are the only jobs that run the extension inside a real
+      # VS Code. Desktop VS Code needs a display; the web suite is already headless Chromium.
+      - name: Run desktop extension tests
+        run: xvfb-run -a npm run test:extension
+
+      - name: Run web extension tests
+        run: npm run test:web

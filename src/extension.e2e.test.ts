@@ -242,6 +242,63 @@ describe('File Type Support E2E', () => {
 		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 	});
 
+	it('should open a Markdown file in the best surface this VS Code offers', async () => {
+		// Only real VS Code can confirm the viewType `workspace-wiki.openMarkdown` asks for. Given one
+		// no registered editor matches, `vscode.openWith` resolves to nothing and reports no error, so
+		// a wrong string reaches users as a click that does nothing and no unit test can see it.
+		//
+		// Both tiers are asserted rather than the newer one alone, so the suite covers the degradation
+		// path on a VS Code before 1.131 instead of failing on it.
+		const markdownEditorRegistered = vscode.extensions.all.some((extension) =>
+			(extension.packageJSON?.contributes?.customEditors ?? []).some(
+				(editor: { viewType?: string }) => editor?.viewType === 'vscode.markdown.editor',
+			),
+		);
+
+		const [mdFile] = await vscode.workspace.findFiles('**/nested-structure-test/test-file.md', null, 1);
+		assert.ok(mdFile, 'Expected the .md fixture to be discoverable');
+
+		// Every tab is closed first so the assertions below describe what this command opened. An
+		// earlier test leaving this same fixture open would otherwise satisfy them on its own, and a
+		// command that opened nothing at all would still pass.
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+		await waitFor(
+			() => vscode.window.tabGroups.activeTabGroup.tabs.length,
+			(count) => count === 0,
+		);
+
+		await vscode.commands.executeCommand('workspace-wiki.openMarkdown', mdFile);
+
+		if (markdownEditorRegistered) {
+			// The tab is identified by its viewType rather than its label, which is a string VS Code
+			// owns and can reword between releases: 1.132 called this editor "Markdown Editor
+			// (Experimental)" and 1.133 calls it "Markdown Editor".
+			const input = await waitFor(
+				() => vscode.window.tabGroups.activeTabGroup.activeTab?.input,
+				(current) => current instanceof vscode.TabInputCustom,
+			);
+
+			assert.strictEqual((input as vscode.TabInputCustom).viewType, 'vscode.markdown.editor');
+		} else {
+			const tab = await waitFor(
+				() => vscode.window.tabGroups.activeTabGroup.activeTab,
+				(current) => !!current?.label?.includes('test-file.md'),
+			);
+
+			// `markdown.showPreview` opens a webview panel, so the tab input type is what separates the
+			// preview from a plain text editor. Asking a VS Code this old for the Markdown Editor does
+			// not open nothing, as it does on 1.131 and later: it falls back to the text editor, which
+			// is a TabInputText. Asserting merely "not a custom editor" would accept that fallback and
+			// pass whether or not the chain degraded correctly.
+			assert.ok(
+				tab?.input instanceof vscode.TabInputWebview,
+				'Expected the Markdown preview webview when the Markdown Editor is absent',
+			);
+		}
+
+		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+	});
+
 	it('should handle index files appropriately', async () => {
 		// Test finding index files
 		const indexFiles = await vscode.workspace.findFiles('**/index.{md,html,txt}', null, 50);

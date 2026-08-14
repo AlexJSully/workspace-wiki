@@ -22,7 +22,7 @@ Workspace Wiki is a VS Code extension that scans your workspace for documentatio
 - **Intelligent Ordering**: README files appear first, index files represent their folders, alphabetical sorting for others
 - **Acronym Case Preservation:** Technical terms like HTML, CSS, API maintain proper casing in titles.
 - **Intelligent File Exclusion:** Respects `.gitignore` patterns, including nested files and negation rules, plus configurable exclude globs to hide unwanted files.
-- **Preview & Edit:** Single-click to preview, double-click to edit in full editor.
+- **Preview & Edit:** Single-click opens the best surface for the file type, double-click opens the source in the full editor.
 - **Refresh:** Update the tree on demand with the Refresh action; it also re-scans automatically when `workspaceWiki` settings change.
 - **Configurable:** Supported file types, excludes, open modes, and title formatting are configurable via settings.
 - **Multi-root Support:** Works with multi-root workspaces, scoping each folder's `.gitignore` rules and search depth to that folder.
@@ -109,15 +109,35 @@ Default mode for opening files: "preview" or "editor" (default: "preview").
 
 Commands to use for opening different file types. This supports adding other extensions' commands for specialized previews.
 
+Any extension you add here that is not already in `supportedExtensions` is added to it, and the updated list is written to your workspace settings.
+
 ```json
 {
 	"workspaceWiki.openWith": {
-		"md": "markdown.showPreview",
-		"markdown": "markdown.showPreview",
-		"mdx": "markdown.showPreview",
+		"md": "workspace-wiki.openMarkdown",
+		"markdown": "workspace-wiki.openMarkdown",
+		"mdx": "workspace-wiki.openMarkdown",
 		"txt": "vscode.open",
 		"pdf": "vscode.open",
 		"html": "otherExtension.preview"
+	}
+}
+```
+
+##### How Markdown files open
+
+`workspace-wiki.openMarkdown` is the default for Markdown, and picks the best surface the running VS Code offers:
+
+1. **Markdown Editor:** VS Code's built-in rendered, in-place-editable Markdown surface, added in VS Code 1.131. It only claims `.md` files.
+2. **Markdown Preview** (`markdown.showPreview`), used for `.mdx`, `.markdown`, an extensionless `README`, and on any VS Code that predates the Markdown Editor.
+3. **A plain open** (`vscode.open`), which follows whatever your `workbench.editorAssociations` says, when neither of the above is available.
+
+To always use the read-only preview instead, set the extensions you care about back to `markdown.showPreview`:
+
+```json
+{
+	"workspaceWiki.openWith": {
+		"md": "markdown.showPreview"
 	}
 }
 ```

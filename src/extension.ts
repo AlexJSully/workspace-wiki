@@ -1,4 +1,4 @@
-import { handleFileClick, openInEditor, openInPreview } from '@controllers';
+import { OPEN_MARKDOWN_COMMAND, handleFileClick, openInEditor, openInPreview, openMarkdown } from '@controllers';
 import { WorkspaceWikiTreeProvider } from '@tree';
 import { getFileExtension, getIncludeGlobs, syncOpenWithToSupportedExtensions } from '@utils';
 import * as vscode from 'vscode';
@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 /**
  * Starts the extension.
  *
- * Registers the Workspace Wiki view and its four commands, then wires the listeners that keep the
+ * Registers the Workspace Wiki view and its five commands, then wires the listeners that keep the
  * tree current: active-editor changes drive auto-reveal, and any `workspaceWiki` setting change
  * re-syncs `openWith` and refreshes the tree. Every disposable is pushed onto the context.
  *
@@ -102,6 +102,15 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	// Takes a bare URI rather than a tree item: `openWith` names it as a command and VS Code passes
+	// the URI straight through. Registered here only, like `workspace-wiki.handleClick` — declaring
+	// it in `package.json` would offer a URI-less invocation from the command palette.
+	const openMarkdownCommand = vscode.commands.registerCommand(OPEN_MARKDOWN_COMMAND, (uri) => {
+		if (uri) {
+			openMarkdown(uri);
+		}
+	});
+
 	const openEditorCommand = vscode.commands.registerCommand('workspace-wiki.openEditor', (item) => {
 		if (item && item.treeNode && item.treeNode.uri) {
 			openInEditor(item.treeNode.uri);
@@ -151,6 +160,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(treeView);
 	context.subscriptions.push(handleClickCommand);
 	context.subscriptions.push(openPreviewCommand);
+	context.subscriptions.push(openMarkdownCommand);
 	context.subscriptions.push(openEditorCommand);
 	context.subscriptions.push(refreshCommand);
 	context.subscriptions.push(editorChangeListener);
