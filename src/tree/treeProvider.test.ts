@@ -266,6 +266,32 @@ describe('WorkspaceWikiTreeProvider', () => {
 			expect(createdItem.command.arguments[1]).toBe('markdown.customPreview');
 		});
 
+		it('should not resolve a file named after an Object.prototype member to one', async () => {
+			mockWorkspace = createMockWorkspace({ defaultOpenMode: 'preview' });
+			provider = new WorkspaceWikiTreeProvider(
+				mockWorkspace,
+				mockTreeItem,
+				mockCollapsibleState,
+				mockEventEmitter,
+			);
+
+			const mockNode: MockTreeNode = {
+				type: 'file',
+				name: 'notes.constructor',
+				title: 'Notes',
+				path: '/workspace-root/notes.constructor',
+				uri: createMockUri('/workspace-root/notes.constructor'),
+			};
+
+			mockScanWorkspaceDocs.mockResolvedValue([]);
+			mockBuildTree.mockResolvedValue([mockNode]);
+
+			await provider.getChildren();
+
+			const createdItem = mockTreeItem.mock.results[0].value;
+			expect(createdItem.command.arguments[1]).toBe('vscode.open');
+		});
+
 		it('should fall back to the defaults when openWith is malformed', async () => {
 			// A hand-edited setting whose values are not commands used to reach the tree item unchecked,
 			// giving a click nothing to execute while the context menu, which validates, still worked.

@@ -152,7 +152,9 @@ export class WorkspaceWikiTreeProvider {
 			if (defaultOpenMode === 'preview') {
 				if (!node.name.includes('.') && node.name.toLowerCase() === 'readme') {
 					defaultCommand = openWith['md'] || openWith['markdown'] || DEFAULT_OPEN_WITH.md;
-				} else if (fileExt && openWith[fileExt]) {
+				} else if (fileExt && Object.hasOwn(openWith, fileExt) && openWith[fileExt]) {
+					// An own-property check, so an extension named after an `Object.prototype` member
+					// cannot resolve to a function or an object and be dispatched as a command.
 					defaultCommand = openWith[fileExt];
 				}
 			}

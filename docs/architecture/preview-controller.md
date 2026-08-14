@@ -13,7 +13,7 @@ The Preview/Open Controller is implemented in [`src/controllers/previewControlle
 
 ## Features
 
-- Single-click: Opens file in preview mode using the command configured in `workspaceWiki.openWith`. The shipped default for `.md`, `.markdown`, and `.mdx` is `workspace-wiki.openMarkdown`, described in [Markdown Open Chain](#markdown-open-chain) below.
+- Single-click: Runs the tree item's default command. In the default `workspaceWiki.defaultOpenMode: preview`, that command comes from `workspaceWiki.openWith` (for `.md`, `.markdown`, and `.mdx`, the shipped default is `workspace-wiki.openMarkdown`, described in [Markdown Open Chain](#markdown-open-chain) below). In `editor` mode, it is `vscode.open`.
 - Double-click: Opens file in full editor mode. Markdown files the Markdown Editor claims are pinned to the plain text editor; every other file goes through `vscode.open`.
 - Context menu: Open in Preview and Edit, mirroring single-click and double-click.
 
@@ -91,4 +91,4 @@ sequenceDiagram
 	deactivate Handler
 ```
 
-This diagram shows the double-click detection flow: single clicks open files in preview mode (using the configured `openWith` command), while double clicks within 500ms open files in the full editor.
+This diagram shows the double-click detection flow: single clicks run the default command configured by the tree item, while double clicks within 500ms open files in the full editor.

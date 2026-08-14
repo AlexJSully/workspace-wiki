@@ -290,6 +290,20 @@ describe('previewController', () => {
 
 			expect(command).toBe('markdown.showPreview');
 		});
+
+		// `getFileExtension` lowercases, so of Object.prototype's members only these two can be spelled
+		// as a file extension. Either would otherwise resolve to a function or an object.
+		it.each(['constructor', '__proto__'])(
+			'should not resolve a .%s file to an Object.prototype member',
+			(protoKey) => {
+				const mockUri = createMockUri(`/test/notes.${protoKey}`);
+				mockVscode.workspace.getConfiguration().get.mockReturnValue({ md: 'markdown.showPreview' });
+
+				const command = getOpenCommand(mockUri, 'preview');
+
+				expect(command).toBe('vscode.open');
+			},
+		);
 	});
 
 	describe('clearClickTimes', () => {
@@ -316,10 +330,24 @@ describe('previewController', () => {
 	});
 
 	describe('validateOpenWith', () => {
-		it('should pass through a map of string values', () => {
+		it('should keep a map of string values', () => {
 			const configured = { md: 'markdown.showPreview', pdf: 'vscode.open' };
 
-			expect(validateOpenWith(configured)).toBe(configured);
+			expect(validateOpenWith(configured)).toEqual(configured);
+		});
+
+		it('should return a map with no prototype, so no extension can reach Object.prototype', () => {
+			expect(Object.getPrototypeOf(validateOpenWith({ md: 'markdown.showPreview' }))).toBeNull();
+			expect(Object.getPrototypeOf(validateOpenWith(undefined))).toBeNull();
+		});
+
+		it('should keep a configured __proto__ as an ordinary entry', () => {
+			const configured = JSON.parse('{"__proto__": "evil.command", "md": "markdown.showPreview"}');
+
+			const result = validateOpenWith(configured);
+
+			expect(Object.getPrototypeOf(result)).toBeNull();
+			expect(result['md']).toBe('markdown.showPreview');
 		});
 
 		it.each([

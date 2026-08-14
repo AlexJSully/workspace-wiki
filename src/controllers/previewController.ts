@@ -35,16 +35,20 @@ const MARKDOWN_PREVIEW_COMMAND = 'markdown.showPreview';
  * Default commands per extension when configuration is missing or invalid.
  *
  * Exported so the tree provider falls back to the same commands this module does; the second copy of
- * these pairs is `package.json`, which is what a user's settings are diffed against. Readonly
- * because both consumers hold it by reference, so a write through either would rewrite the default
- * for every caller.
+ * these pairs is `package.json`, which is what a user's settings are diffed against. Frozen because
+ * both consumers hold it by reference, so a write through either would rewrite the default for every
+ * caller, and given no prototype so that a file extension colliding with an `Object.prototype` member
+ * cannot resolve to one. Lowercasing in `getFileExtension` leaves `constructor` and `__proto__` as
+ * the two names that could.
  */
-export const DEFAULT_OPEN_WITH: Readonly<Record<string, string>> = {
-	md: OPEN_MARKDOWN_COMMAND,
-	markdown: OPEN_MARKDOWN_COMMAND,
-	mdx: OPEN_MARKDOWN_COMMAND,
-	txt: 'vscode.open',
-};
+export const DEFAULT_OPEN_WITH: Readonly<Record<string, string>> = Object.freeze(
+	Object.assign(Object.create(null) as Record<string, string>, {
+		md: OPEN_MARKDOWN_COMMAND,
+		markdown: OPEN_MARKDOWN_COMMAND,
+		mdx: OPEN_MARKDOWN_COMMAND,
+		txt: 'vscode.open',
+	}),
+);
 
 /**
  * Gets the file extension from a URI
@@ -74,7 +78,11 @@ export function validateOpenWith(value: unknown): Readonly<Record<string, string
 		const entries = Object.entries(value);
 
 		if (entries.every(([k, v]) => typeof k === 'string' && typeof v === 'string')) {
-			return value as Record<string, string>;
+			// Copied onto a null prototype rather than returned as given: the setting is parsed JSON and
+			// so carries `Object.prototype`, where a lookup for an extension named `constructor` or
+			// `__proto__` would find a function or an object to run as a command. Assigning onto a null
+			// prototype also writes a configured `__proto__` key as an ordinary property.
+			return Object.freeze(Object.assign(Object.create(null) as Record<string, string>, value));
 		}
 	}
 
@@ -268,7 +276,9 @@ export function getOpenCommand(uri: vscode.Uri, mode: 'preview' | 'editor' = 'pr
 	const openWith = getOpenWithConfig();
 	const fileExt = getFileExtension(uri);
 
-	return fileExt && fileExt in openWith ? openWith[fileExt] : 'vscode.open';
+	// `Object.hasOwn` rather than `in`, which reads the prototype chain: the map reaching here has no
+	// prototype, and this keeps that from being the only thing holding the lookup safe.
+	return fileExt && Object.hasOwn(openWith, fileExt) ? openWith[fileExt] : 'vscode.open';
 }
 
 /** Clears all stored click times (useful for testing) */
