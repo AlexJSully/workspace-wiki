@@ -1,0 +1,10 @@
+= Test AsciiDoc File
+:toc:
+
+// Export: This file is for testing AsciiDoc exclusion in Workspace Wiki
+
+AsciiDoc is a documentation format used by Apache, Eclipse, and Spring.
+
+== Hello
+
+Hello, World!

@@ -1,6 +1,5 @@
 import { createMockUri } from '../test/mocks';
 import { buildTree, processNode, sortNodes } from '../tree/buildTree';
-import { normalizeTitle } from '../utils';
 
 // Create a mock TreeNode interface for testing
 interface MockTreeNode {
@@ -13,113 +12,6 @@ interface MockTreeNode {
 	isIndex?: boolean;
 	isReadme?: boolean;
 }
-
-describe('normalizeTitle', () => {
-	describe('basic functionality', () => {
-		it('should handle empty or invalid input', () => {
-			expect(normalizeTitle('')).toBe('');
-			expect(normalizeTitle(null as any)).toBe('');
-			expect(normalizeTitle(undefined as any)).toBe('');
-			expect(normalizeTitle(123 as any)).toBe('');
-		});
-
-		it('should remove common file extensions', () => {
-			expect(normalizeTitle('test.md')).toBe('Test');
-			expect(normalizeTitle('test.markdown')).toBe('Test');
-			expect(normalizeTitle('test.txt')).toBe('Test');
-			expect(normalizeTitle('test.html')).toBe('Test');
-			expect(normalizeTitle('test.htm')).toBe('Test');
-			expect(normalizeTitle('test.pdf')).toBe('Test');
-			expect(normalizeTitle('test.css')).toBe('Test');
-			expect(normalizeTitle('test.js')).toBe('Test');
-			expect(normalizeTitle('test.ts')).toBe('Test');
-			expect(normalizeTitle('test.json')).toBe('Test');
-			expect(normalizeTitle('test.xml')).toBe('Test');
-		});
-
-		it('should handle special case for README files', () => {
-			expect(normalizeTitle('readme')).toBe('README');
-			expect(normalizeTitle('README')).toBe('README');
-			expect(normalizeTitle('Readme')).toBe('README');
-			expect(normalizeTitle('readme.md')).toBe('README');
-			expect(normalizeTitle('README.markdown')).toBe('README');
-		});
-	});
-
-	describe('case conversion', () => {
-		it('should convert camelCase to Title Case', () => {
-			expect(normalizeTitle('gettingStarted')).toBe('Getting Started');
-			expect(normalizeTitle('myTestFile')).toBe('My Test File');
-			expect(normalizeTitle('apiReference')).toBe('Api Reference');
-		});
-
-		it('should convert kebab-case to Title Case', () => {
-			expect(normalizeTitle('getting-started')).toBe('Getting Started');
-			expect(normalizeTitle('my-test-file')).toBe('My Test File');
-			expect(normalizeTitle('api-reference')).toBe('Api Reference');
-		});
-
-		it('should convert snake_case to Title Case', () => {
-			expect(normalizeTitle('getting_started')).toBe('Getting Started');
-			expect(normalizeTitle('my_test_file')).toBe('My Test File');
-			expect(normalizeTitle('api_reference')).toBe('Api Reference');
-		});
-
-		it('should handle mixed case patterns', () => {
-			expect(normalizeTitle('myFile_withMixed-cases')).toBe('My File With Mixed Cases');
-			expect(normalizeTitle('API_endpointFor-users')).toBe('API Endpoint For Users');
-		});
-	});
-
-	describe('acronym handling', () => {
-		it('should apply acronym casing correctly', () => {
-			const acronyms = ['API', 'HTTP', 'JSON', 'HTML', 'CSS'];
-			expect(normalizeTitle('api-reference', acronyms)).toBe('API Reference');
-			expect(normalizeTitle('httpClient', acronyms)).toBe('HTTP Client');
-			expect(normalizeTitle('json_parser', acronyms)).toBe('JSON Parser');
-			expect(normalizeTitle('html-templates', acronyms)).toBe('HTML Templates');
-		});
-
-		it('should handle acronyms in mixed case scenarios', () => {
-			const acronyms = ['API', 'REST', 'JSON'];
-			expect(normalizeTitle('restApiClient', acronyms)).toBe('REST API Client');
-			expect(normalizeTitle('json_rest_api', acronyms)).toBe('JSON REST API');
-		});
-
-		it('should preserve acronym casing after transformations', () => {
-			const acronyms = ['UI', 'UX', 'API'];
-			expect(normalizeTitle('uiUxDesign', acronyms)).toBe('UI UX Design');
-			expect(normalizeTitle('api-ui-guide', acronyms)).toBe('API UI Guide');
-		});
-
-		it('should work with empty acronyms array', () => {
-			expect(normalizeTitle('apiReference', [])).toBe('Api Reference');
-			expect(normalizeTitle('httpClient')).toBe('Http Client');
-		});
-	});
-
-	describe('edge cases', () => {
-		it('should handle single words', () => {
-			expect(normalizeTitle('test')).toBe('Test');
-			expect(normalizeTitle('documentation')).toBe('Documentation');
-		});
-
-		it('should handle files without extensions', () => {
-			expect(normalizeTitle('makefile')).toBe('Makefile');
-			expect(normalizeTitle('dockerfile')).toBe('Dockerfile');
-		});
-
-		it('should handle multiple dots in filename', () => {
-			expect(normalizeTitle('test.config.js')).toBe('Test.Config');
-			expect(normalizeTitle('my.component.test')).toBe('My.Component.Test');
-		});
-
-		it('should trim whitespace', () => {
-			expect(normalizeTitle('  test  ')).toBe('Test');
-			expect(normalizeTitle('test-file  .md')).toBe('Test File');
-		});
-	});
-});
 
 describe('buildTree', () => {
 	describe('basic functionality', () => {
@@ -215,6 +107,54 @@ describe('buildTree', () => {
 			// Check the nested index file
 			const docsFolder = result[1];
 			expect(docsFolder.children![0].isIndex).toBe(true);
+		});
+
+		it('should rank an extensionless README first among its siblings', async () => {
+			const uris = [
+				createMockUri('/workspace-root/docs/index.md'),
+				createMockUri('/workspace-root/docs/alpha.md'),
+				createMockUri('/workspace-root/docs/README'),
+			];
+
+			const result = await buildTree(uris);
+
+			// "README" sorts after "Alpha" and "Index" alphabetically, so ranking it first can only
+			// come from the README rule rather than from the ordinary comparison.
+			expect(result[0].name).toBe('README');
+			expect(result[0].isReadme).toBe(true);
+		});
+
+		it('should rank both READMEs first when a folder holds two of them', async () => {
+			const uris = [
+				createMockUri('/workspace-root/docs/alpha.md'),
+				createMockUri('/workspace-root/docs/README'),
+				createMockUri('/workspace-root/docs/zeta.md'),
+				createMockUri('/workspace-root/docs/README.md'),
+			];
+
+			const result = await buildTree(uris);
+
+			// Both outrank every non-README whichever order the sort visits them in.
+			expect(result.slice(0, 2).every((node) => node.isReadme)).toBe(true);
+			expect(result.slice(2).map((node) => node.title)).toEqual(['Alpha', 'Zeta']);
+		});
+
+		it('should identify an index file of any supported type', async () => {
+			const uris = [createMockUri('/workspace-root/index.mdx'), createMockUri('/workspace-root/docs/index.txt')];
+			const result = await buildTree(uris);
+
+			expect(result[0].isIndex).toBe(true);
+			expect(result[1].children![0].isIndex).toBe(true);
+		});
+
+		it('should title a folder whose name contains a dot without truncating it', async () => {
+			// A second root-level file keeps `docs.v2` out of the common base, so it becomes a folder node.
+			const uris = [createMockUri('/workspace-root/docs.v2/guide.md'), createMockUri('/workspace-root/top.md')];
+			const result = await buildTree(uris);
+
+			const folder = result.find((node) => node.type === 'folder');
+			expect(folder!.title).toBe('Docs.V2');
+			expect(folder!.children![0].title).toBe('Guide');
 		});
 	});
 

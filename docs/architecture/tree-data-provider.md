@@ -10,10 +10,10 @@ The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tr
 
 - Implements VS Code's `TreeDataProvider` interface.
 - Applies ordering rules:
-    - `README.md` at root always first
+    - A README at root always first, whatever its extension — `README.md`, `readme.txt`, or an extensionless `README`
     - Root-level docs next (alphabetical)
-    - Folders (displayed by their own normalized name; an `index.md` appears as a child file, not as the folder node)
-    - Files inside folders (alphabetical, with `README.md` at top)
+    - Folders (displayed by their own normalized name; an index file such as `index.md`, `index.mdx`, or `index.txt` appears as a child file, not as the folder node)
+    - Files inside folders (alphabetical, with any README at top)
 - Normalizes file names to human-friendly titles.
 - Addresses nodes by URI, so the tree behaves the same on local, remote, and virtual file systems
 - Supports sync functionality with active editor
@@ -86,7 +86,7 @@ See also: [Scanner/Indexer](./scanner.md)
 ```mermaid
 flowchart TD
 	accTitle: Tree Node Ordering Logic
-	accDescr: Shows how tree nodes are sorted - README nodes always rank first, then root-level nodes are ordered by the directorySort setting (files-first, folders-first, or alphabetical), and finally alphabetically by title within each group. Folder nodes always display their own normalized folder name; an index.md inside a folder is listed as a child file.
+	accDescr: Shows how tree nodes are sorted - README nodes always rank first, then root-level nodes are ordered by the directorySort setting (files-first, folders-first, or alphabetical), and finally alphabetically by title within each group. Folder nodes always display their own normalized folder name; an index file inside a folder is listed as a child file.
 	A[All Nodes] --> B{Is README?}
 	B -->|Yes| C[Rank First]
 	B -->|No| D{Root Level?}

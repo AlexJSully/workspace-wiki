@@ -12,7 +12,7 @@ The same rule shapes how paths are handled. `Uri.fsPath` carries no scheme infor
 
 ## Main Components
 
-- **[Scanner](../../src/scanner/workspaceScanner.ts)**: Discovers documentation files using `workspace.findFiles`, applies exclude patterns, hidden-file and depth filters, and returns URIs.
+- **[Scanner](../../src/scanner/workspaceScanner.ts)**: Discovers documentation files using `workspace.findFiles`, searching both supported extensions and `includeGlobs` patterns, applies exclude patterns, hidden-file and depth filters, and returns deduplicated URIs.
 - **[Ignore Index](../../src/scanner/gitignore.ts)**: Resolves `.gitignore` rules across every workspace folder, including nested files and negation patterns, and reports whether a URI is ignored.
 - **[Tree Provider](../../src/tree/treeProvider.ts)**: Implements VS Code's `TreeDataProvider` interface, builds hierarchical tree structure, applies ordering rules, manages node mapping for sync.
 - **[Tree Builder](../../src/tree/buildTree.ts)**: Constructs hierarchical tree from flat file list, calculates common base path, sorts nodes, handles folder/file relationships.

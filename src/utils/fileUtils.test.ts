@@ -7,6 +7,7 @@ import {
 	isHiddenPath,
 	matchesGlobPattern,
 	normalizePath,
+	toSearchGlob,
 } from './fileUtils';
 
 // Mock vscode
@@ -198,6 +199,52 @@ describe('fileUtils', () => {
 		it('should ignore trailing slashes', () => {
 			expect(getPathDepth('/root/docs/')).toBe(2);
 			expect(getPathDepth('/root/docs/nested/')).toBe(3);
+		});
+	});
+
+	describe('toSearchGlob', () => {
+		// A bare file name has to match at any depth, so it gains a `**/` prefix; a pattern that
+		// already spells out path structure is the author's business and passes through untouched.
+		test.each([
+			{ input: 'doc.go', expected: '**/doc.go', description: 'bare file name' },
+			{ input: '*.guide.ts', expected: '**/*.guide.ts', description: 'bare wildcard name' },
+			{ input: 'CHANGELOG', expected: '**/CHANGELOG', description: 'extensionless name' },
+			{ input: 'docs/notes/*.adoc', expected: 'docs/notes/*.adoc', description: 'path-scoped pattern' },
+			{ input: '**/doc.go', expected: '**/doc.go', description: 'already-prefixed pattern' },
+			{ input: '/root.md', expected: '/root.md', description: 'root-anchored pattern' },
+		])('should convert $description: $input', ({ input, expected }: { input: string; expected: string }) => {
+			expect(toSearchGlob(input)).toBe(expected);
+		});
+
+		test.each([
+			{ input: '', expected: '', description: 'empty string' },
+			{ input: null, expected: '', description: 'null' },
+			{ input: undefined, expected: '', description: 'undefined' },
+			{ input: 123, expected: '', description: 'number' },
+		])('should handle $description input', ({ input, expected }: { input: any; expected: string }) => {
+			expect(toSearchGlob(input as any)).toBe(expected);
+		});
+
+		// A setting is typed by hand, so a Windows user may separate a path pattern with backslashes.
+		// Those carry the same meaning and must not be mistaken for a bare file name.
+		test.each([
+			{ input: 'docs\\notes\\*.adoc', expected: 'docs/notes/*.adoc', description: 'backslash path' },
+			{ input: '**\\doc.go', expected: '**/doc.go', description: 'backslash prefixed pattern' },
+			{ input: 'docs\\guide.md', expected: 'docs/guide.md', description: 'single backslash' },
+		])('should normalize a $description: $input', ({ input, expected }: { input: string; expected: string }) => {
+			expect(toSearchGlob(input)).toBe(expected);
+		});
+
+		it('should produce a pattern matchesGlobPattern accepts for a nested file', () => {
+			expect(matchesGlobPattern('/workspace-root/pkg/doc.go', [toSearchGlob('doc.go')])).toBe(true);
+			expect(matchesGlobPattern('/workspace-root/pkg/other.go', [toSearchGlob('doc.go')])).toBe(false);
+		});
+
+		it('should match a real path from a backslash-written pattern', () => {
+			const pattern = toSearchGlob('docs\\notes\\*.adoc');
+
+			expect(matchesGlobPattern('/workspace-root/docs/notes/spec.adoc', [pattern])).toBe(true);
+			expect(matchesGlobPattern('/workspace-root/docs/other/spec.adoc', [pattern])).toBe(false);
 		});
 	});
 });

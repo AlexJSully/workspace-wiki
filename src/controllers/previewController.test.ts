@@ -173,6 +173,15 @@ describe('previewController', () => {
 			expect(command).toBe('markdown.showPreview');
 		});
 
+		it('should preview MDX files with the markdown preview by default', () => {
+			const mockUri = createMockUri('/test/guide.mdx');
+			mockVscode.workspace.getConfiguration().get.mockReturnValue(undefined);
+
+			const command = getOpenCommand(mockUri, 'preview');
+
+			expect(command).toBe('markdown.showPreview');
+		});
+
 		it('should default to preview mode', () => {
 			const mockUri = createMockUri('/test/file.md');
 			mockVscode.workspace.getConfiguration().get.mockReturnValue({

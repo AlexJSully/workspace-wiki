@@ -13,6 +13,7 @@ const DOUBLE_CLICK_THRESHOLD = 500;
 const DEFAULT_OPEN_WITH: Record<string, string> = {
 	md: 'markdown.showPreview',
 	markdown: 'markdown.showPreview',
+	mdx: 'markdown.showPreview',
 	txt: 'vscode.open',
 };
 

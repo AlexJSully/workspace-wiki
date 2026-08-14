@@ -1,0 +1,9 @@
+@startuml
+' test-plantuml.puml
+' Export: This file is for testing PlantUML exclusion in Workspace Wiki
+title Test PlantUML File
+
+Alice -> Bob : Hello, World!
+Bob --> Alice : Hello back
+
+@enduml

@@ -5,12 +5,13 @@ import { scanWorkspaceDocs } from './workspaceScanner';
  * Collects the include patterns `scanWorkspaceDocs` searches with.
  *
  * @param supportedExtensions The extensions setting to apply, if any
+ * @param includeGlobs The `includeGlobs` setting to apply, if any
  * @returns The patterns passed to `findFiles`, in order
  */
-async function capturePatterns(supportedExtensions?: string[]): Promise<string[]> {
+async function capturePatterns(supportedExtensions?: string[], includeGlobs?: string[]): Promise<string[]> {
 	const patterns: string[] = [];
 	const workspace = createMockWorkspace(
-		{ supportedExtensions },
+		{ supportedExtensions, includeGlobs },
 		{
 			files: (pattern) => {
 				patterns.push(pattern);
@@ -88,7 +89,13 @@ describe('workspaceScanner', () => {
 				const result = await scanWorkspaceDocs(workspace);
 				const readmeFiles = result.filter((uri) => /README$/i.test(uri.path));
 
-				expect(readmeFiles.length).toBeGreaterThanOrEqual(3);
+				// Exactly three, not at least three: `**/README` and `**/readme` both return this set,
+				// so a lower bound would still pass with the deduplication removed.
+				expect(readmeFiles.map((uri) => uri.path)).toEqual([
+					'/project-root/README',
+					'/project-root/docs/README',
+					'/project-root/docs/readme',
+				]);
 			});
 
 			it('should NOT include README (no extension) if Markdown is NOT supported', async () => {
@@ -98,10 +105,16 @@ describe('workspaceScanner', () => {
 				expect(patterns).not.toContain('**/readme');
 			});
 
-			it('should scan default extensions (md, markdown, txt)', async () => {
+			it('should scan default extensions (md, markdown, mdx, txt)', async () => {
 				const patterns = await capturePatterns();
 
-				expect(patterns).toEqual(expect.arrayContaining(['**/*.md', '**/*.markdown', '**/*.txt']));
+				expect(patterns).toEqual(expect.arrayContaining(['**/*.md', '**/*.markdown', '**/*.mdx', '**/*.txt']));
+			});
+
+			it('should include README (no extension) when only MDX is supported', async () => {
+				const patterns = await capturePatterns(['mdx']);
+
+				expect(patterns).toContain('**/README');
 			});
 
 			it('should respect custom supportedExtensions from configuration', async () => {
@@ -110,6 +123,146 @@ describe('workspaceScanner', () => {
 				expect(patterns).toEqual(expect.arrayContaining(['**/*.md', '**/*.html', '**/*.pdf']));
 				expect(patterns).not.toContain('**/*.txt');
 				expect(patterns).not.toContain('**/*.markdown');
+			});
+		});
+
+		describe('Include Globs', () => {
+			it('should search no extra pattern when includeGlobs is unset', async () => {
+				// `**/.gitignore` belongs to ignore-index discovery, not document discovery.
+				const patterns = (await capturePatterns(['md'])).filter((pattern) => pattern !== '**/.gitignore');
+
+				expect(patterns).toEqual(['**/*.md', '**/README', '**/readme']);
+			});
+
+			it('should search no extra pattern when includeGlobs is empty', async () => {
+				const patterns = (await capturePatterns(['md'], [])).filter((pattern) => pattern !== '**/.gitignore');
+
+				expect(patterns).toEqual(['**/*.md', '**/README', '**/readme']);
+			});
+
+			it('should search a bare file name at any depth', async () => {
+				const patterns = await capturePatterns(['md'], ['doc.go']);
+
+				expect(patterns).toContain('**/doc.go');
+			});
+
+			it('should search a bare wildcard name at any depth', async () => {
+				const patterns = await capturePatterns(['md'], ['*.guide.ts']);
+
+				expect(patterns).toContain('**/*.guide.ts');
+			});
+
+			it('should search a backslash-written path pattern with forward slashes', async () => {
+				// findFiles only understands forward slashes, so a hand-typed Windows pattern has to
+				// arrive normalized rather than as a bare name prefixed with `**/`.
+				const patterns = await capturePatterns(['md'], ['docs\\notes\\*.adoc']);
+
+				expect(patterns).toContain('docs/notes/*.adoc');
+			});
+
+			it('should pass a path-scoped pattern through unchanged', async () => {
+				const patterns = await capturePatterns(['md'], ['docs/notes/*.adoc']);
+
+				expect(patterns).toContain('docs/notes/*.adoc');
+				expect(patterns).not.toContain('**/docs/notes/*.adoc');
+			});
+
+			it('should fall back to no include globs when the setting is not an array of strings', async () => {
+				const patterns = (await capturePatterns(['md'], 'doc.go' as unknown as string[])).filter(
+					(pattern) => pattern !== '**/.gitignore',
+				);
+
+				expect(patterns).toEqual(['**/*.md', '**/README', '**/readme']);
+			});
+
+			it('should drop a blank include glob rather than searching for it', async () => {
+				const patterns = await capturePatterns(['md'], ['', 'doc.go']);
+
+				expect(patterns).not.toContain('');
+				expect(patterns).toContain('**/doc.go');
+			});
+
+			it('should return files matched only by an include glob', async () => {
+				const workspace = createMockWorkspace(
+					{ supportedExtensions: ['md'], includeGlobs: ['doc.go'], excludeGlobs: [] },
+					{
+						files: (pattern) =>
+							pattern === '**/doc.go' ? [createMockUri('/workspace-root/pkg/doc.go')] : [],
+					},
+				);
+
+				const result = await scanWorkspaceDocs(workspace);
+
+				expect(result.map((uri) => uri.path)).toEqual(['/workspace-root/pkg/doc.go']);
+			});
+
+			it('should apply excludeGlobs to include glob matches', async () => {
+				const workspace = createMockWorkspace(
+					{ supportedExtensions: ['md'], includeGlobs: ['doc.go'], excludeGlobs: ['**/vendor/**'] },
+					{
+						files: (pattern) =>
+							pattern === '**/doc.go'
+								? [
+										createMockUri('/workspace-root/pkg/doc.go'),
+										createMockUri('/workspace-root/vendor/pkg/doc.go'),
+									]
+								: [],
+					},
+				);
+
+				const result = await scanWorkspaceDocs(workspace);
+
+				expect(result.map((uri) => uri.path)).toEqual(['/workspace-root/pkg/doc.go']);
+			});
+
+			it('should apply the hidden-file rule to include glob matches', async () => {
+				const workspace = createMockWorkspace(
+					{ supportedExtensions: ['md'], includeGlobs: ['doc.go'], excludeGlobs: [] },
+					{
+						files: (pattern) =>
+							pattern === '**/doc.go'
+								? [
+										createMockUri('/workspace-root/pkg/doc.go'),
+										createMockUri('/workspace-root/.hidden/doc.go'),
+									]
+								: [],
+					},
+				);
+
+				const result = await scanWorkspaceDocs(workspace);
+
+				expect(result.map((uri) => uri.path)).toEqual(['/workspace-root/pkg/doc.go']);
+			});
+
+			it('should apply maxSearchDepth to include glob matches', async () => {
+				const workspace = createMockWorkspace(
+					{ supportedExtensions: ['md'], includeGlobs: ['doc.go'], excludeGlobs: [], maxSearchDepth: 2 },
+					{
+						files: (pattern) =>
+							pattern === '**/doc.go'
+								? [
+										createMockUri('/workspace-root/pkg/doc.go'),
+										createMockUri('/workspace-root/pkg/nested/doc.go'),
+									]
+								: [],
+					},
+				);
+
+				const result = await scanWorkspaceDocs(workspace);
+
+				expect(result.map((uri) => uri.path)).toEqual(['/workspace-root/pkg/doc.go']);
+			});
+
+			it('should return a file matched by two patterns only once', async () => {
+				const guide = createMockUri('/workspace-root/docs/guide.md');
+				const workspace = createMockWorkspace(
+					{ supportedExtensions: ['md'], includeGlobs: ['*.md'], excludeGlobs: [] },
+					{ files: (pattern) => (pattern === '**/*.md' ? [guide] : []) },
+				);
+
+				const result = await scanWorkspaceDocs(workspace);
+
+				expect(result.map((uri) => uri.path)).toEqual(['/workspace-root/docs/guide.md']);
 			});
 		});
 

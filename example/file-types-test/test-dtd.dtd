@@ -1,0 +1,5 @@
+<!-- test-dtd.dtd -->
+<!-- Export: This file is for testing DTD exclusion in Workspace Wiki -->
+<!ELEMENT greeting (#PCDATA)>
+<!ELEMENT document (greeting)>
+<!ATTLIST document title CDATA #REQUIRED>

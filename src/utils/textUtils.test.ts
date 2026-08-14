@@ -114,6 +114,19 @@ Content.`,
 				expectedDescription: null,
 			},
 			{
+				description: 'extract front matter from an MDX file',
+				fileName: 'test-mdx-frontmatter.mdx',
+				content: `---
+title: "MDX Guide"
+description: "Front matter in an MDX document"
+---
+import { Note } from './Note';
+
+<Note>MDX body.</Note>`,
+				expectedTitle: 'MDX Guide',
+				expectedDescription: 'Front matter in an MDX document',
+			},
+			{
 				description: 'read only the leading block when the body also contains a delimiter',
 				fileName: 'test-delimiter-in-body.md',
 				content: '---\ntitle: "Real Title"\n---\nContent.\n---\nNot front matter.',
@@ -328,9 +341,35 @@ title: "  Whitespace Title  "
 			{ input: 'test.ts', expected: 'Test' },
 			{ input: 'test.json', expected: 'Test' },
 			{ input: 'test.xml', expected: 'Test' },
+			{ input: 'test.mdx', expected: 'Test' },
+			{ input: 'test.go', expected: 'Test' },
+			{ input: 'test.rst', expected: 'Test' },
+			{ input: 'test.adoc', expected: 'Test' },
 		])('should remove $input extension correctly', ({ input, expected }: { input: string; expected: string }) => {
 			expect(normalizeTitle(input)).toBe(expected);
 		});
+
+		// A name with no extension to remove keeps every character it has.
+		test.each([
+			{ input: 'doc.go', expected: 'Doc', description: 'included source file' },
+			{ input: 'api.guide.ts', expected: 'Api.Guide', description: 'compound name' },
+			{ input: 'CHANGELOG', expected: 'CHANGELOG', description: 'extensionless name' },
+			{ input: '.env', expected: '.Env', description: 'dotfile with nothing before the dot' },
+		])('should title $description: $input', ({ input, expected }: { input: string; expected: string }) => {
+			expect(normalizeTitle(input)).toBe(expected);
+		});
+
+		// Folder names are not file names: `docs.v2` is the whole name, not a name plus an extension.
+		test.each([
+			{ input: 'docs.v2', expected: 'Docs.V2', description: 'versioned folder' },
+			{ input: 'example.com', expected: 'Example.Com', description: 'domain-like folder' },
+			{ input: 'getting-started', expected: 'Getting Started', description: 'kebab-case folder' },
+		])(
+			'should keep a folder name whole: $description',
+			({ input, expected }: { input: string; expected: string }) => {
+				expect(normalizeTitle(input, [], false)).toBe(expected);
+			},
+		);
 
 		// Test table for README file handling
 		test.each([
@@ -406,9 +445,42 @@ title: "  Whitespace Title  "
 			{ input: 'overview.txt', expected: 'Overview', description: 'single word' },
 			{ input: 'file.backup.md', expected: 'File.Backup', description: 'multiple extensions' },
 			{ input: 'test.min.js', expected: 'Test.Min', description: 'multiple extensions' },
+			{ input: 'makefile', expected: 'Makefile', description: 'extensionless build file' },
+			{ input: 'dockerfile', expected: 'Dockerfile', description: 'extensionless build file' },
+			{ input: 'test.config.js', expected: 'Test.Config', description: 'multiple extensions' },
+			// The last dotted segment is the extension whatever it spells, so an unfamiliar one such
+			// as `.test` is removed for the same reason `.go` is.
+			{ input: 'my.component.test', expected: 'My.Component', description: 'unfamiliar extension' },
+			{ input: '  test  ', expected: 'Test', description: 'surrounding whitespace' },
+			{ input: 'test-file  .md', expected: 'Test File', description: 'whitespace before the extension' },
+			{ input: 'myFile_withMixed-cases', expected: 'My File With Mixed Cases', description: 'mixed separators' },
 		])('should handle $description: $input', ({ input, expected }: { input: string; expected: string }) => {
 			expect(normalizeTitle(input)).toBe(expected);
 		});
+
+		// Acronyms have to survive both passes: the one before separators are split and the one after.
+		test.each([
+			{ input: 'API_endpointFor-users', expected: 'API Endpoint For Users', acronyms: ['API'] },
+			{ input: 'restApiClient', expected: 'REST API Client', acronyms: ['API', 'REST', 'JSON'] },
+			{ input: 'json_rest_api', expected: 'JSON REST API', acronyms: ['API', 'REST', 'JSON'] },
+			{ input: 'uiUxDesign', expected: 'UI UX Design', acronyms: ['UI', 'UX', 'API'] },
+			{ input: 'api-ui-guide', expected: 'API UI Guide', acronyms: ['UI', 'UX', 'API'] },
+		])(
+			'should preserve acronym casing through separator splitting: $input',
+			({ input, expected, acronyms }: { input: string; expected: string; acronyms: string[] }) => {
+				expect(normalizeTitle(input, acronyms)).toBe(expected);
+			},
+		);
+
+		test.each([
+			{ input: 'apiReference', expected: 'Api Reference', description: 'an empty acronym list' },
+			{ input: 'httpClient', expected: 'Http Client', description: 'no acronym list at all' },
+		])(
+			'should leave casing alone given $description',
+			({ input, expected }: { input: string; expected: string }) => {
+				expect(normalizeTitle(input, [])).toBe(expected);
+			},
+		);
 	});
 
 	describe('getFileExtension', () => {
@@ -461,9 +533,15 @@ title: "  Whitespace Title  "
 			{ input: 'readme.txt', expected: true, description: 'lowercase .txt' },
 			{ input: 'Readme.html', expected: true, description: 'capitalized .html' },
 			{ input: 'ReadMe.rst', expected: true, description: 'mixed case .rst' },
+			// The scanner discovers extensionless README files, and they rank first like any other.
+			{ input: 'README', expected: true, description: 'uppercase, no extension' },
+			{ input: 'readme', expected: true, description: 'lowercase, no extension' },
+			{ input: 'ReadMe', expected: true, description: 'mixed case, no extension' },
 			{ input: 'index.md', expected: false, description: 'index file' },
 			{ input: 'test.html', expected: false, description: 'regular file' },
 			{ input: 'myreadme.txt', expected: false, description: 'contains readme' },
+			{ input: 'myreadme', expected: false, description: 'contains readme, no extension' },
+			{ input: 'readme-old.md', expected: false, description: 'readme prefix without a dot' },
 			{ input: '', expected: false, description: 'empty string' },
 			{ input: null, expected: false, description: 'null' },
 			{ input: undefined, expected: false, description: 'undefined' },

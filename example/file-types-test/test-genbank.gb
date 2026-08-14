@@ -1,0 +1,14 @@
+LOCUS       FIXTURE                   39 bp    DNA     linear   SYN 13-AUG-2026
+DEFINITION  GenBank fixture for Workspace Wiki.
+ACCESSION   FIXTURE
+VERSION     FIXTURE.1
+KEYWORDS    fixture.
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+FEATURES             Location/Qualifiers
+     source          1..39
+                     /organism="synthetic construct"
+                     /mol_type="genomic DNA"
+ORIGIN
+        1 atggccattg taatgggccg ctgaaagggt gcccgatag
+//

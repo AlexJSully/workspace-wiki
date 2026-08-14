@@ -1,7 +1,7 @@
 import { load } from 'js-yaml';
 import * as vscode from 'vscode';
 
-/** Front matter data extracted from a markdown file */
+/** Front matter data extracted from a Markdown or MDX file */
 export interface FrontMatterData {
 	title: string | null;
 	description: string | null;
@@ -15,6 +15,9 @@ const FRONT_MATTER_BLOCK = /^﻿?---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/;
 
 /** File-system error codes meaning "the file simply is not there", which is not worth logging. */
 const MISSING_FILE_CODES = new Set(['FileNotFound', 'ENOENT']);
+
+/** Extensions whose documents carry YAML front matter. */
+const FRONT_MATTER_EXTENSIONS = ['md', 'markdown', 'mdx'];
 
 /**
  * Splits a leading YAML front matter block off a document and parses it.
@@ -48,13 +51,13 @@ function readStringField(data: Record<string, unknown>, key: string): string | n
 }
 
 /**
- * Extracts title and description from YAML front matter in a markdown file.
+ * Extracts title and description from YAML front matter in a Markdown or MDX file.
  *
  * Reads through `vscode.workspace.fs`, so it works against any file system provider — local disk,
  * remote, or a virtual workspace such as `vscode-vfs://` on VS Code Web.
  *
- * @param uri - The URI of the markdown file
- * @returns Promise resolving to the `title` and `description` from front matter, or nulls when absent, unreadable, or not a `.md`/`.markdown` file
+ * @param uri - The URI of the Markdown or MDX file
+ * @returns Promise resolving to the `title` and `description` from front matter, or nulls when absent, unreadable, or not a `.md`/`.markdown`/`.mdx` file
  */
 export async function extractFrontMatter(uri: vscode.Uri): Promise<FrontMatterData> {
 	if (!uri || typeof uri.path !== 'string') {
@@ -62,9 +65,9 @@ export async function extractFrontMatter(uri: vscode.Uri): Promise<FrontMatterDa
 	}
 
 	try {
-		// Only process markdown files
+		// Only process Markdown and MDX files
 		const ext = getFileExtension(uri.path);
-		if (!['md', 'markdown'].includes(ext)) {
+		if (!FRONT_MATTER_EXTENSIONS.includes(ext)) {
 			return { title: null, description: null };
 		}
 
@@ -89,9 +92,9 @@ export async function extractFrontMatter(uri: vscode.Uri): Promise<FrontMatterDa
 }
 
 /**
- * Extracts title from YAML front matter in a markdown file
+ * Extracts title from YAML front matter in a Markdown or MDX file.
  *
- * @param uri - The URI of the markdown file
+ * @param uri - The URI of the Markdown or MDX file
  * @returns Promise resolving to the front matter `title`, or null when absent
  */
 export async function extractFrontMatterTitle(uri: vscode.Uri): Promise<string | null> {
@@ -100,20 +103,41 @@ export async function extractFrontMatterTitle(uri: vscode.Uri): Promise<string |
 }
 
 /**
+ * Removes a trailing extension from a file name.
+ *
+ * Any extension is removed rather than a known list of them, so a file reaching the tree through
+ * `includeGlobs` (`doc.go`) reads the same as one reaching it through `supportedExtensions`.
+ *
+ * @param fileName The file name to trim
+ * @returns The name without its extension, or the name unchanged when there is nothing left to keep (`.env`)
+ */
+function removeExtension(fileName: string): string {
+	const extension = getFileExtension(fileName);
+	if (!extension) {
+		return fileName;
+	}
+
+	const trimmed = fileName.slice(0, -(extension.length + 1));
+	return trimmed || fileName;
+}
+
+/**
  * Convert file name to human-readable title
  * e.g. "gettingStarted.md" -> "Getting Started"
  * Applies acronym casing from settings for common technical terms
  *
- * @param fileName The file name to convert (extension is stripped)
+ * @param fileName The file name to convert
  * @param acronyms Acronyms to preserve in their given casing (e.g. `['API', 'HTML']`); defaults to none
+ * @param stripExtension Whether a trailing extension is removed; pass `false` for a folder name, where
+ * the text after a dot is part of the name (`docs.v2`) rather than an extension
  * @returns The title-cased name (`'README'` for README files), or `''` for invalid input
  */
-export function normalizeTitle(fileName: string, acronyms: string[] = []): string {
+export function normalizeTitle(fileName: string, acronyms: string[] = [], stripExtension: boolean = true): string {
 	if (!fileName || typeof fileName !== 'string') {
 		return '';
 	}
 
-	const nameWithoutExt = fileName.replace(/\.(md|markdown|txt|(htm|html)|pdf|css|js|ts|json|xml)$/i, '');
+	const nameWithoutExt = stripExtension ? removeExtension(fileName) : fileName;
 
 	// Handle special cases
 	if (nameWithoutExt.toLowerCase() === 'readme') {
@@ -196,13 +220,17 @@ export function isIndexFile(fileName: string): boolean {
 /**
  * Checks if a file name represents a README file
  *
+ * An extensionless `README` counts: the scanner searches for those wherever Markdown is enabled, and
+ * they carry the same meaning as `README.md`, so they earn the same first place in the tree.
+ *
  * @param fileName The file name to check
- * @returns `true` if the name starts with `readme.` (case-insensitive)
+ * @returns `true` if the name is `readme` or starts with `readme.` (case-insensitive)
  */
 export function isReadmeFile(fileName: string): boolean {
 	if (!fileName || typeof fileName !== 'string') {
 		return false;
 	}
 
-	return fileName.toLowerCase().startsWith('readme.');
+	const name = fileName.toLowerCase();
+	return name === 'readme' || name.startsWith('readme.');
 }

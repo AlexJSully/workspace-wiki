@@ -1,5 +1,5 @@
 import type { TreeNode } from '@types';
-import { extractFrontMatter, normalizeTitle } from '@utils';
+import { extractFrontMatter, isIndexFile, isReadmeFile, normalizeTitle } from '@utils';
 import * as vscode from 'vscode';
 
 /**
@@ -13,12 +13,15 @@ export function sortNodes(
 	directorySort: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first',
 ): void {
 	nodes.sort((a, b) => {
-		// README always first
-		if (a.isReadme) {
-			return -1;
-		}
-		if (b.isReadme) {
-			return 1;
+		// README always first. Two README siblings are possible — `README` and `README.md` can share a
+		// folder — so this compares the flag rather than returning early on `a`, which would make the
+		// comparator disagree with itself and leave their order up to the engine. A folder node
+		// carries no `isReadme` at all, so the flag is read as a boolean rather than compared raw.
+		const aIsReadme = a.isReadme === true;
+		const bIsReadme = b.isReadme === true;
+
+		if (aIsReadme !== bIsReadme) {
+			return aIsReadme ? -1 : 1;
 		}
 
 		// Apply directory sorting logic
@@ -40,7 +43,7 @@ export function sortNodes(
 }
 
 /**
- * Recursively sorts a folder node's children (the folder keeps its own name; `index.md` stays a child).
+ * Recursively sorts a folder node's children (the folder keeps its own name; any `index.*` file stays a child).
  *
  * @param node The node to process
  * @param directorySort The sort mode to apply to descendants; defaults to `'files-first'`
@@ -60,7 +63,7 @@ export function processNode(
 
 /**
  * Builds the hierarchical tree from a flat list of file URIs, reading YAML front matter for titles
- * and applying ordering. Folders are named after their own path segment; `index.md` is a child file.
+ * and applying ordering. Folders are named after their own path segment; any `index.*` file is a child file.
  *
  * Path structure comes from `uri.path`, which is always forward-slash separated and carries no
  * scheme assumptions, so the tree is identical on local, remote, and virtual file systems.
@@ -129,7 +132,8 @@ export async function buildTree(
 				const folderNode: TreeNode = {
 					type: 'folder',
 					name: folderName,
-					title: normalizeTitle(folderName, acronyms),
+					// A folder name is whole: the text after a dot in `docs.v2` is not an extension.
+					title: normalizeTitle(folderName, acronyms, false),
 					path: currentPath,
 					// Derive the folder URI from the file's own URI so scheme and authority survive.
 					// The leading slash is restored explicitly: splitting on '/' dropped it, and a
@@ -166,8 +170,8 @@ export async function buildTree(
 			// Identity lives on `uri`, never on this string.
 			path: relativeParts.join('/'),
 			uri: originalUri,
-			isIndex: relativeFileName.toLowerCase() === 'index.md',
-			isReadme: relativeFileName.toLowerCase().startsWith('readme.'),
+			isIndex: isIndexFile(relativeFileName),
+			isReadme: isReadmeFile(relativeFileName),
 			description: frontMatter.description || undefined,
 		};
 

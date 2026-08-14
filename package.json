@@ -109,9 +109,18 @@
 					"default": [
 						"md",
 						"markdown",
+						"mdx",
 						"txt"
 					],
 					"description": "List of file extensions to include in the workspace wiki",
+					"items": {
+						"type": "string"
+					}
+				},
+				"workspaceWiki.includeGlobs": {
+					"type": "array",
+					"default": [],
+					"description": "Additional file names or glob patterns to include beyond supportedExtensions (e.g. \"doc.go\", \"*.guide.ts\"). A pattern without a \"/\" matches at any depth. Exclude patterns, .gitignore, hidden-file, and depth settings still apply.",
 					"items": {
 						"type": "string"
 					}
@@ -130,6 +139,7 @@
 					"default": {
 						"md": "markdown.showPreview",
 						"markdown": "markdown.showPreview",
+						"mdx": "markdown.showPreview",
 						"txt": "vscode.open"
 					},
 					"description": "Commands to use for opening different file types",

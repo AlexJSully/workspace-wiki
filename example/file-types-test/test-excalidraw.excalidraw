@@ -1,0 +1,19 @@
+{
+	"type": "excalidraw",
+	"version": 2,
+	"source": "https://excalidraw.com",
+	"elements": [
+		{
+			"id": "fixture-rect",
+			"type": "rectangle",
+			"x": 0,
+			"y": 0,
+			"width": 240,
+			"height": 80,
+			"strokeColor": "#1e1e1e",
+			"backgroundColor": "transparent"
+		}
+	],
+	"appState": { "gridSize": null, "viewBackgroundColor": "#ffffff" },
+	"files": {}
+}

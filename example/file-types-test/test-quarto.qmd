@@ -1,0 +1,13 @@
+---
+title: "Test Quarto File"
+format: html
+---
+
+## Hello
+
+This file is for testing Quarto (`.qmd`) exclusion in Workspace Wiki.
+
+```{r}
+# Quarto is the successor to R Markdown
+print("Hello, World!")
+```

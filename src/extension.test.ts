@@ -19,7 +19,10 @@ jest.mock('./tree/treeProvider', () => ({
 	})),
 }));
 
+// Only the settings writer is replaced; the rest of the module stays real so that the accessors
+// activate() reads settings through are the ones under test.
 jest.mock('./utils/configUtils', () => ({
+	...jest.requireActual('./utils/configUtils'),
 	syncOpenWithToSupportedExtensions: jest.fn(),
 }));
 
@@ -139,6 +142,108 @@ describe('extension', () => {
 					autoReveal: true,
 					autoRevealDelay: 0,
 					supportedExtensions: ['md', 'markdown', 'txt'],
+				});
+
+				handler();
+
+				expect(provider.findNodeByUri).not.toHaveBeenCalled();
+			});
+
+			it('reveals the active file when an include glob matches it', () => {
+				const vscode = require('vscode');
+				const { createMockUri } = require('./test/mocks');
+				const activeUri = createMockUri('/workspace-root/pkg/doc.go');
+				vscode.window.activeTextEditor = { document: { uri: activeUri } };
+
+				const { handler, provider, treeView } = activateAndCaptureRevealHandler({
+					autoReveal: true,
+					autoRevealDelay: 0,
+					supportedExtensions: ['md', 'markdown', 'txt'],
+					includeGlobs: ['doc.go'],
+				});
+				provider.findNodeByUri.mockReturnValue({ label: 'Doc' });
+
+				handler();
+
+				expect(provider.findNodeByUri).toHaveBeenCalledWith(activeUri);
+				expect(treeView.reveal).toHaveBeenCalled();
+			});
+
+			it('ignores a file sharing an extension with an include glob but not its name', () => {
+				const vscode = require('vscode');
+				const { createMockUri } = require('./test/mocks');
+				vscode.window.activeTextEditor = {
+					document: { uri: createMockUri('/workspace-root/pkg/other.go') },
+				};
+
+				const { handler, provider, treeView } = activateAndCaptureRevealHandler({
+					autoReveal: true,
+					autoRevealDelay: 0,
+					supportedExtensions: ['md', 'markdown', 'txt'],
+					includeGlobs: ['doc.go'],
+				});
+				// The scan never matched this file, so it has no node. The lookup is what establishes
+				// that, which is why the assertion is on the reveal rather than on the lookup.
+				provider.findNodeByUri.mockReturnValue(undefined);
+
+				handler();
+
+				expect(treeView.reveal).not.toHaveBeenCalled();
+			});
+
+			it('reveals a file an include glob reaches through a zero-segment double star', () => {
+				const vscode = require('vscode');
+				const { createMockUri } = require('./test/mocks');
+				// `findFiles` expands `**` to zero or more segments, so `docs/**/*.adoc` scans this file
+				// even though nothing sits between `docs` and it.
+				const activeUri = createMockUri('/workspace-root/docs/notes.adoc');
+				vscode.window.activeTextEditor = { document: { uri: activeUri } };
+
+				const { handler, provider, treeView } = activateAndCaptureRevealHandler({
+					autoReveal: true,
+					autoRevealDelay: 0,
+					supportedExtensions: ['md', 'markdown', 'txt'],
+					includeGlobs: ['docs/**/*.adoc'],
+				});
+				provider.findNodeByUri.mockReturnValue({ label: 'Notes' });
+
+				handler();
+
+				expect(provider.findNodeByUri).toHaveBeenCalledWith(activeUri);
+				expect(treeView.reveal).toHaveBeenCalled();
+			});
+
+			it('ignores a file with no include globs configured and an unsupported extension', () => {
+				const vscode = require('vscode');
+				const { createMockUri } = require('./test/mocks');
+				vscode.window.activeTextEditor = {
+					document: { uri: createMockUri('/workspace-root/pkg/doc.go') },
+				};
+
+				const { handler, provider } = activateAndCaptureRevealHandler({
+					autoReveal: true,
+					autoRevealDelay: 0,
+					supportedExtensions: ['md', 'markdown', 'txt'],
+					includeGlobs: [],
+				});
+
+				handler();
+
+				expect(provider.findNodeByUri).not.toHaveBeenCalled();
+			});
+
+			it('ignores a file when includeGlobs is not an array of strings', () => {
+				const vscode = require('vscode');
+				const { createMockUri } = require('./test/mocks');
+				vscode.window.activeTextEditor = {
+					document: { uri: createMockUri('/workspace-root/pkg/doc.go') },
+				};
+
+				const { handler, provider } = activateAndCaptureRevealHandler({
+					autoReveal: true,
+					autoRevealDelay: 0,
+					supportedExtensions: ['md', 'markdown', 'txt'],
+					includeGlobs: 'doc.go',
 				});
 
 				handler();

@@ -300,6 +300,32 @@ describe('WorkspaceWikiTreeProvider', () => {
 			expect(createdItem.command.arguments[1]).toBe('markdown.showPreview');
 		});
 
+		it('should fallback to markdown.showPreview for an MDX file when openWith is unset', async () => {
+			mockWorkspace = createMockWorkspace({ defaultOpenMode: 'preview' });
+			provider = new WorkspaceWikiTreeProvider(
+				mockWorkspace,
+				mockTreeItem,
+				mockCollapsibleState,
+				mockEventEmitter,
+			);
+
+			const mockNode: MockTreeNode = {
+				type: 'file',
+				name: 'guide.mdx',
+				title: 'Guide',
+				path: '/workspace-root/guide.mdx',
+				uri: createMockUri('/workspace-root/guide.mdx'),
+			};
+
+			mockScanWorkspaceDocs.mockResolvedValue([]);
+			mockBuildTree.mockResolvedValue([mockNode]);
+
+			await provider.getChildren();
+
+			const createdItem = mockTreeItem.mock.results[0].value;
+			expect(createdItem.command.arguments[1]).toBe('markdown.showPreview');
+		});
+
 		it('should create tree item for file nodes', async () => {
 			const mockNode: MockTreeNode = {
 				type: 'file',
