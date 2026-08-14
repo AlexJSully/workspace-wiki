@@ -1,6 +1,6 @@
 import { handleFileClick, openInEditor, openInPreview } from '@controllers';
 import { WorkspaceWikiTreeProvider } from '@tree';
-import { getFileExtension, matchesGlobPattern, syncOpenWithToSupportedExtensions, toSearchGlob } from '@utils';
+import { getFileExtension, getIncludeGlobs, syncOpenWithToSupportedExtensions } from '@utils';
 import * as vscode from 'vscode';
 
 /**
@@ -52,13 +52,16 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// Check if this file is supported by our extension, by extension or by include pattern
 		const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'mdx', 'txt']) as string[];
-		const includeGlobs = config.get('includeGlobs', []) as string[];
 		const fileExt = getFileExtension(activeUri.path);
 
 		const isSupportedExtension = !!fileExt && supportedExtensions.includes(fileExt);
-		const isIncludedByGlob = matchesGlobPattern(activeUri.path, includeGlobs.map(toSearchGlob));
+		// An include pattern is not re-matched here. `matchesGlobPattern` is stricter than the glob
+		// `findFiles` gives the scanner — `**` matches zero path segments there and one or more here —
+		// so testing the pattern again would reject files the scan did put in the tree. Membership is
+		// settled by `doReveal` below, against the tree itself, which cannot disagree with the scan.
+		const mayBeIncludedByGlob = getIncludeGlobs(config).length > 0;
 
-		if (!isSupportedExtension && !isIncludedByGlob) {
+		if (!isSupportedExtension && !mayBeIncludedByGlob) {
 			return;
 		}
 

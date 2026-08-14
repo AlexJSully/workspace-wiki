@@ -126,7 +126,7 @@ function removeExtension(fileName: string): string {
  * e.g. "gettingStarted.md" -> "Getting Started"
  * Applies acronym casing from settings for common technical terms
  *
- * @param fileName The file name to convert (extension is stripped)
+ * @param fileName The file name to convert
  * @param acronyms Acronyms to preserve in their given casing (e.g. `['API', 'HTML']`); defaults to none
  * @param stripExtension Whether a trailing extension is removed; pass `false` for a folder name, where
  * the text after a dot is part of the name (`docs.v2`) rather than an extension

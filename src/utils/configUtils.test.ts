@@ -6,7 +6,6 @@ import {
 	getExcludePatterns,
 	getIncludeGlobs,
 	getMaxSearchDepth,
-	getOpenWithSettings,
 	getShowHiddenFiles,
 	getShowIgnoredFiles,
 	getSupportedExtensions,
@@ -92,6 +91,18 @@ describe('configUtils', () => {
 
 		it('should return no globs when not configured', () => {
 			mockConfig.get.mockReturnValue(undefined);
+			mockVscode.workspace.getConfiguration.mockReturnValue(mockConfig);
+
+			expect(getIncludeGlobs()).toEqual([]);
+		});
+
+		it.each([
+			['a bare string', 'doc.go'],
+			['a number', 7],
+			['an object', { pattern: 'doc.go' }],
+			['an array holding a non-string', ['doc.go', 42]],
+		])('should return no globs when the setting is %s', (_label, value) => {
+			mockConfig.get.mockReturnValue(value);
 			mockVscode.workspace.getConfiguration.mockReturnValue(mockConfig);
 
 			expect(getIncludeGlobs()).toEqual([]);
@@ -218,32 +229,6 @@ describe('configUtils', () => {
 		});
 	});
 
-	describe('getOpenWithSettings', () => {
-		it('should return configured open with settings', () => {
-			const openWith = { md: 'markdown.preview', html: 'browser.open' };
-			mockConfig.get.mockReturnValue(openWith);
-			mockVscode.workspace.getConfiguration.mockReturnValue(mockConfig);
-
-			const settings = getOpenWithSettings();
-
-			expect(settings).toEqual(openWith);
-		});
-
-		it('should return default open with settings when not configured', () => {
-			mockConfig.get.mockReturnValue(undefined);
-			mockVscode.workspace.getConfiguration.mockReturnValue(mockConfig);
-
-			const settings = getOpenWithSettings();
-
-			expect(settings).toEqual({
-				md: 'markdown.showPreview',
-				markdown: 'markdown.showPreview',
-				mdx: 'markdown.showPreview',
-				txt: 'vscode.open',
-			});
-		});
-	});
-
 	describe('getDefaultOpenMode', () => {
 		it('should return configured default open mode', () => {
 			mockConfig.get.mockReturnValue('editor');
@@ -325,18 +310,31 @@ describe('configUtils', () => {
 	});
 
 	describe('syncOpenWithToSupportedExtensions', () => {
-		it('should add openWith extensions to supportedExtensions', () => {
-			mockConfig.get.mockImplementation((...args: unknown[]) => {
-				const key = args[0] as string;
-				if (key === 'openWith') {
-					return { md: 'markdown.preview', html: 'browser.open', pdf: 'pdf.viewer' };
-				}
-				if (key === 'supportedExtensions') {
-					return ['md', 'txt'];
-				}
-				return undefined;
-			});
+		/**
+		 * Points the mock config at one `supportedExtensions` value and one set of user-set
+		 * `openWith` entries, leaving the `openWith` default out of the user's scopes the way
+		 * VS Code does for a setting nobody overrode.
+		 *
+		 * @param supportedExtensions The value `get('supportedExtensions')` should report
+		 * @param userOpenWith The value `inspect('openWith')` should report as the workspace scope
+		 */
+		function givenSettings(supportedExtensions: unknown, userOpenWith?: Record<string, string>) {
+			mockConfig.get.mockImplementation((...args: unknown[]) =>
+				args[0] === 'supportedExtensions' ? supportedExtensions : undefined,
+			);
+			mockConfig.inspect.mockImplementation((...args: unknown[]) =>
+				args[0] === 'openWith'
+					? {
+							defaultValue: { md: 'markdown.showPreview', mdx: 'markdown.showPreview' },
+							workspaceValue: userOpenWith,
+						}
+					: undefined,
+			);
 			mockVscode.workspace.getConfiguration.mockReturnValue(mockConfig);
+		}
+
+		it('should add openWith extensions to supportedExtensions', () => {
+			givenSettings(['md', 'txt'], { md: 'markdown.preview', html: 'browser.open', pdf: 'pdf.viewer' });
 
 			syncOpenWithToSupportedExtensions();
 
@@ -348,17 +346,7 @@ describe('configUtils', () => {
 		});
 
 		it('should not update when no new extensions', () => {
-			mockConfig.get.mockImplementation((...args: unknown[]) => {
-				const key = args[0] as string;
-				if (key === 'openWith') {
-					return { md: 'markdown.preview', txt: 'vscode.open' };
-				}
-				if (key === 'supportedExtensions') {
-					return ['md', 'txt'];
-				}
-				return undefined;
-			});
-			mockVscode.workspace.getConfiguration.mockReturnValue(mockConfig);
+			givenSettings(['md', 'txt'], { md: 'markdown.preview', txt: 'vscode.open' });
 
 			syncOpenWithToSupportedExtensions();
 
@@ -366,35 +354,46 @@ describe('configUtils', () => {
 		});
 
 		it('should handle empty openWith', () => {
-			mockConfig.get.mockImplementation((...args: unknown[]) => {
-				const key = args[0] as string;
-				if (key === 'openWith') {
-					return {};
-				}
-				if (key === 'supportedExtensions') {
-					return ['md', 'txt'];
-				}
-				return undefined;
-			});
-			mockVscode.workspace.getConfiguration.mockReturnValue(mockConfig);
+			givenSettings(['md', 'txt'], {});
 
 			syncOpenWithToSupportedExtensions();
 
 			expect(mockConfig.update).not.toHaveBeenCalled();
 		});
 
-		it('should handle undefined supportedExtensions', () => {
-			mockConfig.get.mockImplementation((...args: unknown[]) => {
-				const key = args[0] as string;
-				if (key === 'openWith') {
-					return { md: 'markdown.preview', html: 'browser.open' };
-				}
-				if (key === 'supportedExtensions') {
-					return undefined;
-				}
-				return undefined;
-			});
+		it('should not rewrite settings for an openWith key that only exists as a default', () => {
+			// `mdx` is in the contributed default and in no user scope, so it is not a request to
+			// widen a list the user wrote themselves.
+			givenSettings(['md', 'markdown', 'txt'], undefined);
+
+			syncOpenWithToSupportedExtensions();
+
+			expect(mockConfig.update).not.toHaveBeenCalled();
+		});
+
+		it('should merge user openWith scopes with workspace folder winning', () => {
+			mockConfig.get.mockImplementation((...args: unknown[]) =>
+				args[0] === 'supportedExtensions' ? ['md'] : undefined,
+			);
+			mockConfig.inspect.mockImplementation((...args: unknown[]) =>
+				args[0] === 'openWith'
+					? {
+							defaultValue: { md: 'markdown.showPreview' },
+							globalValue: { adoc: 'asciidoc.preview' },
+							workspaceValue: { rst: 'rst.preview' },
+							workspaceFolderValue: { org: 'org.preview' },
+						}
+					: undefined,
+			);
 			mockVscode.workspace.getConfiguration.mockReturnValue(mockConfig);
+
+			syncOpenWithToSupportedExtensions();
+
+			expect(mockConfig.update).toHaveBeenCalledWith('supportedExtensions', ['md', 'adoc', 'rst', 'org'], 2);
+		});
+
+		it('should handle undefined supportedExtensions', () => {
+			givenSettings(undefined, { md: 'markdown.preview', html: 'browser.open' });
 
 			syncOpenWithToSupportedExtensions();
 
@@ -406,17 +405,7 @@ describe('configUtils', () => {
 		});
 
 		it('should handle invalid supportedExtensions type', () => {
-			mockConfig.get.mockImplementation((...args: unknown[]) => {
-				const key = args[0] as string;
-				if (key === 'openWith') {
-					return { md: 'markdown.preview' };
-				}
-				if (key === 'supportedExtensions') {
-					return 'invalid';
-				}
-				return undefined;
-			});
-			mockVscode.workspace.getConfiguration.mockReturnValue(mockConfig);
+			givenSettings('invalid', { md: 'markdown.preview' });
 
 			syncOpenWithToSupportedExtensions();
 
@@ -425,6 +414,21 @@ describe('configUtils', () => {
 				['md', 'markdown', 'mdx', 'txt'],
 				2, // vscode.ConfigurationTarget.Workspace
 			);
+		});
+
+		it('should not surface a rejected settings write', async () => {
+			givenSettings(['md'], { html: 'browser.open' });
+			mockConfig.update.mockRejectedValue(new Error('workspace is not writable'));
+			const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+			expect(() => syncOpenWithToSupportedExtensions()).not.toThrow();
+			await Promise.resolve();
+
+			expect(consoleError).toHaveBeenCalledWith(
+				'[WorkspaceWiki] Failed to sync supportedExtensions:',
+				expect.any(Error),
+			);
+			consoleError.mockRestore();
 		});
 	});
 });

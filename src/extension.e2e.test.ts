@@ -6,6 +6,39 @@ import { scanWorkspaceDocs } from '@scanner';
 import * as assert from 'node:assert';
 import * as vscode from 'vscode';
 
+/**
+ * Polls a value until it satisfies a condition.
+ *
+ * A fixed wait would encode how fast the machine running the suite happens to be, so a slow CI
+ * runner would fail for a reason unrelated to the behaviour under test.
+ *
+ * @param read Produces the current value; awaited, so it may return a promise or a VS Code thenable
+ * @param isReady Decides whether that value is the one being waited for
+ * @param timeoutMs How long to keep polling; defaults to ten seconds
+ * @returns The first value satisfying `isReady`
+ * @throws When `timeoutMs` elapses first
+ */
+async function waitFor<T>(
+	read: () => T | PromiseLike<T>,
+	isReady: (value: T) => boolean,
+	timeoutMs = 10_000,
+): Promise<T> {
+	const deadline = Date.now() + timeoutMs;
+
+	for (;;) {
+		const value = await read();
+		if (isReady(value)) {
+			return value;
+		}
+
+		if (Date.now() > deadline) {
+			throw new Error(`Timed out after ${timeoutMs}ms waiting for a condition`);
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+}
+
 describe('Extension Activation E2E', () => {
 	it('should activate extension and register commands', async () => {
 		// Wait for extension to activate
@@ -14,11 +47,10 @@ describe('Extension Activation E2E', () => {
 			await extension.activate();
 		}
 
-		// Wait a bit for commands to be registered
-		await new Promise((resolve) => setTimeout(resolve, 2000));
-
-		// Get all available commands
-		const commands = await vscode.commands.getCommands();
+		const commands = await waitFor(
+			() => vscode.commands.getCommands(),
+			(registered) => registered.includes('workspace-wiki.refresh'),
+		);
 
 		// Check that our extension commands are registered
 		const expectedCommands = [
@@ -197,14 +229,15 @@ describe('File Type Support E2E', () => {
 		assert.ok(mdxFile, 'Expected the .mdx fixture to be discoverable');
 
 		await vscode.commands.executeCommand('markdown.showPreview', mdxFile);
-		await new Promise((resolve) => setTimeout(resolve, 1500));
 
-		const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
-		assert.strictEqual(
-			activeTab?.label,
-			'Preview test-mdx.mdx',
-			'Expected a Markdown preview tab for the MDX file',
+		// The tab is identified by the file it previews rather than by its full label, which is a
+		// string VS Code owns and can reword between releases.
+		const label = await waitFor(
+			() => vscode.window.tabGroups.activeTabGroup.activeTab?.label,
+			(current) => !!current?.includes('test-mdx.mdx'),
 		);
+
+		assert.ok(label?.includes('test-mdx.mdx'), 'Expected a Markdown preview tab for the MDX file');
 
 		await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 	});

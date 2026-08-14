@@ -89,7 +89,13 @@ describe('workspaceScanner', () => {
 				const result = await scanWorkspaceDocs(workspace);
 				const readmeFiles = result.filter((uri) => /README$/i.test(uri.path));
 
-				expect(readmeFiles.length).toBeGreaterThanOrEqual(3);
+				// Exactly three, not at least three: `**/README` and `**/readme` both return this set,
+				// so a lower bound would still pass with the deduplication removed.
+				expect(readmeFiles.map((uri) => uri.path)).toEqual([
+					'/project-root/README',
+					'/project-root/docs/README',
+					'/project-root/docs/readme',
+				]);
 			});
 
 			it('should NOT include README (no extension) if Markdown is NOT supported', async () => {
@@ -159,6 +165,21 @@ describe('workspaceScanner', () => {
 
 				expect(patterns).toContain('docs/notes/*.adoc');
 				expect(patterns).not.toContain('**/docs/notes/*.adoc');
+			});
+
+			it('should fall back to no include globs when the setting is not an array of strings', async () => {
+				const patterns = (await capturePatterns(['md'], 'doc.go' as unknown as string[])).filter(
+					(pattern) => pattern !== '**/.gitignore',
+				);
+
+				expect(patterns).toEqual(['**/*.md', '**/README', '**/readme']);
+			});
+
+			it('should drop a blank include glob rather than searching for it', async () => {
+				const patterns = await capturePatterns(['md'], ['', 'doc.go']);
+
+				expect(patterns).not.toContain('');
+				expect(patterns).toContain('**/doc.go');
 			});
 
 			it('should return files matched only by an include glob', async () => {

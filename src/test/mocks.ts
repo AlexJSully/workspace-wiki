@@ -17,17 +17,32 @@ export function createMockUri(pathOrUri: string): vscode.Uri {
 	return (hasScheme ? URI.parse(pathOrUri) : URI.file(pathOrUri)) as vscode.Uri;
 }
 
-/** Settings a mock workspace should report. */
+/**
+ * Settings a mock workspace should report.
+ *
+ * Every member is optional and an omitted one is reported as undefined rather than defaulted, so a
+ * test that leaves one out is exercising the production fallback for it.
+ */
 export interface MockWorkspaceConfig {
+	/** Whether dot-prefixed paths survive the scan. */
 	showHiddenFiles?: boolean;
+	/** Whether `.gitignore` and `excludeGlobs` filtering is skipped. */
 	showIgnoredFiles?: boolean;
+	/** Glob patterns whose matches are dropped from the scan. */
 	excludeGlobs?: string[];
+	/** File names or patterns included beyond `supportedExtensions`. */
 	includeGlobs?: string[];
+	/** Extensions the scan searches for. */
 	supportedExtensions?: string[];
+	/** Directory levels searched; `0` disables depth filtering. */
 	maxSearchDepth?: number;
+	/** `'preview'` or `'editor'`, the mode a single click opens in. */
 	defaultOpenMode?: string;
+	/** `'files-first'`, `'folders-first'`, or `'alphabetical'`. */
 	directorySort?: string;
+	/** Acronyms whose casing a normalized title preserves. */
 	acronymCasing?: string[];
+	/** Extension-to-command map deciding how a file opens. */
 	openWith?: Record<string, string>;
 }
 

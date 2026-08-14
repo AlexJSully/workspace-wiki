@@ -13,12 +13,15 @@ export function sortNodes(
 	directorySort: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first',
 ): void {
 	nodes.sort((a, b) => {
-		// README always first
-		if (a.isReadme) {
-			return -1;
-		}
-		if (b.isReadme) {
-			return 1;
+		// README always first. Two README siblings are possible — `README` and `README.md` can share a
+		// folder — so this compares the flag rather than returning early on `a`, which would make the
+		// comparator disagree with itself and leave their order up to the engine. A folder node
+		// carries no `isReadme` at all, so the flag is read as a boolean rather than compared raw.
+		const aIsReadme = a.isReadme === true;
+		const bIsReadme = b.isReadme === true;
+
+		if (aIsReadme !== bIsReadme) {
+			return aIsReadme ? -1 : 1;
 		}
 
 		// Apply directory sorting logic

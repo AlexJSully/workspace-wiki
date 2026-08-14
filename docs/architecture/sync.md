@@ -45,13 +45,12 @@ const revealActiveFile = () => {
 	// Check if file is supported, by extension or by include pattern
 	const activeUri = activeEditor.document.uri;
 	const supportedExtensions = config.get('supportedExtensions', ['md', 'markdown', 'mdx', 'txt']);
-	const includeGlobs = config.get('includeGlobs', []);
 	const fileExt = getFileExtension(activeUri.path);
 
 	const isSupportedExtension = !!fileExt && supportedExtensions.includes(fileExt);
-	const isIncludedByGlob = matchesGlobPattern(activeUri.path, includeGlobs.map(toSearchGlob));
+	const mayBeIncludedByGlob = getIncludeGlobs().length > 0;
 
-	if (!isSupportedExtension && !isIncludedByGlob) return;
+	if (!isSupportedExtension && !mayBeIncludedByGlob) return;
 
 	// Reveal with delay
 	if (autoRevealDelay > 0) {
@@ -72,7 +71,7 @@ The sync functionality requires the `TreeDataProvider` to implement:
 
 ## Edge Cases
 
-- Only reveals files that match `supportedExtensions` or an `includeGlobs` pattern, so the reveal rule and the scan agree on what belongs in the tree
+- Membership is settled against the tree the scanner built, not by re-matching an `includeGlobs` pattern. A pattern is a cheap way to skip files that can never be in the tree, so with include patterns configured the check is only that some exist, and `findNodeByUri` decides. Re-matching would reject files the scan did include: the glob `findFiles` understands expands `**` to zero or more path segments, while `matchesGlobPattern` requires at least one
 - Respects `excludeGlobs` and `.gitignore` patterns
 - Tree view must be visible for revelation to work
 - Matches the active editor by URI, so a file resolves the same on local, remote, and virtual file systems

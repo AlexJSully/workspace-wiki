@@ -92,7 +92,9 @@ normalizeTitle('htmlCssGuide.md', acronyms); // → 'HTML CSS Guide'
 
 ## Include Pattern Normalization
 
-[`toSearchGlob`](../../src/utils/fileUtils.ts) prefixes a pattern with `**/` when it names a file rather than a path, because both `findFiles` and [`matchesGlobPattern`](../../src/utils/fileUtils.ts) anchor a slashless pattern to the start of the path. Without it, `doc.go` in `includeGlobs` would match only at the workspace root. The [scanner](./scanner.md) applies it when building search patterns and the [sync module](./sync.md) applies it when deciding whether to reveal the active file, so both agree on what a pattern means.
+[`toSearchGlob`](../../src/utils/fileUtils.ts) prefixes a pattern with `**/` when it names a file rather than a path, because `findFiles` anchors a slashless pattern to the start of the path. Without it, `doc.go` in `includeGlobs` would match only at the workspace root. The [scanner](./scanner.md) is its only caller: an include pattern is matched once, by `findFiles`, and everything downstream works from the URIs that returns.
+
+That single call site is deliberate. [`matchesGlobPattern`](../../src/utils/fileUtils.ts) is a different glob language from the one `findFiles` implements — most visibly, `**` expands to zero or more path segments in `findFiles` and to one or more here — so a second matcher applied to the same pattern would disagree about which files it names. The [sync module](./sync.md) is the place that would otherwise be tempted to; it consults the built tree instead.
 
 Separators are normalized before that decision, through `normalizePath`. The setting is typed by hand, so a Windows user may write `docs\notes\*.adoc`; left alone it holds no forward slash, would be read as a bare file name, and would then match nothing, since `findFiles` understands only forward slashes.
 

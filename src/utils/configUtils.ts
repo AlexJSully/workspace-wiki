@@ -25,11 +25,17 @@ export function getSupportedExtensions(): string[] {
 /**
  * Gets the include patterns that add files beyond `supportedExtensions`.
  *
- * @returns The configured `includeGlobs`, or an empty list by default
+ * Entries are type-checked rather than coalesced: the setting is user JSON, where a bare string in
+ * place of an array would otherwise reach a caller that iterates it.
+ *
+ * @param config The configuration to read; pass the one already in hand so a caller reading several
+ * settings sees one consistent snapshot rather than re-resolving between reads
+ * @returns The configured `includeGlobs`, or an empty list when unset or malformed
  */
-export function getIncludeGlobs(): string[] {
-	const config = getWorkspaceWikiConfig();
-	return config.get<string[]>('includeGlobs') || [];
+export function getIncludeGlobs(config: vscode.WorkspaceConfiguration = getWorkspaceWikiConfig()): string[] {
+	const value = config.get<unknown>('includeGlobs');
+
+	return Array.isArray(value) && value.every((entry) => typeof entry === 'string') ? (value as string[]) : [];
 }
 
 /**
@@ -107,23 +113,6 @@ export function getAutoRevealSettings(): { enabled: boolean; delay: number } {
 }
 
 /**
- * Gets open with settings from configuration
- *
- * @returns A map of extension to command, or defaults for `md`/`markdown`/`mdx` (`markdown.showPreview`) and `txt` (`vscode.open`)
- */
-export function getOpenWithSettings(): Record<string, string> {
-	const config = getWorkspaceWikiConfig();
-	return (
-		config.get<Record<string, string>>('openWith') || {
-			md: 'markdown.showPreview',
-			markdown: 'markdown.showPreview',
-			mdx: 'markdown.showPreview',
-			txt: 'vscode.open',
-		}
-	);
-}
-
-/**
  * Gets default open mode from configuration
  *
  * @returns `'preview'` or `'editor'`, default `'preview'`
@@ -164,14 +153,32 @@ export function getShowIgnoredFiles(): boolean {
 }
 
 /**
+ * Reads the `openWith` entries the user set, ignoring the ones this extension ships as defaults.
+ *
+ * A default is not a request. Widening `supportedExtensions` from the merged value would let a new
+ * key shipped in `package.json` rewrite the settings file of every user whose list predates it.
+ *
+ * @returns The user's own `openWith` entries, merged in VS Code's precedence order
+ */
+function getUserSetOpenWith(config: vscode.WorkspaceConfiguration): Record<string, string> {
+	const inspected = config.inspect<Record<string, string>>('openWith');
+
+	return {
+		...(inspected?.globalValue ?? {}),
+		...(inspected?.workspaceValue ?? {}),
+		...(inspected?.workspaceFolderValue ?? {}),
+	};
+}
+
+/**
  * Syncs openWith extensions to supportedExtensions
  *
- * Adds any extension present in `openWith` but missing from `supportedExtensions`, then writes the
- * result back to the workspace configuration when a change is needed (side effect; returns nothing).
+ * Adds any extension the user set in `openWith` but left out of `supportedExtensions`, then writes
+ * the result back to the workspace configuration when a change is needed (side effect; returns nothing).
  */
 export function syncOpenWithToSupportedExtensions(): void {
 	const config = getWorkspaceWikiConfig();
-	const openWith = getOpenWithSettings();
+	const openWith = getUserSetOpenWith(config);
 	let supportedExtensions = getSupportedExtensions();
 
 	// Ensure supportedExtensions is a valid array
@@ -196,6 +203,13 @@ export function syncOpenWithToSupportedExtensions(): void {
 	}
 
 	if (updated) {
-		config.update('supportedExtensions', supportedExtensions, vscode.ConfigurationTarget.Workspace);
+		// A workspace this extension is allowed to read is not always one it is allowed to write:
+		// an untrusted or virtual workspace rejects here, and an unhandled rejection would surface
+		// to the user as an extension error over a setting they never asked to change.
+		Promise.resolve(
+			config.update('supportedExtensions', supportedExtensions, vscode.ConfigurationTarget.Workspace),
+		).catch((error) => {
+			console.error('[WorkspaceWiki] Failed to sync supportedExtensions:', error);
+		});
 	}
 }

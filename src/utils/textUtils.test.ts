@@ -445,9 +445,42 @@ title: "  Whitespace Title  "
 			{ input: 'overview.txt', expected: 'Overview', description: 'single word' },
 			{ input: 'file.backup.md', expected: 'File.Backup', description: 'multiple extensions' },
 			{ input: 'test.min.js', expected: 'Test.Min', description: 'multiple extensions' },
+			{ input: 'makefile', expected: 'Makefile', description: 'extensionless build file' },
+			{ input: 'dockerfile', expected: 'Dockerfile', description: 'extensionless build file' },
+			{ input: 'test.config.js', expected: 'Test.Config', description: 'multiple extensions' },
+			// The last dotted segment is the extension whatever it spells, so an unfamiliar one such
+			// as `.test` is removed for the same reason `.go` is.
+			{ input: 'my.component.test', expected: 'My.Component', description: 'unfamiliar extension' },
+			{ input: '  test  ', expected: 'Test', description: 'surrounding whitespace' },
+			{ input: 'test-file  .md', expected: 'Test File', description: 'whitespace before the extension' },
+			{ input: 'myFile_withMixed-cases', expected: 'My File With Mixed Cases', description: 'mixed separators' },
 		])('should handle $description: $input', ({ input, expected }: { input: string; expected: string }) => {
 			expect(normalizeTitle(input)).toBe(expected);
 		});
+
+		// Acronyms have to survive both passes: the one before separators are split and the one after.
+		test.each([
+			{ input: 'API_endpointFor-users', expected: 'API Endpoint For Users', acronyms: ['API'] },
+			{ input: 'restApiClient', expected: 'REST API Client', acronyms: ['API', 'REST', 'JSON'] },
+			{ input: 'json_rest_api', expected: 'JSON REST API', acronyms: ['API', 'REST', 'JSON'] },
+			{ input: 'uiUxDesign', expected: 'UI UX Design', acronyms: ['UI', 'UX', 'API'] },
+			{ input: 'api-ui-guide', expected: 'API UI Guide', acronyms: ['UI', 'UX', 'API'] },
+		])(
+			'should preserve acronym casing through separator splitting: $input',
+			({ input, expected, acronyms }: { input: string; expected: string; acronyms: string[] }) => {
+				expect(normalizeTitle(input, acronyms)).toBe(expected);
+			},
+		);
+
+		test.each([
+			{ input: 'apiReference', expected: 'Api Reference', description: 'an empty acronym list' },
+			{ input: 'httpClient', expected: 'Http Client', description: 'no acronym list at all' },
+		])(
+			'should leave casing alone given $description',
+			({ input, expected }: { input: string; expected: string }) => {
+				expect(normalizeTitle(input, [])).toBe(expected);
+			},
+		);
 	});
 
 	describe('getFileExtension', () => {
