@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 To see tags and releases, please go to [Tags](https://github.com/AlexJSully/workspace-wiki/tags) on [GitHub](https://github.com/AlexJSully/workspace-wiki).
 
+## [1.2.0] - 2026-08-14
+
+Features:
+
+- **VS Code for the Web**: The extension now runs in the browser on [vscode.dev](https://vscode.dev) and [github.dev](https://github.dev), including virtual workspaces such as remotely opened repositories
+- **Untrusted Workspaces**: The documentation tree now works in workspaces you have not marked as trusted
+- **MDX Support**: `.mdx` files are included by default, have their YAML front matter `title` read, and open the same way `.md` files do
+- **Include Files by Name**: The new `workspaceWiki.includeGlobs` setting pulls individual documentation files into the tree by name or pattern, such as `doc.go` or `*.guide.ts`, without showing every other file that shares their extension
+- **Markdown Editor**: Markdown now opens in VS Code's built-in Markdown Editor when the running version offers it (VS Code 1.131+, `.md` only), falling back to Markdown Preview and then to a plain open
+
+Configuration:
+
+- The default `workspaceWiki.openWith` command for Markdown changed from `markdown.showPreview` to `workspace-wiki.openMarkdown`, which chooses between the Markdown Editor, Markdown Preview, and a plain open based on what your VS Code supports. To always get the read-only preview, set `"md": "markdown.showPreview"`. If you have already customised `openWith`, your entries are untouched.
+
+Update:
+
+- Workspace Wiki now requires VS Code 1.105.0 or newer, up from 1.99.3.
+
+Bug Fixes:
+
+- `.gitignore` rules are now applied across every workspace folder, including nested `.gitignore` files and `!` negation patterns. Previously only the first folder's top-level `.gitignore` was read, and its patterns were converted approximately.
+- `excludeGlobs` patterns are now matched as real globs rather than by substring, so a pattern no longer hides unrelated files whose path merely contains it
+- `maxSearchDepth` is now counted from each workspace folder in a multi-root workspace, instead of from the first folder for every file
+- `README` files with no extension now sort to the top of their folder, the way `README.md` already did
+- File titles now drop whatever extension a file has, so entries such as `.adoc`, `.mdx`, and `doc.go` read as clean titles
+- Folder names containing a dot, such as `docs.v2`, now keep their full name in the tree
+
 ## [1.1.0] - 2026-02-20
 
 Feature:
