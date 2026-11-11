@@ -1,0 +1,4 @@
+/* A user stylesheet, as `workspaceWiki.site.customCss` would load it. */
+.wiki {
+	--wiki-accent: rgb(138, 63, 252);
+}

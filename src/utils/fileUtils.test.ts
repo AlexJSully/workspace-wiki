@@ -1,5 +1,6 @@
 import { createMockUri } from '../test/mocks';
 import {
+	expandBraces,
 	getDirectoryName,
 	getFileName,
 	getPathDepth,
@@ -139,6 +140,20 @@ describe('fileUtils', () => {
 		});
 	});
 
+	describe('expandBraces', () => {
+		test.each([
+			{ pattern: '*.md', expected: ['*.md'] },
+			{ pattern: '*.{md,txt}', expected: ['*.md', '*.txt'] },
+			{ pattern: '{a,b}/{c,d}', expected: ['a/c', 'a/d', 'b/c', 'b/d'] },
+			{ pattern: 'x{a,{b,c}}', expected: ['xa', 'xb', 'xc'] },
+			{ pattern: '*.{md}', expected: ['*.md'] },
+			{ pattern: 'a{,b}', expected: ['a', 'ab'] },
+			{ pattern: 'a{b,c', expected: ['a{b,c'] },
+		])('expands $pattern', ({ pattern, expected }) => {
+			expect(expandBraces(pattern)).toEqual(expected);
+		});
+	});
+
 	describe('matchesGlobPattern', () => {
 		it('should match simple glob patterns', () => {
 			expect(matchesGlobPattern('/docs/file.md', ['**/*.md'])).toBe(true);
@@ -164,6 +179,17 @@ describe('fileUtils', () => {
 		it('should be case insensitive', () => {
 			expect(matchesGlobPattern('/DOCS/FILE.MD', ['**/*.md'])).toBe(true);
 			expect(matchesGlobPattern('/SRC/INDEX.JS', ['**/*.js'])).toBe(true);
+		});
+
+		test.each([
+			{ path: 'guide.md', pattern: '*.{md,markdown}', expected: true },
+			{ path: 'guide.markdown', pattern: '*.{md,markdown}', expected: true },
+			{ path: 'guide.mdx', pattern: '*.{md,markdown}', expected: false },
+			{ path: '/repo/vendor/a.js', pattern: '{**/vendor/**,**/dist/**}', expected: true },
+			{ path: '/repo/src/a.js', pattern: '{**/vendor/**,**/dist/**}', expected: false },
+			{ path: '/repo/docs/a.md', pattern: '**/{docs,guides}/*.md', expected: true },
+		])('should match brace alternatives: $path against $pattern', ({ path, pattern, expected }) => {
+			expect(matchesGlobPattern(path, [pattern])).toBe(expected);
 		});
 
 		it('should handle invalid patterns gracefully', () => {

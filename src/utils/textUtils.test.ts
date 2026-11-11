@@ -8,6 +8,7 @@ import {
 	isIndexFile,
 	isReadmeFile,
 	normalizeTitle,
+	stripFrontMatter,
 } from './textUtils';
 
 describe('textUtils', () => {
@@ -208,6 +209,23 @@ import { Note } from './Note';
 
 			consoleErrorSpy.mockRestore();
 			fs.unlinkSync(testFile);
+		});
+	});
+
+	describe('stripFrontMatter', () => {
+		test.each([
+			{ description: 'a front matter block', input: '---\ntitle: A\n---\n# Body\n', expected: '# Body\n' },
+			{ description: 'CRLF line endings', input: '---\r\ntitle: A\r\n---\r\nBody', expected: 'Body' },
+			{ description: 'a byte order mark', input: '\uFEFF---\ntitle: A\n---\nBody', expected: 'Body' },
+			{ description: 'a block closing the file', input: '---\ntitle: A\n---', expected: '' },
+			{ description: 'no front matter', input: '# Body\n---\nmore', expected: '# Body\n---\nmore' },
+			{
+				description: 'a delimiter not on the first line',
+				input: '\n---\ntitle: A\n---\n',
+				expected: '\n---\ntitle: A\n---\n',
+			},
+		])('handles $description', ({ input, expected }) => {
+			expect(stripFrontMatter(input)).toBe(expected);
 		});
 	});
 

@@ -1,9 +1,8 @@
 import { DEFAULT_OPEN_WITH, validateOpenWith } from '@controllers';
-import { scanWorkspaceDocs } from '@scanner';
 import { TreeNode, WorkspaceLike } from '@types';
 import { getFileExtension } from '@utils';
 import * as vscode from 'vscode';
-import { buildTree } from './buildTree';
+import { loadWikiTree } from './loadWikiTree';
 
 /**
  * Supplies the Workspace Wiki view with tree items.
@@ -52,18 +51,7 @@ export class WorkspaceWikiTreeProvider {
 		}
 
 		// Root level - build hierarchical tree structure
-		const uris = await scanWorkspaceDocs(this.workspace);
-
-		// Get directory sort setting and acronyms
-		let directorySort: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first';
-		let acronyms: string[] = [];
-		if (this.workspace.getConfiguration) {
-			const config = this.workspace.getConfiguration('workspaceWiki');
-			directorySort = config.get('directorySort') || 'files-first';
-			acronyms = config.get('acronymCasing') || [];
-		}
-
-		this.treeData = await buildTree(uris, directorySort, acronyms);
+		this.treeData = await loadWikiTree(this.workspace);
 
 		// Clear existing map and rebuild immediately for consistency
 		this.nodeMap.clear();

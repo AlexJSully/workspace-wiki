@@ -9,6 +9,8 @@
 src/**
 test/**
 tests/**
+cypress/**
+scripts/**
 
 # Dependencies and virtual environments
 node_modules/**

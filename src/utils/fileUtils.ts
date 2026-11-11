@@ -82,10 +82,54 @@ export function getFileName(path: string): string {
 }
 
 /**
+ * Expands the `{a,b}` alternations of a glob into one pattern per alternative, as VS Code's own glob
+ * matcher reads them. Nested groups expand fully; a brace with no closing partner is left as written.
+ *
+ * @param pattern The glob
+ * @returns Every pattern the alternations spell out, or the pattern alone when it has none
+ */
+export function expandBraces(pattern: string): string[] {
+	const open = pattern.indexOf('{');
+	if (open === -1) {
+		return [pattern];
+	}
+
+	// Find the matching close brace and the top-level commas between them.
+	let depth = 0;
+	const commas: number[] = [];
+	let close = -1;
+	for (let i = open; i < pattern.length; i++) {
+		const char = pattern[i];
+		if (char === '{') {
+			depth++;
+		} else if (char === '}') {
+			depth--;
+			if (depth === 0) {
+				close = i;
+				break;
+			}
+		} else if (char === ',' && depth === 1) {
+			commas.push(i);
+		}
+	}
+	if (close === -1) {
+		return [pattern];
+	}
+
+	const head = pattern.slice(0, open);
+	const tail = pattern.slice(close + 1);
+	const bounds = [open, ...commas, close];
+	const alternatives = bounds.slice(0, -1).map((start, index) => pattern.slice(start + 1, bounds[index + 1]));
+
+	return alternatives.flatMap((alternative) => expandBraces(`${head}${alternative}${tail}`));
+}
+
+/**
  * Checks if a file path matches any of the given glob patterns
  *
  * Patterns are converted to regular expressions (`**` matches any depth, `*` matches within a segment,
- * `?` matches a single non-slash character); an invalid pattern falls back to a substring match.
+ * `?` matches a single non-slash character, `{a,b}` matches either alternative); an invalid pattern
+ * falls back to a substring match.
  *
  * @param filePath The file path to test
  * @param patterns The glob patterns to match against
@@ -98,49 +142,51 @@ export function matchesGlobPattern(filePath: string, patterns: string[]): boolea
 
 	const normalizedPath = normalizePath(filePath).toLowerCase();
 
-	return patterns.some((pattern) => {
-		try {
-			let regexPattern = pattern.toLowerCase();
+	return patterns
+		.flatMap((pattern) => (typeof pattern === 'string' ? expandBraces(pattern) : [pattern]))
+		.some((pattern) => {
+			try {
+				let regexPattern = pattern.toLowerCase();
 
-			// Escape special regex characters except glob ones
-			regexPattern = regexPattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+				// Escape special regex characters except glob ones
+				regexPattern = regexPattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
 
-			// Handle glob patterns
-			regexPattern = regexPattern
-				.replace(/\*\*/g, '___DOUBLESTAR___') // Placeholder for **
-				.replace(/\*/g, '[^/]*') // * matches any characters except /
-				.replace(/___DOUBLESTAR___/g, '.*') // ** matches any characters including /
-				.replace(/\?/g, '[^/]'); // ? matches any single character except /
+				// Handle glob patterns
+				regexPattern = regexPattern
+					.replace(/\*\*/g, '___DOUBLESTAR___') // Placeholder for **
+					.replace(/\*/g, '[^/]*') // * matches any characters except /
+					.replace(/___DOUBLESTAR___/g, '.*') // ** matches any characters including /
+					.replace(/\?/g, '[^/]'); // ? matches any single character except /
 
-			// Handle anchoring based on pattern
-			if (pattern.startsWith('**/')) {
-				// **/ at start means match anywhere
-				regexPattern = regexPattern;
-			} else if (pattern.startsWith('/')) {
-				// / at start means match from root
-				regexPattern = '^' + regexPattern.substring(1);
-			} else if (pattern.includes('/')) {
-				// Contains slash but doesn't start with ** or /, match from any directory boundary
-				regexPattern = '(^|/)' + regexPattern;
-			} else {
-				// No slash, match filename only (no directories allowed)
-				regexPattern = '^' + regexPattern;
+				// Handle anchoring based on pattern
+				if (pattern.startsWith('**/')) {
+					// **/ at start means match anywhere
+					regexPattern = regexPattern;
+				} else if (pattern.startsWith('/')) {
+					// / at start means match from root
+					regexPattern = '^' + regexPattern.substring(1);
+				} else if (pattern.includes('/')) {
+					// Contains slash but doesn't start with ** or /, match from any directory boundary
+					regexPattern = '(^|/)' + regexPattern;
+				} else {
+					// No slash, match filename only (no directories allowed)
+					regexPattern = '^' + regexPattern;
+				}
+
+				// Ensure proper ending
+				if (pattern.endsWith('/**')) {
+					// Ends with /**, already handled by .* conversion
+				} else {
+					regexPattern = regexPattern + '$';
+				}
+
+				const regex = new RegExp(regexPattern);
+				return regex.test(normalizedPath);
+			} catch {
+				// If regex is invalid, do simple string matching
+				return normalizedPath.includes(pattern.toLowerCase());
 			}
-
-			// Ensure proper ending
-			if (pattern.endsWith('/**')) {
-				// Ends with /**, already handled by .* conversion
-			} else {
-				regexPattern = regexPattern + '$';
-			}
-
-			const regex = new RegExp(regexPattern);
-			return regex.test(normalizedPath);
-		} catch {
-			// If regex is invalid, do simple string matching
-			return normalizedPath.includes(pattern.toLowerCase());
-		}
-	});
+		});
 }
 
 /**

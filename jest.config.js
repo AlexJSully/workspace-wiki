@@ -24,6 +24,8 @@ module.exports = {
 		'^@types$': '<rootDir>/src/types',
 		'^@scanner$': '<rootDir>/src/scanner',
 		'^@scanner/(.*)$': '<rootDir>/src/scanner/$1',
+		'^@site$': '<rootDir>/src/site',
+		'^@site/(.*)$': '<rootDir>/src/site/$1',
 		'^@controllers$': '<rootDir>/src/controllers',
 		'^@controllers/(.*)$': '<rootDir>/src/controllers/$1',
 		'^@tree$': '<rootDir>/src/tree',

@@ -39,6 +39,17 @@ function parseFrontMatter(text: string): Record<string, unknown> {
 }
 
 /**
+ * Removes a leading YAML front matter block from a document, leaving the body to render.
+ *
+ * @param text The full document text
+ * @returns The text after the closing delimiter, or the text unchanged when it has no front matter
+ */
+export function stripFrontMatter(text: string): string {
+	const match = FRONT_MATTER_BLOCK.exec(text);
+	return match ? text.slice(match[0].length) : text;
+}
+
+/**
  * Reads a front matter field, accepting only non-empty strings.
  *
  * @param data The parsed front matter mapping

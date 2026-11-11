@@ -23,6 +23,7 @@ Workspace Wiki is a VS Code extension that scans your workspace for documentatio
 - **Acronym Case Preservation:** Technical terms like HTML, CSS, API maintain proper casing in titles.
 - **Intelligent File Exclusion:** Respects `.gitignore` patterns, including nested files and negation rules, plus configurable exclude globs to hide unwanted files.
 - **Preview & Edit:** By default, single-click opens the best surface for the file type (`workspaceWiki.defaultOpenMode: "preview"`), and double-click opens the source in the full editor.
+- **Wiki Site:** Open your docs as a documentation site in an editor tab, with a navigation tree, breadcrumbs, an "On this page" outline, and full-text search. Markdown (with Mermaid diagrams), HTML, PDFs, source files, and images are rendered; the header shows your workspace name and logo. Works in VS Code for the Web too.
 - **Refresh:** Update the tree on demand with the Refresh action; it also re-scans automatically when `workspaceWiki` settings change.
 - **Configurable:** Supported file types, excludes, open modes, and title formatting are configurable via settings.
 - **Multi-root Support:** Works with multi-root workspaces, scoping each folder's `.gitignore` rules and search depth to that folder.
@@ -128,8 +129,8 @@ Any extension you add here that is not already in `supportedExtensions` is added
 
 `workspace-wiki.openMarkdown` is the default for Markdown, and picks the best surface the running VS Code offers:
 
-1. **Markdown Editor:** VS Code's built-in rendered, in-place-editable Markdown surface, added in VS Code 1.131. It only claims `.md` files.
-2. **Markdown Preview** (`markdown.showPreview`), used for `.mdx`, `.markdown`, an extensionless `README`, and on any VS Code that predates the Markdown Editor.
+1. **Markdown Editor:** VS Code's built-in rendered, in-place-editable Markdown surface, added in VS Code 1.131. It claims `.md` files, and from VS Code 1.146 `.markdown` and other Markdown extensions too.
+2. **Markdown Preview** (`markdown.showPreview`), used for files the Markdown Editor does not claim, such as `.mdx` and an extensionless `README`, and on any VS Code that predates the Markdown Editor.
 3. **A plain open** (`vscode.open`), which follows whatever your `workbench.editorAssociations` says, when neither of the above is available.
 
 To always use the read-only preview instead, set the extensions you care about back to `markdown.showPreview`:
@@ -198,6 +199,46 @@ Delay in milliseconds before revealing the active file in the tree (default: 500
 	"workspaceWiki.autoRevealDelay": 1000
 }
 ```
+
+### Wiki Site
+
+#### `workspaceWiki.site.theme`
+
+Look of the Wiki Site (default: `vscode`, which follows your colour theme). `paper` is light with a blue accent, `slate` is dark, and `lagoon` is light under a teal header. High-contrast colour themes always use `vscode`.
+
+#### `workspaceWiki.site.customCss`
+
+Stylesheets, as paths relative to the first workspace folder, loaded after the theme (default: none). Override the `--wiki-*` variables on `.wiki` to restyle the site:
+
+```json
+{
+	"workspaceWiki.site.customCss": ["docs/wiki.css"]
+}
+```
+
+```css
+.wiki {
+	--wiki-accent: #8a3ffc;
+	--wiki-content-width: 52rem;
+}
+```
+
+#### `workspaceWiki.site.logo`
+
+Image shown beside the workspace name in the site header and on its tab, relative to the first workspace folder (default: empty). When empty, the site uses a `favicon`, `logo`, or `icon` file it finds in the workspace, such as `public/favicon.ico` or `favicon-32x32.png`.
+
+VS Code can only draw `.svg`, `.png`, `.jpg`, `.gif`, or `.webp` images on a tab, so an `.ico` appears in the header only and the tab uses a PNG or SVG favicon if the workspace has one. Without one, the tab shows the Workspace Wiki icon.
+
+## Using the Wiki Site
+
+Click the book icon in the Workspace Wiki view's title bar, or run **Workspace Wiki: Open Wiki Site**, to read your docs as a site. Right-click a file in the sidebar and choose **Open in Wiki Site** to open it there.
+
+- **Navigate:** click a page to read it; middle-click or Ctrl/Cmd+click to open it in a new tab; double-click it in the navigation to edit its file.
+- **Search:** press `/` or Ctrl/Cmd+K, type to jump to a page by title, or press Enter to search the text of every page.
+- **Open the file:** use **Open preview** or **Edit source** under the page title, or right-click a page for **Open in New Tab**, **Open to the Side**, **Open Original File**, **Edit Source**, and **Copy Relative Path**.
+- **External links:** a click opens the link the way VS Code opens external links, normally in your default browser; a middle click opens it in a new tab of VS Code's integrated browser where VS Code has one.
+
+PDFs are rendered page by page. Office and other binary files are not rendered; their page offers to open the file in its own editor.
 
 ## File Exclusion
 

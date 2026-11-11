@@ -57,6 +57,50 @@
 				"command": "workspace-wiki.refresh",
 				"title": "Refresh",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "workspace-wiki.openSite",
+				"title": "Open Wiki Site",
+				"category": "Workspace Wiki",
+				"icon": "$(book)"
+			},
+			{
+				"command": "workspace-wiki.openInSite",
+				"title": "Open in Wiki Site",
+				"category": "Workspace Wiki",
+				"icon": "$(book)"
+			},
+			{
+				"command": "workspace-wiki.site.openInNewTab",
+				"title": "Open in New Tab"
+			},
+			{
+				"command": "workspace-wiki.site.openToSide",
+				"title": "Open to the Side"
+			},
+			{
+				"command": "workspace-wiki.site.openOriginal",
+				"title": "Open Original File"
+			},
+			{
+				"command": "workspace-wiki.site.editSource",
+				"title": "Edit Source"
+			},
+			{
+				"command": "workspace-wiki.site.copyPath",
+				"title": "Copy Relative Path"
+			},
+			{
+				"command": "workspace-wiki.site.openLinkExternal",
+				"title": "Open in Default Browser"
+			},
+			{
+				"command": "workspace-wiki.site.openLinkIntegrated",
+				"title": "Open in Integrated Browser"
+			},
+			{
+				"command": "workspace-wiki.site.copyLink",
+				"title": "Copy Link Address"
 			}
 		],
 		"views": {
@@ -79,6 +123,11 @@
 					"command": "workspace-wiki.openEditor",
 					"when": "view == workspaceWiki && viewItem == file",
 					"group": "navigation@2"
+				},
+				{
+					"command": "workspace-wiki.openInSite",
+					"when": "view == workspaceWiki && viewItem == file",
+					"group": "navigation@3"
 				}
 			],
 			"view/item/inline": [
@@ -95,9 +144,94 @@
 			],
 			"view/title": [
 				{
+					"command": "workspace-wiki.openSite",
+					"when": "view == workspaceWiki",
+					"group": "navigation@1"
+				},
+				{
 					"command": "workspace-wiki.refresh",
 					"when": "view == workspaceWiki",
 					"group": "navigation"
+				}
+			],
+			"webview/context": [
+				{
+					"command": "workspace-wiki.site.openInNewTab",
+					"when": "webviewId == 'workspaceWiki.site' && webviewSection == 'doc'",
+					"group": "navigation@1"
+				},
+				{
+					"command": "workspace-wiki.site.openToSide",
+					"when": "webviewId == 'workspaceWiki.site' && webviewSection == 'doc'",
+					"group": "navigation@2"
+				},
+				{
+					"command": "workspace-wiki.site.openOriginal",
+					"when": "webviewId == 'workspaceWiki.site' && webviewSection == 'doc'",
+					"group": "open@1"
+				},
+				{
+					"command": "workspace-wiki.site.editSource",
+					"when": "webviewId == 'workspaceWiki.site' && webviewSection == 'doc'",
+					"group": "open@2"
+				},
+				{
+					"command": "workspace-wiki.site.copyPath",
+					"when": "webviewId == 'workspaceWiki.site' && webviewSection == 'doc'",
+					"group": "copy@1"
+				},
+				{
+					"command": "workspace-wiki.site.openLinkExternal",
+					"when": "webviewId == 'workspaceWiki.site' && webviewSection == 'external'",
+					"group": "navigation@1"
+				},
+				{
+					"command": "workspace-wiki.site.openLinkIntegrated",
+					"when": "webviewId == 'workspaceWiki.site' && webviewSection == 'external'",
+					"group": "navigation@2"
+				},
+				{
+					"command": "workspace-wiki.site.copyLink",
+					"when": "webviewId == 'workspaceWiki.site' && webviewSection == 'external'",
+					"group": "copy@1"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "workspace-wiki.openInSite",
+					"when": "false"
+				},
+				{
+					"command": "workspace-wiki.site.openInNewTab",
+					"when": "false"
+				},
+				{
+					"command": "workspace-wiki.site.openToSide",
+					"when": "false"
+				},
+				{
+					"command": "workspace-wiki.site.openOriginal",
+					"when": "false"
+				},
+				{
+					"command": "workspace-wiki.site.editSource",
+					"when": "false"
+				},
+				{
+					"command": "workspace-wiki.site.copyPath",
+					"when": "false"
+				},
+				{
+					"command": "workspace-wiki.site.openLinkExternal",
+					"when": "false"
+				},
+				{
+					"command": "workspace-wiki.site.openLinkIntegrated",
+					"when": "false"
+				},
+				{
+					"command": "workspace-wiki.site.copyLink",
+					"when": "false"
 				}
 			]
 		},
@@ -218,17 +352,48 @@
 					"type": "number",
 					"default": 500,
 					"description": "Delay in milliseconds before revealing the active file in the tree. Set to 0 for real-time reveal."
+				},
+				"workspaceWiki.site.theme": {
+					"type": "string",
+					"enum": [
+						"vscode",
+						"paper",
+						"slate",
+						"lagoon"
+					],
+					"enumDescriptions": [
+						"Follows the active VS Code colour theme.",
+						"Light, with an ink-blue accent.",
+						"Dark, blue-grey.",
+						"Light, under a teal header bar."
+					],
+					"default": "vscode",
+					"description": "Look of the Wiki Site. High-contrast colour themes always use \"vscode\"."
+				},
+				"workspaceWiki.site.customCss": {
+					"type": "array",
+					"default": [],
+					"items": {
+						"type": "string"
+					},
+					"description": "Stylesheets, as paths relative to the first workspace folder, loaded into the Wiki Site after its theme. Override the --wiki-* CSS variables on .wiki to restyle it (for example \".wiki { --wiki-accent: #8a3ffc; }\")."
+				},
+				"workspaceWiki.site.logo": {
+					"type": "string",
+					"default": "",
+					"description": "Image shown beside the workspace name in the Wiki Site header and used as its tab icon, as a path relative to the first workspace folder. Leave empty to use a favicon or logo found in the workspace. A tab can only show .svg, .png, .jpg, .gif or .webp images, so an .ico appears in the header only."
 				}
 			}
 		}
 	},
 	"scripts": {
 		"audit:fix": "npm i && npm audit fix",
-		"check-types": "tsc --noEmit",
+		"check-types": "tsc --noEmit && tsc -p cypress/tsconfig.json --noEmit",
 		"compile": "npm run check-types && node esbuild.js",
 		"compile:tests": "rm -rf out && npm run compile && npx esbuild src/extension.e2e.test.ts --bundle --platform=node --format=cjs --target=es2020 --external:vscode --external:mocha --outfile=out/extension.e2e.test.js",
 		"compile:tests:web": "npx esbuild src/test/web/index.ts --bundle --platform=browser --format=cjs --target=es2020 --external:vscode --outfile=out/web/index.js",
-		"lint": "eslint src",
+		"harness:serve": "node esbuild.js --harness --serve",
+		"lint": "eslint src cypress cypress.config.ts",
 		"lint:markdown": "markdownlint-cli2",
 		"package": "node esbuild.js --production",
 		"package:vsix": "npm run compile && vsce package",
@@ -237,11 +402,13 @@
 		"prettier:check": "prettier --check ./",
 		"regen-package-lock": "rm -rf node_modules package-lock.json && npm run audit:fix",
 		"run-in-browser": "npm run compile && vscode-test-web --browserType=chromium --quality=stable --extensionDevelopmentPath=. example",
+		"test:cypress": "node scripts/runWithoutElectronNode.mjs start-server-and-test harness:serve http://localhost:5179 \"cypress run --e2e --browser electron\"",
+		"test:cypress:open": "node scripts/runWithoutElectronNode.mjs start-server-and-test harness:serve http://localhost:5179 \"cypress open --e2e\"",
 		"test:extension": "npm run compile:tests && vscode-test",
 		"test:jest": "jest src/",
 		"test:jest:coverage": "jest --coverage src/",
 		"test:web": "npm run compile && npm run compile:tests:web && vscode-test-web --browserType=chromium --quality=stable --headless --extensionDevelopmentPath=. --extensionTestsPath=out/web/index.js example",
-		"validate": "npm run compile && npm run prettier && npm run lint && npm run lint:markdown && npm run test:jest && npm run test:extension && npm run test:web",
+		"validate": "npm run compile && npm run prettier && npm run lint && npm run lint:markdown && npm run test:jest && npm run test:extension && npm run test:web && npm run test:cypress",
 		"vscode:prepublish": "npm run package",
 		"watch": "npm-run-all -p watch:*",
 		"watch-tests": "tsc -p . -w --outDir out",
@@ -249,29 +416,38 @@
 		"watch:tsc": "tsc --noEmit --watch --project tsconfig.json"
 	},
 	"dependencies": {
-		"ignore": "^7.0.8",
-		"js-yaml": "^5.4.1"
+		"dompurify": "^3.4.17",
+		"highlight.js": "^11.12.0",
+		"ignore": "^7.0.14",
+		"js-yaml": "^5.5.0",
+		"markdown-it": "^15.0.3",
+		"mermaid": "^12.2.0",
+		"pdfjs-dist": "^6.4.299"
 	},
 	"devDependencies": {
 		"@trivago/prettier-plugin-sort-imports": "^6.0.2",
 		"@types/jest": "^30.0.0",
 		"@types/mocha": "^10.0.10",
-		"@types/node": "^26.4.1",
+		"@types/node": "^26.6.6",
 		"@types/vscode": "1.105.0",
-		"@typescript-eslint/eslint-plugin": "^8.69.0",
-		"@typescript-eslint/parser": "^8.69.0",
+		"@typescript-eslint/eslint-plugin": "^8.72.1",
+		"@typescript-eslint/parser": "^8.72.1",
 		"@vscode/test-cli": "^0.0.15",
 		"@vscode/test-electron": "^3.1.0",
 		"@vscode/test-web": "^0.0.81",
-		"@vscode/vsce": "^3.9.2",
+		"@vscode/vsce": "^4.1.0",
+		"axe-core": "^4.14.0",
+		"cypress": "^15.21.1",
+		"cypress-axe": "^1.7.0",
 		"esbuild": "^0.28.2",
-		"eslint": "^10.10.0",
-		"jest": "^30.5.1",
-		"markdownlint-cli2": "^0.23.2",
-		"mocha": "^12.0.0",
+		"eslint": "^10.13.0",
+		"jest": "^30.5.2",
+		"markdownlint-cli2": "^0.24.0",
+		"mocha": "^12.0.3",
 		"npm-run-all": "^4.1.5",
-		"prettier": "^3.9.6",
-		"ts-jest": "^29.4.12",
+		"prettier": "^3.9.10",
+		"start-server-and-test": "^3.0.13",
+		"ts-jest": "^29.4.15",
 		"typescript": "^6.0.3",
 		"vscode-uri": "^3.2.0"
 	},

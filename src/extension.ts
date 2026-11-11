@@ -1,4 +1,5 @@
 import { OPEN_MARKDOWN_COMMAND, handleFileClick, openInEditor, openInPreview, openMarkdown } from '@controllers';
+import { type SiteContextData, WikiSiteManager } from '@site';
 import { WorkspaceWikiTreeProvider } from '@tree';
 import { getFileExtension, getIncludeGlobs, syncOpenWithToSupportedExtensions } from '@utils';
 import * as vscode from 'vscode';
@@ -6,9 +7,10 @@ import * as vscode from 'vscode';
 /**
  * Starts the extension.
  *
- * Registers the Workspace Wiki view and its five commands, then wires the listeners that keep the
- * tree current: active-editor changes drive auto-reveal, and any `workspaceWiki` setting change
- * re-syncs `openWith` and refreshes the tree. Every disposable is pushed onto the context.
+ * Registers the Workspace Wiki view, the Wiki Site, and their commands, then wires the listeners that
+ * keep both current: active-editor changes drive auto-reveal, any `workspaceWiki` setting change
+ * re-syncs `openWith` and refreshes the tree and site, and a saved document re-renders in any site
+ * tab showing it. Every disposable is pushed onto the context.
  *
  * @param context The extension context whose subscriptions receive each disposable
  */
@@ -30,6 +32,9 @@ export function activate(context: vscode.ExtensionContext) {
 		treeDataProvider: treeProvider,
 		showCollapseAll: true,
 	});
+
+	// The Wiki Site renders the same documents the tree shows, as a browsable docs site.
+	const siteManager = new WikiSiteManager(context.extensionUri, vscode.workspace);
 
 	// Sync functionality: reveal active file in tree
 	let revealTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -119,6 +124,72 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const refreshCommand = vscode.commands.registerCommand('workspace-wiki.refresh', () => {
 		treeProvider.refresh();
+		siteManager.refresh();
+	});
+
+	const openSiteCommand = vscode.commands.registerCommand('workspace-wiki.openSite', () => {
+		siteManager.open();
+	});
+
+	// Takes a tree item from the sidebar's context menu, or a bare URI from another caller.
+	const openInSiteCommand = vscode.commands.registerCommand('workspace-wiki.openInSite', (item) => {
+		const uri = item?.treeNode?.uri ?? (typeof item?.scheme === 'string' ? item : undefined);
+		siteManager.open(uri);
+	});
+
+	// The Wiki Site's right-click menu. Each command receives the `data-vscode-context` of the element
+	// clicked, which names either a wiki page or an external link.
+	const siteContextCommands = [
+		vscode.commands.registerCommand('workspace-wiki.site.openInNewTab', async (context?: SiteContextData) => {
+			const uri = await siteManager.resolveContextUri(context);
+			if (uri) {
+				siteManager.open(uri, { newTab: true });
+			}
+		}),
+		vscode.commands.registerCommand('workspace-wiki.site.openToSide', async (context?: SiteContextData) => {
+			const uri = await siteManager.resolveContextUri(context);
+			if (uri) {
+				siteManager.open(uri, { newTab: true, viewColumn: vscode.ViewColumn.Beside });
+			}
+		}),
+		vscode.commands.registerCommand('workspace-wiki.site.openOriginal', async (context?: SiteContextData) => {
+			const uri = await siteManager.resolveContextUri(context);
+			if (uri) {
+				openInPreview(uri);
+			}
+		}),
+		vscode.commands.registerCommand('workspace-wiki.site.editSource', async (context?: SiteContextData) => {
+			const uri = await siteManager.resolveContextUri(context);
+			if (uri) {
+				openInEditor(uri);
+			}
+		}),
+		vscode.commands.registerCommand('workspace-wiki.site.copyPath', async (context?: SiteContextData) => {
+			const uri = await siteManager.resolveContextUri(context);
+			if (uri) {
+				await vscode.env.clipboard.writeText(vscode.workspace.asRelativePath(uri, false));
+			}
+		}),
+		vscode.commands.registerCommand('workspace-wiki.site.openLinkExternal', async (context?: SiteContextData) => {
+			if (typeof context?.href === 'string') {
+				await siteManager.openExternal(context.href, false);
+			}
+		}),
+		vscode.commands.registerCommand('workspace-wiki.site.openLinkIntegrated', async (context?: SiteContextData) => {
+			if (typeof context?.href === 'string') {
+				await siteManager.openExternal(context.href, true);
+			}
+		}),
+		vscode.commands.registerCommand('workspace-wiki.site.copyLink', async (context?: SiteContextData) => {
+			if (typeof context?.href === 'string') {
+				await vscode.env.clipboard.writeText(context.href);
+			}
+		}),
+	];
+
+	// A saved document re-renders in any site tab showing it, and its search text is re-read.
+	const saveListener = vscode.workspace.onDidSaveTextDocument((document) => {
+		void siteManager.handleSave(document.uri);
 	});
 
 	// Listen for active editor changes
@@ -132,6 +203,7 @@ export function activate(context: vscode.ExtensionContext) {
 		if (event.affectsConfiguration('workspaceWiki')) {
 			syncOpenWithToSupportedExtensions();
 			treeProvider.refresh();
+			siteManager.refresh();
 		}
 	});
 
@@ -167,6 +239,11 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(configurationChangeListener);
 	context.subscriptions.push(treeVisibilityListener);
 	context.subscriptions.push(initialTimeoutDisposable);
+	context.subscriptions.push(siteManager);
+	context.subscriptions.push(openSiteCommand);
+	context.subscriptions.push(openInSiteCommand);
+	context.subscriptions.push(...siteContextCommands);
+	context.subscriptions.push(saveListener);
 }
 
 /**
