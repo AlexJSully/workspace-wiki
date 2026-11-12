@@ -60,6 +60,16 @@ describe('Rendering', () => {
 		);
 	});
 
+	it('loads every srcset candidate of a responsive image from the workspace', () => {
+		cy.openSite({ page: 'docs/architecture.md' });
+		const candidates =
+			'http://localhost:5179/fixtures/docs/images/diagram.svg 1x, http://localhost:5179/fixtures/docs/images/diagram.svg 2x';
+		cy.get('picture source').should('have.attr', 'srcset', candidates);
+		cy.get('img[alt="Responsive diagram"]')
+			.should('have.attr', 'srcset', candidates)
+			.and(($img) => expect(($img[0] as HTMLImageElement).naturalWidth).to.be.greaterThan(0));
+	});
+
 	it('strips script, event handlers, and styles from Markdown', () => {
 		cy.openSite({ page: 'docs/architecture.md' });
 		cy.get(byTestId('inline-html')).should('contain.html', '<strong>HTML</strong>');
@@ -106,14 +116,51 @@ describe('Rendering', () => {
 			.should('match', /^\d+ pages?$/);
 		cy.get('.pdf-page').should('have.length.at.least', 1);
 		cy.get('.pdf-page').first().should('have.attr', 'data-rendered');
+		cy.get('.pdf-page').first().should('have.attr', 'role', 'group');
 		cy.get('.pdf-page')
 			.first()
 			.should('have.attr', 'aria-label')
 			.and('match', /^Page 1 of \d+$/);
-		cy.get('.pdf-page')
+		cy.get('.pdf-page canvas')
 			.first()
-			.should(($canvas) => expect(($canvas[0] as HTMLCanvasElement).width).to.be.greaterThan(0));
+			.should('have.attr', 'aria-hidden', 'true')
+			.and(($canvas) => expect(($canvas[0] as HTMLCanvasElement).width).to.be.greaterThan(0));
 		cy.screenshot('pdf-page', { capture: 'viewport' });
+	});
+
+	it("gives assistive technology each PDF page's text", () => {
+		cy.openSite({ page: 'src/manual.pdf' });
+		cy.get('.pdf-page-text', { timeout: 15000 })
+			.first()
+			.should('have.text', 'This is a placeholder for a Adobe PDF .pdf file.');
+		cy.get('.pdf-page-text').first().should('not.be.visible');
+	});
+
+	it('frees an open PDF when another page replaces it', () => {
+		const disposals: sinon.SinonSpy[] = [];
+		cy.openSite({ page: 'src/manual.pdf' });
+		cy.get(byTestId('pdf-document'), { timeout: 15000 }).should('have.attr', 'data-state', 'ready');
+		cy.window()
+			.its('wikiPdf')
+			.then((viewer: { open: (...args: unknown[]) => { dispose: () => void } }) => {
+				const open = viewer.open.bind(viewer);
+				cy.stub(viewer, 'open').callsFake((...args: unknown[]) => {
+					const view = open(...args);
+					disposals.push(Cypress.sinon.spy(view, 'dispose'));
+					return view;
+				});
+			});
+
+		// Open the PDF again through the stub, then leave it before and after it finishes loading.
+		cy.contains(byTestId('nav-link'), 'Doc').click();
+		cy.contains(byTestId('nav-link'), 'Manual').click();
+		cy.contains(byTestId('nav-link'), 'Doc').click();
+		cy.contains(byTestId('nav-link'), 'Manual').click();
+		cy.get(byTestId('pdf-document'), { timeout: 15000 }).should('have.attr', 'data-state', 'ready');
+		cy.contains(byTestId('nav-link'), 'Doc').click();
+		cy.get(byTestId('page-title')).should('have.text', 'Doc');
+		cy.wrap(disposals).should('have.length', 2);
+		cy.wrap(disposals).each((dispose: sinon.SinonSpy) => expect(dispose).to.have.been.calledOnce);
 	});
 
 	it('says when a PDF cannot be read', () => {

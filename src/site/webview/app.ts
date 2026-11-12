@@ -66,6 +66,8 @@ export class WikiSiteApp {
 	private history: RouteHistory;
 	private expanded = new Set<string>();
 	private page: PageData | undefined;
+	/** Frees what the shown page holds, such as an open PDF; called before the page is replaced. */
+	private releasePage: (() => void) | undefined;
 	private tocObserver: IntersectionObserver | undefined;
 	private suggestions: SiteNode[] = [];
 	private activeSuggestion = -1;
@@ -511,6 +513,7 @@ export class WikiSiteApp {
 
 	/** Renders whatever the current route is. */
 	private show(): void {
+		this.release();
 		this.saveState();
 		this.backButton.disabled = !this.history.canGoBack;
 		this.forwardButton.disabled = !this.history.canGoForward;
@@ -675,7 +678,14 @@ export class WikiSiteApp {
 		return crumbs;
 	}
 
+	/** Frees the shown page's resources before something replaces it. */
+	private release(): void {
+		this.releasePage?.();
+		this.releasePage = undefined;
+	}
+
 	private renderPage(page: PageData, fragment: string | undefined): void {
+		this.release();
 		this.page = page;
 		this.main.removeAttribute('aria-busy');
 		this.setTitle(page.title);
@@ -770,7 +780,7 @@ export class WikiSiteApp {
 		// Drawn once the article is in the page, since pages are sized to the width it is given.
 		const pdf = body.querySelector<HTMLElement>('.pdf-document');
 		if (pdf) {
-			void renderPdf(pdf, page.fileSrc, this.options.pdfSrc, this.options.nonce);
+			this.releasePage = renderPdf(pdf, page.fileSrc, this.options.pdfSrc, this.options.nonce);
 		}
 	}
 

@@ -52,21 +52,26 @@ export function slugify(text: string): string {
 }
 
 /**
- * Creates a slugger that de-duplicates ids within one page, suffixing repeats `-1`, `-2`, as GitHub does.
+ * Creates a slugger that de-duplicates ids within one page, suffixing repeats `-1`, `-2`, as GitHub
+ * does. Every id handed out is remembered, generated ones included, so a heading whose own text
+ * matches an earlier suffix (`Usage`, `Usage`, `Usage-1`) still gets an id no other heading has.
  *
- * @returns A function from heading text to a unique slug
+ * @returns A function from heading text to a slug unique within the page
  */
 export function createSlugger(): (text: string) => string {
-	const seen = new Map<string, number>();
+	const used = new Set<string>();
+	const nextSuffix = new Map<string, number>();
 	return (text) => {
 		const base = slugify(text);
-		const count = seen.get(base);
-		if (count === undefined) {
-			seen.set(base, 0);
-			return base;
+		let id = base;
+		let suffix = nextSuffix.get(base) ?? 1;
+		while (used.has(id)) {
+			id = `${base}-${suffix}`;
+			suffix++;
 		}
-		seen.set(base, count + 1);
-		return `${base}-${count + 1}`;
+		nextSuffix.set(base, suffix);
+		used.add(id);
+		return id;
 	};
 }
 
@@ -91,6 +96,61 @@ export function rebaseResource(src: string, base: string, rootBase: string): str
 	} catch {
 		return value;
 	}
+}
+
+/**
+ * Splits a `srcset` into its candidates the way the HTML specification's parsing algorithm does: a
+ * URL runs to the next white space, and a candidate ends at a comma after its descriptor or at
+ * commas closing its URL. A comma inside a URL, as in a `data:` URL, stays part of it.
+ *
+ * @param srcset The `srcset` as written
+ * @returns Each candidate's URL and descriptor (empty when it has none)
+ */
+function parseSrcset(srcset: string): { url: string; descriptor: string }[] {
+	const candidates: { url: string; descriptor: string }[] = [];
+	const isSpace = (char: string) => /\s/.test(char);
+	let i = 0;
+	while (i < srcset.length) {
+		while (i < srcset.length && (isSpace(srcset[i]) || srcset[i] === ',')) {
+			i++;
+		}
+		if (i >= srcset.length) {
+			break;
+		}
+
+		const urlStart = i;
+		while (i < srcset.length && !isSpace(srcset[i])) {
+			i++;
+		}
+		let url = srcset.slice(urlStart, i);
+		let descriptor = '';
+		if (url.endsWith(',')) {
+			url = url.replace(/,+$/, '');
+		} else {
+			const descriptorStart = i;
+			while (i < srcset.length && srcset[i] !== ',') {
+				i++;
+			}
+			descriptor = srcset.slice(descriptorStart, i).trim();
+		}
+		candidates.push({ url, descriptor });
+	}
+	return candidates;
+}
+
+/**
+ * Resolves every candidate of a `srcset` the way {@link rebaseResource} resolves a `src`, so the
+ * browser loads a responsive image from the workspace whichever candidate it picks.
+ *
+ * @param srcset The `srcset` as written
+ * @param base The webview URL of the page's folder
+ * @param rootBase The webview URL of the page's workspace folder, for `/`-rooted paths
+ * @returns The `srcset` with each URL resolved and its descriptor kept
+ */
+export function rebaseSrcset(srcset: string, base: string, rootBase: string): string {
+	return parseSrcset(srcset)
+		.map(({ url, descriptor }) => [rebaseResource(url, base, rootBase), descriptor].filter(Boolean).join(' '))
+		.join(', ');
 }
 
 /**
@@ -263,6 +323,9 @@ export function sameRoute(a: SiteRoute | undefined, b: SiteRoute | undefined): b
 	return true;
 }
 
+/** Routes a tab's saved state keeps at most. */
+const SAVED_ROUTES = 50;
+
 /** Back and forward through the routes a tab has shown, like a browser's history. */
 export class RouteHistory {
 	private entries: SiteRoute[];
@@ -337,11 +400,14 @@ export class RouteHistory {
 	/**
 	 * Captures the history for `setState`, which survives the tab being hidden.
 	 *
-	 * @returns The entries and position, limited to the most recent fifty
+	 * At most {@link SAVED_ROUTES} routes are kept, always including the current one: normally the
+	 * most recent ones, but after going back past them, the window starts at the current route.
+	 *
+	 * @returns The entries and the position of the current route among them
 	 */
 	toJSON(): { entries: SiteRoute[]; index: number } {
-		const drop = Math.max(0, this.entries.length - 50);
-		return { entries: this.entries.slice(drop), index: this.index - drop };
+		const start = Math.max(0, Math.min(this.entries.length - SAVED_ROUTES, this.index));
+		return { entries: this.entries.slice(start, start + SAVED_ROUTES), index: this.index - start };
 	}
 
 	/**

@@ -117,13 +117,17 @@ export function looksBinary(bytes: Uint8Array): boolean {
  *
  * @param uri The document
  * @param readFile Reads a file's bytes; `workspace.fs.readFile` in the extension
+ * @param options `maxBytes` caps the text decoded, {@link MAX_RENDER_BYTES} by default; search
+ * passes `Infinity`, since a term past the render limit must still be found
  * @returns The page kind, and for text kinds the text (front matter removed from Markdown), the
- * language hint, and whether it was cut at {@link MAX_RENDER_BYTES}
+ * language hint, and whether it was cut at `maxBytes`
  */
 export async function loadPageContent(
 	uri: vscode.Uri,
 	readFile: (uri: vscode.Uri) => Thenable<Uint8Array>,
+	options: { maxBytes?: number } = {},
 ): Promise<PageContent> {
+	const maxBytes = options.maxBytes ?? MAX_RENDER_BYTES;
 	const kind = classifyFile(uri.path);
 	if (kind === 'image' || kind === 'pdf' || kind === 'binary') {
 		return { kind };
@@ -134,9 +138,9 @@ export async function loadPageContent(
 		return { kind: 'binary' };
 	}
 
-	const truncated = bytes.length > MAX_RENDER_BYTES;
+	const truncated = bytes.length > maxBytes;
 	// A cut can split a multi-byte character; the decoder turns the stray tail into U+FFFD.
-	const text = new TextDecoder().decode(truncated ? bytes.subarray(0, MAX_RENDER_BYTES) : bytes);
+	const text = new TextDecoder().decode(truncated ? bytes.subarray(0, maxBytes) : bytes);
 	const content = kind === 'markdown' ? stripFrontMatter(text) : text;
 
 	const result: PageContent = { kind, content };

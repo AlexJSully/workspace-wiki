@@ -1,7 +1,7 @@
 import type { PageData, SiteContextData } from '@site/protocol';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/common';
-import { classifyHref, createSlugger, languageFor, rebaseResource } from './helpers';
+import { classifyHref, createSlugger, languageFor, rebaseResource, rebaseSrcset } from './helpers';
 
 /**
  * Tags removed from rendered documents on top of DOMPurify's defaults. A `<style>` would restyle the
@@ -89,7 +89,7 @@ export function renderDocument(page: PageData): DocumentFragment {
 }
 
 /**
- * Prepares rendered content for the site: relative images load from the workspace, headings gain
+ * Prepares rendered content for the site: relative images and their `srcset` candidates load from the workspace, headings gain
  * anchor ids, wide tables scroll on their own, and every link carries the context its right-click
  * menu needs.
  *
@@ -101,6 +101,13 @@ export function finishContent(root: DocumentFragment | HTMLElement, page: PageDa
 		element.setAttribute(
 			'src',
 			rebaseResource(element.getAttribute('src') ?? '', page.resourceBase, page.rootBase),
+		);
+	}
+	// A browser picks among `srcset` candidates on its own, so each must point at the workspace too.
+	for (const element of root.querySelectorAll<HTMLElement>('img[srcset], source[srcset]')) {
+		element.setAttribute(
+			'srcset',
+			rebaseSrcset(element.getAttribute('srcset') ?? '', page.resourceBase, page.rootBase),
 		);
 	}
 

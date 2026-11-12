@@ -16,7 +16,7 @@ The site has an extension-host half and a webview half, joined by the messages i
 | [`branding.ts`](../../src/site/branding.ts)                                                                        | Extension host | Finds the logo for the header and tab                                                                    |
 | [`webview/app.ts`](../../src/site/webview/app.ts)                                                                  | Webview        | The page: header, navigation, routing and history, outline, search box and results                       |
 | [`webview/render.ts`](../../src/site/webview/render.ts)                                                            | Webview        | Renders Markdown with markdown-it, sanitizes with DOMPurify, highlights with highlight.js                |
-| [`webview/pdf.ts`](../../src/site/webview/pdf.ts), [`webview/pdf/viewer.ts`](../../src/site/webview/pdf/viewer.ts) | Webview        | Loads the pdf.js bundle on the first PDF page and draws each page to a canvas                            |
+| [`webview/pdf.ts`](../../src/site/webview/pdf.ts), [`webview/pdf/viewer.ts`](../../src/site/webview/pdf/viewer.ts) | Webview        | Loads the pdf.js bundle on the first PDF page, draws each page to a canvas, and exposes its text         |
 | [`webview/mermaid.ts`](../../src/site/webview/mermaid.ts)                                                          | Webview        | Loads Mermaid on the first page that has a diagram                                                       |
 | [`webview/helpers.ts`](../../src/site/webview/helpers.ts)                                                          | Webview        | DOM-free logic: link classification, slugs, image paths, history, suggestions                            |
 | [`webview/site.css`](../../src/site/webview/site.css)                                                              | Webview        | Layout and the four themes                                                                               |
@@ -41,13 +41,17 @@ A second open reveals the existing tab. A new tab opens only on request, from a 
 | `markdown` | `.md`, `.markdown`, `.mdx`, `.qmd`, `.rmd`, extensionless `README`        | Rendered Markdown, front matter removed, Mermaid fences drawn as diagrams |
 | `html`     | `.html`, `.htm`, `.xhtml`                                                 | The document body, sanitized                                              |
 | `image`    | `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.bmp`, `.ico`, `.avif` | The image                                                                 |
-| `pdf`      | `.pdf`                                                                    | Every page drawn to a canvas, with the page count                         |
+| `pdf`      | `.pdf`                                                                    | Every page drawn to a canvas with its text for screen readers             |
 | `binary`   | Office, archive, media, and font formats                                  | A note offering **Open preview** and **Edit source**                      |
 | `code`     | Everything else, such as `.txt`, `doc.go`, `.ts`, `.json`                 | Highlighted source, by the file's extension                               |
 
 A file classified as text that holds a NUL byte in its first 8,000 bytes is shown as binary. Only the first 1 MB of a text file is rendered, with a note saying so.
 
 Images and PDFs are not read by the host: the page carries `fileSrc`, the file's webview URI, and the webview loads it. PDFs are drawn by the legacy build of [pdf.js](https://github.com/mozilla/pdf.js), whose polyfills cover the older Chromium in the VS Code versions this extension supports; the modern build calls `Uint8Array.prototype.toHex`, which needs Chromium 140. A webview cannot start a worker from an extension resource, so pdf.js's worker code is bundled with it and runs on the page's thread. Each page is drawn when it comes within 600 px of the view, at the page width and the screen's pixel density. A PDF that fails to load says so and leaves the open buttons.
+
+Each PDF page is a group labelled "Page N of M" holding the canvas, which is hidden from assistive technology, and the page's text in reading order, which is visually hidden. The text is read for every page, one page at a time, rather than only for drawn pages, because a screen reader moves through the document without scrolling it.
+
+Opening a PDF returns a view whose `dispose` disconnects the page observer, cancels page renders in progress, and destroys the pdf.js document. The site calls it whenever the page is replaced, including while the PDF is still loading, so moving between PDFs does not accumulate documents.
 
 A document whose first element is an `<h1>` keeps it as the page title. Otherwise the site shows the tree's title.
 
@@ -77,13 +81,15 @@ A link written in a page carries its raw `href` and the page it is on, and the c
 
 [`resolveDocLink`](../../src/site/links.ts) resolves a relative path against the page's folder and a leading `/` against its workspace folder. A link to a folder lands on its README, else its index file. Only `uri.path` is rewritten, so links keep working on `vscode-vfs://` and other virtual file systems.
 
-Relative image paths resolve in the webview against `resourceBase`, the webview URI of the page's folder, and `/`-rooted paths against `rootBase`, its workspace folder.
+Relative image paths resolve in the webview against `resourceBase`, the webview URI of the page's folder, and `/`-rooted paths against `rootBase`, its workspace folder. Every candidate of an `img` or `source` `srcset` is resolved the same way, since the browser picks among them on its own.
+
+Headings get GitHub-style ids. Every id handed out on a page is remembered, generated suffixes included, so `Usage`, `Usage`, and `Usage-1` get `usage`, `usage-1`, and `usage-1-1`, and each outline link reaches its own heading.
 
 ## Search
 
 Typing in the search box suggests pages by title and path from the tree already in the webview. Enter opens the results page, which asks the host to search the text of every page.
 
-[`SearchIndex`](../../src/site/search.ts) reads the documents on the first search, eight at a time, and keeps their plain text until the site refreshes; a saved document is re-read on its own. [`searchDocs`](../../src/site/searchDocs.ts) requires every term, case-insensitively, in the title, path, or text, and ranks title hits above path hits above body hits. Results carry plain text and match offsets; the webview builds the highlighting with `textContent` and `<mark>`, so result text is never parsed as HTML.
+[`SearchIndex`](../../src/site/search.ts) reads the documents on the first search, eight at a time, and keeps their plain text until the site refreshes. It reads whole files, not the first megabyte a page renders, so a term near the end of a large file still matches; a saved document is re-read on its own. [`searchDocs`](../../src/site/searchDocs.ts) requires every term, case-insensitively, in the title, path, or text, and ranks title hits above path hits above body hits. Results carry plain text and match offsets; the webview builds the highlighting with `textContent` and `<mark>`, so result text is never parsed as HTML.
 
 ## Branding and themes
 
@@ -121,7 +127,7 @@ The variables are `--wiki-bg`, `--wiki-fg`, `--wiki-muted`, `--wiki-border`, `--
 
 - A `workspaceWiki` setting change or the **Refresh** command calls `WikiSiteManager.refresh`, which reloads the tree, logo, and settings into every tab.
 - Saving a document re-reads its search text and re-renders it in any tab showing it.
-- A tab's history and expanded folders are saved with the webview's `setState`, so a tab moved to the background and back returns to the same page.
+- A tab's history and expanded folders are saved with the webview's `setState`, so a tab moved to the background and back returns to the same page. At most 50 routes are saved, always including the current one.
 
 ## Message flow
 

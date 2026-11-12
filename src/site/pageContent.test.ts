@@ -103,6 +103,17 @@ describe('loadPageContent', () => {
 		expect(page.content).toHaveLength(MAX_RENDER_BYTES);
 	});
 
+	it('keeps the whole file when given no byte limit', async () => {
+		const bytes = new Uint8Array(MAX_RENDER_BYTES + 10).fill(97);
+
+		const page = await loadPageContent(createMockUri('/workspace-root/big.txt'), reader(bytes), {
+			maxBytes: Infinity,
+		});
+
+		expect(page.truncated).toBeUndefined();
+		expect(page.content).toHaveLength(MAX_RENDER_BYTES + 10);
+	});
+
 	it('passes a read failure to the caller', async () => {
 		const readFile = jest.fn(async () => {
 			throw new Error('gone');

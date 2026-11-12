@@ -58,6 +58,18 @@ describe('SearchIndex', () => {
 		expect(await index.search('title')).toEqual([]);
 	});
 
+	it('finds a term past the 1 MB render limit', async () => {
+		const large = `${'filler '.repeat(200_000)}needle at the end`;
+		expect(new TextEncoder().encode(large).length).toBeGreaterThan(1024 * 1024);
+		const index = new SearchIndex(createReader({ '/workspace-root/big.txt': large }));
+		index.setFiles([node('big.txt', 'Big')]);
+
+		const results = await index.search('needle');
+
+		expect(results.map((result) => result.title)).toEqual(['Big']);
+		expect(results[0].snippet).toContain('needle at the end');
+	});
+
 	it('keeps an unreadable document findable by title, and never reads images or binaries', async () => {
 		const readFile = createReader({});
 		const index = new SearchIndex(readFile);

@@ -8,6 +8,7 @@ import {
 	flattenFiles,
 	languageFor,
 	rebaseResource,
+	rebaseSrcset,
 	sameRoute,
 	slugify,
 	splitByRanges,
@@ -71,6 +72,24 @@ describe('slugify', () => {
 
 		expect(['Usage', 'Usage', 'Usage', 'Other'].map(slug)).toEqual(['usage', 'usage-1', 'usage-2', 'other']);
 	});
+
+	test.each([
+		{
+			description: 'a heading whose own text matches an earlier generated suffix',
+			headings: ['Usage', 'Usage', 'Usage-1'],
+			expected: ['usage', 'usage-1', 'usage-1-1'],
+		},
+		{
+			description: 'a generated suffix that a later heading already claimed',
+			headings: ['Usage-1', 'Usage', 'Usage'],
+			expected: ['usage-1', 'usage', 'usage-2'],
+		},
+	])('never repeats an id for $description', ({ headings, expected }) => {
+		const ids = headings.map(createSlugger());
+
+		expect(ids).toEqual(expected);
+		expect(new Set(ids).size).toBe(ids.length);
+	});
 });
 
 describe('rebaseResource', () => {
@@ -93,6 +112,45 @@ describe('rebaseResource', () => {
 		{ src: '', expected: '' },
 	])('resolves $src', ({ src, expected }) => {
 		expect(rebaseResource(src, base, root)).toBe(expected);
+	});
+});
+
+describe('rebaseSrcset', () => {
+	const base = 'https://file%2B.vscode-resource.vscode-cdn.net/root/docs';
+	const root = 'https://file%2B.vscode-resource.vscode-cdn.net/root';
+	const resolvedBase = 'https://file+.vscode-resource.vscode-cdn.net/root/docs';
+	const resolvedRoot = 'https://file+.vscode-resource.vscode-cdn.net/root';
+
+	test.each([
+		{
+			description: 'width descriptors',
+			srcset: 'img/small.png 480w, img/large.png 1080w',
+			expected: `${resolvedBase}/img/small.png 480w, ${resolvedBase}/img/large.png 1080w`,
+		},
+		{
+			description: 'density descriptors and a root-relative path',
+			srcset: 'a.png, /media/a@2x.png 2x',
+			expected: `${resolvedBase}/a.png, ${resolvedRoot}/media/a@2x.png 2x`,
+		},
+		{
+			description: 'absolute and data candidates',
+			srcset: 'https://example.com/a.png 1x, data:image/png;base64,AAAA 2x',
+			expected: 'https://example.com/a.png 1x, data:image/png;base64,AAAA 2x',
+		},
+		{ description: 'extra whitespace', srcset: '  a.png   2x  ', expected: `${resolvedBase}/a.png 2x` },
+		{
+			description: 'candidates separated by a comma with no space',
+			srcset: 'a.png 1x,b.png 2x',
+			expected: `${resolvedBase}/a.png 1x, ${resolvedBase}/b.png 2x`,
+		},
+		{
+			description: 'candidates without descriptors closed by their commas',
+			srcset: 'a.png, b.png',
+			expected: `${resolvedBase}/a.png, ${resolvedBase}/b.png`,
+		},
+		{ description: 'an empty value', srcset: '', expected: '' },
+	])('rebases $description', ({ srcset, expected }) => {
+		expect(rebaseSrcset(srcset, base, root)).toBe(expected);
 	});
 });
 
@@ -201,6 +259,22 @@ describe('RouteHistory', () => {
 
 		expect(history.canGoBack).toBe(false);
 		expect(history.current).toEqual({ ...a, fragment: 'usage' });
+	});
+
+	it('saves the route showing even after going back past the fifty most recent', () => {
+		const history = new RouteHistory();
+		for (let i = 0; i < 60; i++) {
+			history.push({ kind: 'page', uri: String(i) });
+		}
+		for (let i = 0; i < 55; i++) {
+			history.back();
+		}
+
+		const restored = RouteHistory.fromJSON(JSON.parse(JSON.stringify(history.toJSON())));
+
+		expect(history.toJSON().entries).toHaveLength(50);
+		expect(restored.current).toEqual({ kind: 'page', uri: '4' });
+		expect(restored.forward()).toEqual({ kind: 'page', uri: '5' });
 	});
 
 	it('survives a round trip through saved state, keeping the fifty most recent routes', () => {

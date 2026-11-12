@@ -63,6 +63,11 @@ Atlas has two parts, a scanner and a renderer. See [getting started](../getting-
 
 ![Root-relative diagram](/docs/images/diagram.svg)
 
+<picture>
+  <source srcset="images/diagram.svg 1x, /docs/images/diagram.svg 2x">
+  <img src="images/diagram.svg" srcset="images/diagram.svg 1x,/docs/images/diagram.svg 2x" alt="Responsive diagram">
+</picture>
+
 ### Scanner
 
 The scanner finds documents.

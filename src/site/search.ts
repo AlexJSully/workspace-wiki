@@ -130,7 +130,8 @@ export class SearchIndex {
 		}
 
 		try {
-			const page = await loadPageContent(node.uri, this.readFile);
+			// The whole file, not the first megabyte a page renders: a term near the end must still match.
+			const page = await loadPageContent(node.uri, this.readFile, { maxBytes: Infinity });
 			const raw = page.content ?? '';
 			doc.text = page.kind === 'markdown' || page.kind === 'html' ? toPlainText(raw) : raw;
 		} catch {
