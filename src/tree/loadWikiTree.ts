@@ -11,9 +11,14 @@ import { buildTree } from './buildTree';
  */
 export const INDEXED_FILES_CONTEXT = 'workspaceWiki.indexedFiles';
 
+// The sidebar and the site each call `loadWikiTree`, so two loads can overlap; only the most
+// recently started one publishes, so a slower, older scan cannot overwrite a newer file list.
+let latestLoad = 0;
+
 /**
  * Scans the workspace and builds the wiki tree using the `directorySort` and `acronymCasing` settings,
- * then publishes its files as the {@link INDEXED_FILES_CONTEXT} context key.
+ * then publishes its files as the {@link INDEXED_FILES_CONTEXT} context key when no newer call has
+ * started.
  *
  * The one route from settings to tree, so the sidebar and the wiki site cannot disagree on which
  * documents appear, their order, or their titles.
@@ -22,6 +27,7 @@ export const INDEXED_FILES_CONTEXT = 'workspaceWiki.indexedFiles';
  * @returns Promise resolving to the root-level tree nodes
  */
 export async function loadWikiTree(workspace: WorkspaceLike): Promise<TreeNode[]> {
+	const load = ++latestLoad;
 	const uris = await scanWorkspaceDocs(workspace);
 
 	let directorySort: 'files-first' | 'folders-first' | 'alphabetical' = 'files-first';
@@ -34,8 +40,10 @@ export async function loadWikiTree(workspace: WorkspaceLike): Promise<TreeNode[]
 
 	const tree = await buildTree(uris, directorySort, acronyms);
 
-	const indexedFiles = Object.fromEntries(flattenFiles(tree).map((node) => [node.uri.toString(), true]));
-	void vscode.commands.executeCommand('setContext', INDEXED_FILES_CONTEXT, indexedFiles);
+	if (load === latestLoad) {
+		const indexedFiles = Object.fromEntries(flattenFiles(tree).map((node) => [node.uri.toString(), true]));
+		void vscode.commands.executeCommand('setContext', INDEXED_FILES_CONTEXT, indexedFiles);
+	}
 
 	return tree;
 }

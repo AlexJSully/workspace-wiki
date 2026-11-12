@@ -32,9 +32,39 @@ describe('loadWikiTree', () => {
 
 		await loadWikiTree(workspace);
 
-		const [, key, indexedFiles] = vscode.commands.executeCommand.mock.calls.at(-1);
-		expect(key).toBe(INDEXED_FILES_CONTEXT);
-		expect(Object.keys(indexedFiles).sort()).toEqual(files.map((uri) => uri.toString()).sort());
+		expect(vscode.commands.executeCommand).toHaveBeenLastCalledWith(
+			'setContext',
+			INDEXED_FILES_CONTEXT,
+			Object.fromEntries(files.map((uri) => [uri.toString(), true])),
+		);
+	});
+
+	it('publishes the newest load when an older, slower load finishes after it', async () => {
+		const vscode = require('vscode');
+		const olderFiles = [createMockUri('/workspace-root/old.md')];
+		const newerFiles = [createMockUri('/workspace-root/new.md')];
+		let releaseOlder!: () => void;
+		const olderGate = new Promise<void>((resolve) => {
+			releaseOlder = resolve;
+		});
+		const olderBase = createMockWorkspace({}, { files: (pattern) => (pattern === '**/*.md' ? olderFiles : []) });
+		const older = {
+			...olderBase,
+			findFiles: async (...args: Parameters<typeof olderBase.findFiles>) => {
+				await olderGate;
+				return olderBase.findFiles(...args);
+			},
+		};
+		const newer = createMockWorkspace({}, { files: (pattern) => (pattern === '**/*.md' ? newerFiles : []) });
+
+		const olderLoad = loadWikiTree(older);
+		await loadWikiTree(newer);
+		releaseOlder();
+		await olderLoad;
+
+		expect(vscode.commands.executeCommand).toHaveBeenLastCalledWith('setContext', INDEXED_FILES_CONTEXT, {
+			[newerFiles[0].toString()]: true,
+		});
 	});
 
 	it('publishes an empty index when the scan finds nothing', async () => {
