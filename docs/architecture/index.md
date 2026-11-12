@@ -55,7 +55,7 @@ src/
 ├── tree/
 │   ├── index.ts
 │   ├── buildTree.ts          # Tree construction, sorting
-│   ├── loadWikiTree.ts       # Scan plus build with the configured sort and acronyms
+│   ├── loadWikiTree.ts       # Scan plus build with the configured sort and acronyms; publishes the indexed-files context key
 │   └── treeProvider.ts       # VS Code TreeDataProvider implementation
 ├── types/
 │   ├── index.ts

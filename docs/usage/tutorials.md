@@ -27,7 +27,7 @@ See the [Usage Guide](./index.md) for more details.
 5. Click **Edit source** under the title, or double-click the page in the navigation, to edit its file.
 6. Click a web link to open it in your browser; middle-click it to open it in a new tab of VS Code's integrated browser.
 
-To open a particular file in the site, right-click it in the sidebar and choose **Open in Wiki Site**.
+To open a particular file in the site, right-click it in the sidebar, the Explorer, or its editor tab and choose **Open in Wiki Site**.
 
 ## Tutorial 4: Styling the Wiki Site
 
