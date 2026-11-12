@@ -13,6 +13,7 @@ const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'b
  * catches the binaries this list does not name.
  */
 const BINARY_EXTENSIONS = new Set([
+	'pdf',
 	'doc',
 	'docx',
 	'xls',
@@ -56,9 +57,13 @@ const BINARY_SNIFF_BYTES = 8000;
 
 /** What {@link loadPageContent} produced for a file. */
 export interface PageContent {
+	/** How the file is presented. */
 	kind: PageKind;
+	/** The decoded text, with front matter removed from Markdown; absent for images and binaries. */
 	content?: string;
+	/** The highlight.js hint for code pages: the extension, or the lowercased file name when there is none. */
 	language?: string;
+	/** Set when the text was cut at `maxBytes`. */
 	truncated?: boolean;
 }
 
@@ -66,7 +71,7 @@ export interface PageContent {
  * Decides how a file is presented from its name alone.
  *
  * @param fileName The file name or path
- * @returns `markdown`, `html`, `image`, `pdf`, `binary`, or `code` for everything else, which is read and
+ * @returns `markdown`, `html`, `image`, `binary`, or `code` for everything else, which is read and
  * shown as text. An extensionless `README` is Markdown, as the scanner treats it.
  */
 export function classifyFile(fileName: string): PageKind {
@@ -83,9 +88,6 @@ export function classifyFile(fileName: string): PageKind {
 	}
 	if (IMAGE_EXTENSIONS.has(extension)) {
 		return 'image';
-	}
-	if (extension === 'pdf') {
-		return 'pdf';
 	}
 	if (BINARY_EXTENSIONS.has(extension)) {
 		return 'binary';
@@ -112,7 +114,7 @@ export function looksBinary(bytes: Uint8Array): boolean {
 /**
  * Reads a document and prepares it for the webview.
  *
- * Images, PDFs, and known binaries are not read at all: the webview loads the first two itself. Everything else is read through the injected
+ * Images and known binaries are not read at all: the webview loads images itself. Everything else is read through the injected
  * `readFile`, which on VS Code for the Web is the virtual file system, and decoded as UTF-8.
  *
  * @param uri The document
@@ -129,7 +131,7 @@ export async function loadPageContent(
 ): Promise<PageContent> {
 	const maxBytes = options.maxBytes ?? MAX_RENDER_BYTES;
 	const kind = classifyFile(uri.path);
-	if (kind === 'image' || kind === 'pdf' || kind === 'binary') {
+	if (kind === 'image' || kind === 'binary') {
 		return { kind };
 	}
 

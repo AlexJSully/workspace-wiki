@@ -6,24 +6,30 @@ The Wiki Site presents the documents the sidebar tree shows as a documentation s
 
 The site has an extension-host half and a webview half, joined by the messages in [`src/site/protocol.ts`](../../src/site/protocol.ts).
 
-| Module                                                                                                             | Runs in        | Role                                                                                                     |
-| ------------------------------------------------------------------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------- |
-| [`sitePanel.ts`](../../src/site/sitePanel.ts)                                                                      | Extension host | `WikiSiteManager` owns the tabs, the shared tree, and search; `WikiSitePanel` answers one tab's messages |
-| [`pageContent.ts`](../../src/site/pageContent.ts)                                                                  | Extension host | Classifies a file and reads it through `workspace.fs`                                                    |
-| [`search.ts`](../../src/site/search.ts)                                                                            | Extension host | `SearchIndex`, which reads document text on the first search and keeps it until a refresh                |
-| [`searchDocs.ts`](../../src/site/searchDocs.ts)                                                                    | Both           | Ranking and snippets, free of the `vscode` module so the Cypress harness runs the same code              |
-| [`links.ts`](../../src/site/links.ts)                                                                              | Extension host | Resolves a link written in a page to a wiki page, a workspace file, or an external URL                   |
-| [`branding.ts`](../../src/site/branding.ts)                                                                        | Extension host | Finds the logo for the header and tab                                                                    |
-| [`webview/app.ts`](../../src/site/webview/app.ts)                                                                  | Webview        | The page: header, navigation, routing and history, outline, search box and results                       |
-| [`webview/render.ts`](../../src/site/webview/render.ts)                                                            | Webview        | Renders Markdown with markdown-it, sanitizes with DOMPurify, highlights with highlight.js                |
-| [`webview/pdf.ts`](../../src/site/webview/pdf.ts), [`webview/pdf/viewer.ts`](../../src/site/webview/pdf/viewer.ts) | Webview        | Loads the pdf.js bundle on the first PDF page, draws each page to a canvas, and exposes its text         |
-| [`webview/mermaid.ts`](../../src/site/webview/mermaid.ts)                                                          | Webview        | Loads Mermaid on the first page that has a diagram                                                       |
-| [`webview/helpers.ts`](../../src/site/webview/helpers.ts)                                                          | Webview        | DOM-free logic: link classification, slugs, image paths, history, suggestions                            |
-| [`webview/site.css`](../../src/site/webview/site.css)                                                              | Webview        | Layout and the four themes                                                                               |
+| Module                                                        | Runs in        | Role                                                                                                    |
+| ------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------- |
+| [`sitePanel.ts`](../../src/site/sitePanel.ts)                 | Extension host | `WikiSiteManager` owns the tabs, the shared tree, search, and the checks on every URI the webview names |
+| [`siteTab.ts`](../../src/site/siteTab.ts)                     | Extension host | `WikiSiteTab` writes one tab's webview document and answers its messages                                |
+| [`messages.ts`](../../src/site/messages.ts)                   | Extension host | Type-checks webview messages and right-click context, and serializes the tree for the webview           |
+| [`commands.ts`](../../src/site/commands.ts)                   | Extension host | Registers the right-click menu commands                                                                 |
+| [`pageContent.ts`](../../src/site/pageContent.ts)             | Extension host | Classifies a file and reads it through `workspace.fs`                                                   |
+| [`search.ts`](../../src/site/search.ts)                       | Extension host | `SearchIndex`, which reads document text on the first search and keeps it until the file list changes   |
+| [`searchDocs.ts`](../../src/site/searchDocs.ts)               | Both           | Ranking and snippets, free of the `vscode` module so the Cypress harness runs the same code             |
+| [`links.ts`](../../src/site/links.ts)                         | Extension host | Resolves a link written in a page to a wiki page, a workspace file, or an external URL                  |
+| [`branding.ts`](../../src/site/branding.ts)                   | Extension host | Finds the logo for the header and tab                                                                   |
+| [`webview/app.ts`](../../src/site/webview/app.ts)             | Webview        | `WikiSiteApp`: the page shell, routing and history, and link clicks                                     |
+| [`webview/navTree.ts`](../../src/site/webview/navTree.ts)     | Webview        | The navigation tree, built once per tree and updated in place as pages change, and the breadcrumbs      |
+| [`webview/searchBox.ts`](../../src/site/webview/searchBox.ts) | Webview        | The header search box and its title suggestions                                                         |
+| [`webview/toc.ts`](../../src/site/webview/toc.ts)             | Webview        | The "On this page" outline                                                                              |
+| [`webview/views.ts`](../../src/site/webview/views.ts)         | Webview        | The page body, the open buttons, and the landing, results, message, and loading views                   |
+| [`webview/render.ts`](../../src/site/webview/render.ts)       | Webview        | Renders Markdown with markdown-it, sanitizes with DOMPurify, highlights with highlight.js               |
+| [`webview/mermaid.ts`](../../src/site/webview/mermaid.ts)     | Webview        | Loads Mermaid on the first page that has a diagram, and stops drawing when the page is replaced         |
+| [`webview/helpers.ts`](../../src/site/webview/helpers.ts)     | Webview        | DOM-free logic: link classification, slugs, image paths, history, suggestions                           |
+| [`webview/site.css`](../../src/site/webview/site.css)         | Webview        | Layout and the four themes                                                                              |
 
 The tree comes from [`loadWikiTree`](../../src/tree/loadWikiTree.ts), the same function the sidebar's [`WorkspaceWikiTreeProvider`](../../src/tree/treeProvider.ts) calls, so both list the same documents, in the same order, under the same titles.
 
-[`esbuild.js`](../../esbuild.js) builds the webview into `dist/webview/`: `site.js`, `site.css`, the pdf.js viewer as `pdf.js`, and a copy of Mermaid's browser bundle as `mermaid.js`. The last two load only on pages that need them.
+[`esbuild.js`](../../esbuild.js) builds the webview into `dist/webview/`: `site.js`, `site.css`, and a copy of Mermaid's browser bundle as `mermaid.js`, which loads only on pages with a diagram. A production build also writes `dist/THIRD_PARTY_NOTICES.txt`, the licence of every package bundled into the extension and webview, taken from the build's metafile.
 
 ## Opening the site
 
@@ -41,17 +47,12 @@ A second open reveals the existing tab. A new tab opens only on request, from a 
 | `markdown` | `.md`, `.markdown`, `.mdx`, `.qmd`, `.rmd`, extensionless `README`        | Rendered Markdown, front matter removed, Mermaid fences drawn as diagrams |
 | `html`     | `.html`, `.htm`, `.xhtml`                                                 | The document body, sanitized                                              |
 | `image`    | `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.bmp`, `.ico`, `.avif` | The image                                                                 |
-| `pdf`      | `.pdf`                                                                    | Every page drawn to a canvas with its text for screen readers             |
-| `binary`   | Office, archive, media, and font formats                                  | A note offering **Open preview** and **Edit source**                      |
+| `binary`   | `.pdf`, Office, archive, media, and font formats                          | A note offering **Open preview** and **Edit source**                      |
 | `code`     | Everything else, such as `.txt`, `doc.go`, `.ts`, `.json`                 | Highlighted source, by the file's extension                               |
 
 A file classified as text that holds a NUL byte in its first 8,000 bytes is shown as binary. Only the first 1 MB of a text file is rendered, with a note saying so.
 
-Images and PDFs are not read by the host: the page carries `fileSrc`, the file's webview URI, and the webview loads it. PDFs are drawn by the legacy build of [pdf.js](https://github.com/mozilla/pdf.js), whose polyfills cover the older Chromium in the VS Code versions this extension supports; the modern build calls `Uint8Array.prototype.toHex`, which needs Chromium 140. A webview cannot start a worker from an extension resource, so pdf.js's worker code is bundled with it and runs on the page's thread. Each page is drawn when it comes within 600 px of the view, at the page width and the screen's pixel density. A PDF that fails to load says so and leaves the open buttons.
-
-Each PDF page is a group labelled "Page N of M" holding the canvas, which is hidden from assistive technology, and the page's text in reading order, which is visually hidden. The text is read for every page, one page at a time, rather than only for drawn pages, because a screen reader moves through the document without scrolling it.
-
-Opening a PDF returns a view whose `dispose` disconnects the page observer, cancels page renders in progress, and destroys the pdf.js document. The site calls it whenever the page is replaced, including while the PDF is still loading, so moving between PDFs does not accumulate documents.
+Images are not read by the host: the page carries `fileSrc`, the image's webview URI, and the webview loads it.
 
 A document whose first element is an `<h1>` keeps it as the page title. Otherwise the site shows the tree's title.
 
@@ -89,7 +90,7 @@ Headings get GitHub-style ids. Every id handed out on a page is remembered, gene
 
 Typing in the search box suggests pages by title and path from the tree already in the webview. Enter opens the results page, which asks the host to search the text of every page.
 
-[`SearchIndex`](../../src/site/search.ts) reads the documents on the first search, eight at a time, and keeps their plain text until the site refreshes. It reads whole files, not the first megabyte a page renders, so a term near the end of a large file still matches; a saved document is re-read on its own. [`searchDocs`](../../src/site/searchDocs.ts) requires every term, case-insensitively, in the title, path, or text, and ranks title hits above path hits above body hits. Results carry plain text and match offsets; the webview builds the highlighting with `textContent` and `<mark>`, so result text is never parsed as HTML.
+[`SearchIndex`](../../src/site/search.ts) reads the documents on the first search, eight at a time, and keeps their plain text until the site refreshes or the last tab closes. It reads whole files, not the first megabyte a page renders, so a term near the end of a large file still matches; a saved document is re-read on its own. [`searchDocs`](../../src/site/searchDocs.ts) requires every term, case-insensitively, in the title, path, or text. Each term scores 20 for a title hit, 20 more for a title that is exactly the term, 5 for a path hit, and 1 per body occurrence up to 10. Results carry plain text and match offsets; the webview builds the highlighting with `textContent` and `<mark>`, so result text is never parsed as HTML.
 
 ## Branding and themes
 
@@ -117,11 +118,15 @@ The variables are `--wiki-bg`, `--wiki-fg`, `--wiki-muted`, `--wiki-border`, `--
 
 ## Security
 
-- The webview's Content Security Policy allows scripts only with a per-load nonce; images from the extension, the workspace, `https:`, `data:`, and `blob:` (pdf.js draws some PDF images through `blob:` URLs); styles from the extension and inline (Mermaid writes inline styles into its diagrams); and `fetch` only from the extension and the workspace, which pdf.js uses to read a PDF.
+Page content comes from the workspace and is not trusted, so the webview is treated as untrusted too: every URI it names is checked by the host before the host acts on it.
+
+- The webview's Content Security Policy allows scripts only with a per-load nonce; images from the extension, the workspace, `https:`, and `data:`; styles from the extension and inline (Mermaid writes inline styles into its diagrams); and no `fetch` or other connections.
 - `localResourceRoots` is the extension's `dist/webview` and `media` folders plus the workspace folders.
-- Markdown and HTML pass through DOMPurify, which removes scripts, event handlers, and `javascript:` URLs; `<style>`, `<form>`, `<iframe>`, `<object>`, `<embed>`, `<base>`, `<meta>`, and `<link>` are removed as well.
+- Markdown and HTML pass through DOMPurify, which removes scripts, event handlers, and `javascript:` URLs; `<style>`, `<form>`, `<iframe>`, `<object>`, `<embed>`, `<base>`, `<meta>`, and `<link>` are removed as well. Every `data-*` attribute a document writes is removed, so a page cannot set the `data-vscode-context` a right-click command acts on or the `data-uri` a click follows.
 - Mermaid runs with `securityLevel: 'strict'`.
-- The host type-checks every webview message with `parseViewMessage`, serves page contents only for URIs in the wiki tree, and opens external links only for `http`, `https`, `mailto`, `tel`, and `ftp`.
+- The host type-checks every webview message with `parseViewMessage` and every right-click context with `parseSiteContext`, both in [`messages.ts`](../../src/site/messages.ts).
+- [`WikiSiteManager`](../../src/site/sitePanel.ts) serves page contents only for URIs in the wiki tree. A link is followed only from a page in the wiki tree, and a link to a file outside the wiki opens only when the file is inside a workspace folder after `.` and `..` segments resolve. A right-click on a page acts only on a URI in the wiki tree.
+- External links open only for `http`, `https`, `mailto`, `tel`, and `ftp`.
 
 ## Keeping current
 
@@ -136,7 +141,7 @@ sequenceDiagram
     accTitle: Wiki Site message flow
     accDescr: Shows the webview asking the host for the site on load, the host answering with settings and the tree, then a page request answered with page data, and a search answered with ranked results.
     participant View as Webview (app.ts)
-    participant Host as WikiSitePanel
+    participant Host as WikiSiteTab
     participant Manager as WikiSiteManager
     participant FS as workspace.fs
 
@@ -155,6 +160,6 @@ sequenceDiagram
 
 ## Testing
 
-- Jest covers the host modules and the webview helpers beside each file, for example [`sitePanel.test.ts`](../../src/site/sitePanel.test.ts) and [`helpers.test.ts`](../../src/site/webview/helpers.test.ts).
+- Jest covers the host modules and the webview helpers beside each file, for example [`sitePanel.test.ts`](../../src/site/sitePanel.test.ts), [`siteTab.test.ts`](../../src/site/siteTab.test.ts), and [`helpers.test.ts`](../../src/site/webview/helpers.test.ts). Shared setup lives in [`src/test/site.ts`](../../src/test/site.ts).
 - [`extension.e2e.test.ts`](../../src/extension.e2e.test.ts) and the [web suite](../../src/test/web/index.ts) open the site in desktop VS Code and in the browser host.
 - Cypress drives the webview itself through a standalone harness; see [Testing](../usage/testing.md#wiki-site-webview-tests-cypress).

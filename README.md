@@ -23,7 +23,7 @@ Workspace Wiki is a VS Code extension that scans your workspace for documentatio
 - **Acronym Case Preservation:** Technical terms like HTML, CSS, API maintain proper casing in titles.
 - **Intelligent File Exclusion:** Respects `.gitignore` patterns, including nested files and negation rules, plus configurable exclude globs to hide unwanted files.
 - **Preview & Edit:** By default, single-click opens the best surface for the file type (`workspaceWiki.defaultOpenMode: "preview"`), and double-click opens the source in the full editor.
-- **Wiki Site:** Open your docs as a documentation site in an editor tab, with a navigation tree, breadcrumbs, an "On this page" outline, and full-text search. Markdown (with Mermaid diagrams), HTML, PDFs, source files, and images are rendered; the header shows your workspace name and logo. Works in VS Code for the Web too.
+- **Wiki Site:** Open your docs as a documentation site in an editor tab, with a navigation tree, breadcrumbs, an "On this page" outline, and full-text search. Markdown (with Mermaid diagrams), HTML, source files, and images are rendered; the header shows your workspace name and logo. Works in VS Code for the Web too.
 - **Refresh:** Update the tree on demand with the Refresh action; it also re-scans automatically when `workspaceWiki` settings change.
 - **Configurable:** Supported file types, excludes, open modes, and title formatting are configurable via settings.
 - **Multi-root Support:** Works with multi-root workspaces, scoping each folder's `.gitignore` rules and search depth to that folder.
@@ -238,7 +238,7 @@ Click the book icon in the Workspace Wiki view's title bar, or run **Workspace W
 - **Open the file:** use **Open preview** or **Edit source** under the page title, or right-click a page for **Open in New Tab**, **Open to the Side**, **Open Original File**, **Edit Source**, and **Copy Relative Path**.
 - **External links:** a click opens the link the way VS Code opens external links, normally in your default browser; a middle click opens it in a new tab of VS Code's integrated browser where VS Code has one.
 
-PDFs are rendered page by page. Office and other binary files are not rendered; their page offers to open the file in its own editor.
+PDFs, Office documents, and other binary files are not rendered; their page offers to open the file in its own editor.
 
 ## File Exclusion
 

@@ -965,48 +965,6 @@ pre.mermaid svg {
 	font-weight: 600;
 }
 
-/* ---------- PDF ---------- */
-
-.pdf-status {
-	margin: 0 0 0.9rem;
-	color: var(--wiki-muted);
-	font-size: 0.85rem;
-}
-
-.pdf-pages {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 1rem;
-}
-
-/* Pages are white paper whatever the theme, separated by a shadow rather than a frame. */
-.pdf-page {
-	position: relative;
-	max-width: 100%;
-}
-
-.pdf-page canvas {
-	display: block;
-	max-width: 100%;
-	background: #ffffff;
-	border-radius: 0.2rem;
-	box-shadow: 0 1px 4px var(--wiki-shadow);
-}
-
-/* The page's text, for assistive technology: out of sight but still in the accessibility tree. */
-.pdf-page-text {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	margin: -1px;
-	padding: 0;
-	overflow: hidden;
-	clip-path: inset(50%);
-	white-space: pre-wrap;
-	border: 0;
-}
-
 /* ---------- On this page ---------- */
 
 .toc-heading {

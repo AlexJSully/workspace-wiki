@@ -69,10 +69,10 @@ const esbuildProblemMatcherPlugin = (name) => ({
  * Builds one extension-host target, watching it instead when `--watch` was passed.
  *
  * @param {{ name: string, platform: import('esbuild').Platform, outfile: string }} target The target to build
- * @returns {Promise<void>} Resolves once the build completes, or watching has started
+ * @returns {Promise<import('esbuild').Metafile | undefined>} The bundle's inputs, or undefined when watching
  */
 async function build(target) {
-	await run({
+	return run({
 		entryPoints: ['src/extension.ts'],
 		bundle: true,
 		format: 'cjs',
@@ -91,28 +91,38 @@ async function build(target) {
 }
 
 /**
- * Builds the Wiki Site webview into `dist/webview`: its script and stylesheet, the pdf.js viewer as a
- * separate script loaded only for PDF pages, and a copy of the Mermaid bundle.
+ * Options shared by the two webview builds, the extension's and the Cypress harness's: the site
+ * stylesheet and a given script entry, bundled as a browser IIFE. Each build adds its own fields.
  *
- * @returns {Promise<void>} Resolves once the build completes, or watching has started
+ * @param {{ in: string, out: string }} script The script entry
+ * @param {string} outdir The output folder
+ * @returns {import('esbuild').BuildOptions} The shared options
+ */
+function webviewOptions(script, outdir) {
+	return {
+		entryPoints: [script, { in: 'src/site/webview/site.css', out: 'site' }],
+		bundle: true,
+		format: 'iife',
+		target: 'es2022',
+		platform: 'browser',
+		outdir,
+	};
+}
+
+/**
+ * Builds the Wiki Site webview into `dist/webview`: its script and stylesheet, and a copy of the
+ * Mermaid bundle that pages with a diagram load.
+ *
+ * @returns {Promise<import('esbuild').Metafile | undefined>} The bundle's inputs, or undefined when watching
  */
 async function buildWebview() {
 	await fs.mkdir('dist/webview', { recursive: true });
 	await fs.copyFile(MERMAID_BUNDLE, 'dist/webview/mermaid.js');
-	await run({
-		entryPoints: [
-			{ in: 'src/site/webview/main.ts', out: 'site' },
-			{ in: 'src/site/webview/site.css', out: 'site' },
-			{ in: 'src/site/webview/pdf/viewer.ts', out: 'pdf' },
-		],
-		bundle: true,
-		format: 'iife',
-		target: 'es2022',
+	return run({
+		...webviewOptions({ in: 'src/site/webview/main.ts', out: 'site' }, 'dist/webview'),
 		minify: production,
 		sourcemap: !production,
 		sourcesContent: false,
-		platform: 'browser',
-		outdir: 'dist/webview',
 		logLevel: 'silent',
 		plugins: [esbuildProblemMatcherPlugin('webview')],
 	});
@@ -137,17 +147,8 @@ async function buildHarness() {
 	await fs.copyFile(require.resolve('axe-core/axe.min.js'), path.join(outdir, 'axe.min.js'));
 
 	const options = {
-		entryPoints: [
-			{ in: 'src/site/webview/harness/harness.ts', out: 'harness' },
-			{ in: 'src/site/webview/site.css', out: 'site' },
-			{ in: 'src/site/webview/pdf/viewer.ts', out: 'pdf' },
-		],
-		bundle: true,
-		format: 'iife',
-		target: 'es2022',
+		...webviewOptions({ in: 'src/site/webview/harness/harness.ts', out: 'harness' }, outdir),
 		sourcemap: true,
-		platform: 'browser',
-		outdir,
 		logLevel: 'warning',
 	};
 
@@ -164,16 +165,67 @@ async function buildHarness() {
  * Runs one esbuild build, or starts watching it when `--watch` was passed.
  *
  * @param {import('esbuild').BuildOptions} options The build
- * @returns {Promise<void>} Resolves once the build completes, or watching has started
+ * @returns {Promise<import('esbuild').Metafile | undefined>} The bundle's inputs, or undefined when watching
  */
 async function run(options) {
-	const ctx = await esbuild.context(options);
+	const ctx = await esbuild.context({ ...options, metafile: true });
 	if (watch) {
 		await ctx.watch();
-	} else {
-		await ctx.rebuild();
-		await ctx.dispose();
+		return undefined;
 	}
+	const result = await ctx.rebuild();
+	await ctx.dispose();
+	return result.metafile;
+}
+
+/**
+ * Finds the npm packages a bundle includes, from the `node_modules` paths among its inputs.
+ *
+ * @param {import('esbuild').Metafile} metafile The bundle's inputs
+ * @returns {Map<string, string>} Each package's name, scoped ones as `@scope/name`, and its folder
+ */
+function bundledPackages(metafile) {
+	const packages = new Map();
+	for (const input of Object.keys(metafile.inputs)) {
+		const match = /^(.*node_modules\/((?:@[^/]+\/)?[^/]+))\//.exec(input);
+		if (match) {
+			packages.set(match[2], path.resolve(match[1]));
+		}
+	}
+	return packages;
+}
+
+/**
+ * Writes `dist/THIRD_PARTY_NOTICES.txt`: the licence of every package the bundles include, plus
+ * Mermaid, which is copied in whole. Minifying drops most licence headers from the bundles, so the
+ * extension package carries the notices in this file instead.
+ *
+ * @param {(import('esbuild').Metafile | undefined)[]} metafiles The inputs of each bundle built
+ * @returns {Promise<void>} Resolves once the file is written
+ */
+async function writeNotices(metafiles) {
+	const packages = new Map([['mermaid', path.resolve(MERMAID_BUNDLE, '..', '..')]]);
+	for (const metafile of metafiles) {
+		if (metafile) {
+			bundledPackages(metafile).forEach((folder, name) => packages.set(name, folder));
+		}
+	}
+
+	const sections = [];
+	for (const [name, folder] of [...packages].sort(([a], [b]) => a.localeCompare(b))) {
+		const manifest = JSON.parse(await fs.readFile(path.join(folder, 'package.json'), 'utf8'));
+		const licenceFile = (await fs.readdir(folder)).find((file) => /^licen[cs]e/i.test(file));
+		const text = licenceFile
+			? await fs.readFile(path.join(folder, licenceFile), 'utf8')
+			: `License: ${manifest.license}`;
+		const heading = `${name} ${manifest.version}`;
+		sections.push(`${heading}\n${'-'.repeat(heading.length)}\n\n${text.trim()}\n`);
+	}
+
+	await fs.writeFile(
+		'dist/THIRD_PARTY_NOTICES.txt',
+		`Workspace Wiki bundles the following third-party packages.\n\n${sections.join('\n\n')}`,
+	);
 }
 
 async function main() {
@@ -181,7 +233,10 @@ async function main() {
 		await buildHarness();
 		return;
 	}
-	await Promise.all([...targets.map(build), buildWebview()]);
+	const metafiles = await Promise.all([...targets.map(build), buildWebview()]);
+	if (!watch) {
+		await writeNotices(metafiles);
+	}
 }
 
 main().catch((e) => {

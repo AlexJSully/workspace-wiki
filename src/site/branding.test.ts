@@ -1,5 +1,5 @@
 import { createMockUri, createMockWorkspace } from '../test/mocks';
-import { findSiteBranding, rankLogoCandidates } from './branding';
+import { canBeTabIcon, findSiteBranding, rankLogoCandidates } from './branding';
 
 describe('rankLogoCandidates', () => {
 	const workspace = createMockWorkspace();
@@ -50,6 +50,17 @@ describe('rankLogoCandidates', () => {
 
 	it('keeps only the formats asked for', () => {
 		expect(rank(['favicon.ico', 'favicon-16x16.png'], ['svg', 'png'])).toEqual(['favicon-16x16.png']);
+	});
+});
+
+describe('canBeTabIcon', () => {
+	test.each([
+		{ uri: '/workspace-root/logo.svg', expected: true },
+		{ uri: '/workspace-root/LOGO.PNG', expected: true },
+		{ uri: '/workspace-root/favicon.ico', expected: false },
+		{ uri: 'vscode-vfs://github/owner/repo/logo.svg', expected: false },
+	])('accepts $uri: $expected', ({ uri, expected }) => {
+		expect(canBeTabIcon(createMockUri(uri))).toBe(expected);
 	});
 });
 
@@ -119,18 +130,56 @@ describe('findSiteBranding', () => {
 		expect(branding.tabIcon).toBeUndefined();
 	});
 
-	it('searches for favicons and logos, excluding build output and excludeGlobs', async () => {
+	it('searches exact and suffixed favicon and logo names separately, excluding build output and excludeGlobs', async () => {
 		const findFiles = jest.fn(async () => [createMockUri('/workspace-root/public/favicon.ico')]);
 		const workspace = { ...createMockWorkspace({ excludeGlobs: ['**/vendor/**'] }), findFiles };
 
 		await findSiteBranding(workspace, '');
 
-		const [pattern, exclude] = findFiles.mock.calls[0] as unknown as [string, string];
-		expect(pattern).toBe('**/{favicon,logo,icon,apple-touch-icon}*.{svg,png,ico,webp,jpg,jpeg,gif}');
-		expect(exclude).toContain('**/node_modules/**');
-		expect(exclude).toContain('**/.vscode-test*/**');
-		expect(exclude).toContain('**/vendor/**');
+		const calls = findFiles.mock.calls as unknown as [string, string, number][];
+		expect(calls.map(([pattern, , maxResults]) => [pattern, maxResults])).toEqual([
+			['**/{favicon,logo,icon,apple-touch-icon}.{svg,png,ico,webp,jpg,jpeg,gif}', 50],
+			['**/{favicon,logo,icon,apple-touch-icon}[-_.@]*.{svg,png,ico,webp,jpg,jpeg,gif}', 200],
+		]);
+		for (const [, exclude] of calls) {
+			expect(exclude).toContain('**/node_modules/**');
+			expect(exclude).toContain('**/.vscode-test*/**');
+			expect(exclude).toContain('**/vendor/**');
+		}
 	});
+
+	it('finds the exact favicon when more suffixed icons exist than a search returns', async () => {
+		const favicon = createMockUri('/workspace-root/favicon.svg');
+		// 300 suffixed icons that a search would list before the favicon.
+		const suffixed = Array.from({ length: 300 }, (_, i) => createMockUri(`/workspace-root/a/icon-${i}.png`));
+		// Lists what a pattern matches in that order and truncates to the limit, as `findFiles` may.
+		const findFiles = jest.fn(async (pattern: unknown, _exclude?: unknown, maxResults?: number) => {
+			const glob = String(pattern);
+			const suffixedOnly = glob.includes('[-_.@]');
+			// `{names}*` matches the exact and the suffixed names together.
+			const both = glob.includes('}*');
+			const matches = suffixedOnly ? suffixed : both ? [...suffixed, favicon] : [favicon];
+			return matches.slice(0, maxResults);
+		});
+		const workspace = { ...createMockWorkspace(), findFiles };
+
+		const branding = await findSiteBranding(workspace, '');
+
+		expect(branding.logo?.path).toBe('/workspace-root/favicon.svg');
+	});
+
+	test.each([{ configured: '../outside/logo.svg' }, { configured: '/../../etc/logo.svg' }])(
+		'ignores a configured logo outside the workspace folder: $configured',
+		async ({ configured }) => {
+			const workspace = createMockWorkspace({}, { contents: {}, files: () => [] });
+			const readFile = jest.spyOn(workspace.fs, 'readFile');
+
+			const branding = await findSiteBranding(workspace, configured);
+
+			expect(readFile).not.toHaveBeenCalled();
+			expect(branding).toEqual({ logo: undefined, tabIcon: undefined });
+		},
+	);
 
 	it('finds nothing in a workspace without a logo', async () => {
 		const workspace = createMockWorkspace({}, { files: () => [] });

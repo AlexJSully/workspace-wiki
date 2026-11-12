@@ -155,5 +155,5 @@ window.__harness = {
 
 const root = document.getElementById('app');
 if (root) {
-	startApp(root, bridge, { mermaidSrc: root.dataset.mermaidSrc, pdfSrc: root.dataset.pdfSrc });
+	startApp(root, bridge, { mermaidSrc: root.dataset.mermaidSrc });
 }

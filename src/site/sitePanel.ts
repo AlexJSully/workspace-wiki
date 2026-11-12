@@ -1,22 +1,14 @@
-import { openInEditor, openInPreview } from '@controllers';
+import { flattenFiles } from '@site/webview/helpers';
 import { loadWikiTree } from '@tree/loadWikiTree';
 import type { TreeNode, WorkspaceLike } from '@types';
+import { getFileName, resolveSettingPath } from '@utils';
 import * as vscode from 'vscode';
 import { type SiteBranding, findSiteBranding } from './branding';
-import { containingFolder, resolveDocLink } from './links';
-import { loadPageContent } from './pageContent';
-import {
-	type HostToView,
-	type PageData,
-	SITE_VIEW_TYPE,
-	type SiteContextData,
-	type SiteInfo,
-	type SiteNode,
-	type SiteRoute,
-	type SiteTheme,
-	type ViewToHost,
-} from './protocol';
-import { SearchIndex, flattenFiles } from './search';
+import { type LinkTarget, containingFolder, resolveDocLink } from './links';
+import { parseSiteContext } from './messages';
+import { EXTERNAL_SCHEMES, SITE_VIEW_TYPE, type SiteInfo, type SiteRoute, type SiteTheme } from './protocol';
+import { SearchIndex } from './search';
+import { WikiSiteTab } from './siteTab';
 
 /** Themes the `workspaceWiki.site.theme` setting accepts. */
 const SITE_THEMES: readonly SiteTheme[] = ['vscode', 'paper', 'slate', 'lagoon'];
@@ -29,11 +21,9 @@ const INTEGRATED_BROWSER_COMMAND = 'workbench.action.browser.open';
 /** Command of the built-in Simple Browser, used where the integrated browser is not available. */
 const SIMPLE_BROWSER_COMMAND = 'simpleBrowser.api.open';
 /** Schemes a link may open in the default browser or mail client. */
-const OPENABLE_SCHEMES = new Set(['http', 'https', 'mailto', 'tel', 'ftp']);
+const OPENABLE_SCHEMES = new Set(EXTERNAL_SCHEMES);
 /** Schemes the integrated browser can load. */
 const BROWSABLE_SCHEMES = new Set(['http', 'https']);
-/** Schemes on which the workbench can draw a workspace image as a tab icon. */
-const TAB_ICON_SCHEMES = new Set(['file', 'vscode-remote']);
 
 /** Options for {@link WikiSiteManager.open}. */
 export interface OpenSiteOptions {
@@ -44,104 +34,16 @@ export interface OpenSiteOptions {
 }
 
 /**
- * Converts a tree node to its JSON form for the webview.
- *
- * @param node The node
- * @returns The node with its URI serialized and children converted
- */
-export function toSiteNode(node: TreeNode): SiteNode {
-	const siteNode: SiteNode = {
-		type: node.type,
-		name: node.name,
-		title: node.title,
-		path: node.path,
-		uri: node.uri.toString(),
-	};
-	if (node.description) {
-		siteNode.description = node.description;
-	}
-	if (node.isIndex) {
-		siteNode.isIndex = true;
-	}
-	if (node.isReadme) {
-		siteNode.isReadme = true;
-	}
-	if (node.children) {
-		siteNode.children = node.children.map(toSiteNode);
-	}
-	return siteNode;
-}
-
-/**
- * Checks a message from the webview against the protocol.
- *
- * The webview renders workspace content, which is sanitized but still not trusted, so every field
- * is type-checked before the host acts on it.
- *
- * @param raw The posted value
- * @returns The message, or undefined when it does not match any message shape
- */
-export function parseViewMessage(raw: unknown): ViewToHost | undefined {
-	if (!raw || typeof raw !== 'object') {
-		return undefined;
-	}
-	const message = raw as Record<string, unknown>;
-	const isString = (key: string) => typeof message[key] === 'string';
-
-	switch (message.type) {
-		case 'ready':
-			return { type: 'ready' };
-		case 'navigate':
-			return isString('uri') && (message.fragment === undefined || isString('fragment'))
-				? { type: 'navigate', uri: message.uri as string, fragment: message.fragment as string | undefined }
-				: undefined;
-		case 'title':
-			return isString('title') ? { type: 'title', title: message.title as string } : undefined;
-		case 'openLink':
-			return isString('href') && isString('fromUri') && typeof message.newTab === 'boolean'
-				? {
-						type: 'openLink',
-						href: message.href as string,
-						fromUri: message.fromUri as string,
-						newTab: message.newTab,
-					}
-				: undefined;
-		case 'openExternal':
-			return isString('url') && typeof message.integrated === 'boolean'
-				? { type: 'openExternal', url: message.url as string, integrated: message.integrated }
-				: undefined;
-		case 'openOriginal':
-			return isString('uri') && (message.mode === 'preview' || message.mode === 'editor')
-				? { type: 'openOriginal', uri: message.uri as string, mode: message.mode }
-				: undefined;
-		case 'openInNewTab':
-			return isString('uri') ? { type: 'openInNewTab', uri: message.uri as string } : undefined;
-		case 'search':
-			return isString('query') ? { type: 'search', query: message.query as string } : undefined;
-		default:
-			return undefined;
-	}
-}
-
-/**
- * Creates a random nonce for the webview's Content Security Policy.
- *
- * @returns 32 hex characters
- */
-function createNonce(): string {
-	const bytes = new Uint8Array(16);
-	globalThis.crypto.getRandomValues(bytes);
-	return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-/**
  * Owns every Wiki Site tab: the shared tree, the search index, and the site settings they render.
  *
  * The tree is loaded once and shared, through the same {@link loadWikiTree} the sidebar uses, so
  * the site always shows the documents, order, and titles the sidebar does.
+ *
+ * Every URI the webview can make the host act on, through a message or a right-click command, is
+ * checked here: a page must be in the wiki tree, and any other file must sit inside a workspace folder.
  */
 export class WikiSiteManager implements vscode.Disposable {
-	private readonly panels = new Set<WikiSitePanel>();
+	private readonly tabs = new Set<WikiSiteTab>();
 	private tree: Promise<TreeNode[]> | undefined;
 	private docs = new Map<string, TreeNode>();
 	private branding: Promise<SiteBranding> | undefined;
@@ -165,15 +67,14 @@ export class WikiSiteManager implements vscode.Disposable {
 	 * @param options Whether to open another tab, and in which editor group
 	 * @returns The tab showing the site
 	 */
-	open(target?: vscode.Uri, options: OpenSiteOptions = {}): WikiSitePanel {
+	open(target?: vscode.Uri, options: OpenSiteOptions = {}): WikiSiteTab {
 		const route: SiteRoute | undefined = target ? { kind: 'page', uri: target.toString() } : undefined;
-		const existing = options.newTab ? undefined : [...this.panels].pop();
+		const existing = options.newTab ? undefined : [...this.tabs].pop();
 		if (existing) {
 			existing.reveal(route);
 			return existing;
 		}
 
-		const folders = (this.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
 		const panel = vscode.window.createWebviewPanel(
 			SITE_VIEW_TYPE,
 			this.siteName(),
@@ -184,21 +85,21 @@ export class WikiSiteManager implements vscode.Disposable {
 				localResourceRoots: [
 					vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview'),
 					vscode.Uri.joinPath(this.extensionUri, 'media'),
-					...folders,
+					...this.folders.map((folder) => folder.uri),
 				],
 			},
 		);
 
-		const sitePanel = new WikiSitePanel(this, panel, route);
-		this.panels.add(sitePanel);
-		panel.onDidDispose(() => this.panels.delete(sitePanel));
+		const tab = new WikiSiteTab(this, panel, route);
+		this.tabs.add(tab);
+		panel.onDidDispose(() => this.closeTab(tab));
 		void this.applyTabIcon(panel);
-		return sitePanel;
+		return tab;
 	}
 
 	/** The open tabs. */
-	get openPanels(): readonly WikiSitePanel[] {
-		return [...this.panels];
+	get openTabs(): readonly WikiSiteTab[] {
+		return [...this.tabs];
 	}
 
 	/**
@@ -208,10 +109,9 @@ export class WikiSiteManager implements vscode.Disposable {
 	refresh(): void {
 		this.tree = undefined;
 		this.branding = undefined;
-		this.searchIndex.invalidate();
-		for (const panel of this.panels) {
-			void panel.sendInit();
-			void this.applyTabIcon(panel.panel);
+		for (const tab of this.tabs) {
+			void tab.sendInit();
+			void this.applyTabIcon(tab.panel);
 		}
 	}
 
@@ -222,13 +122,12 @@ export class WikiSiteManager implements vscode.Disposable {
 	 * @param uri The saved document
 	 */
 	async handleSave(uri: vscode.Uri): Promise<void> {
-		if (!this.docs.has(uri.toString())) {
+		const node = this.docs.get(uri.toString());
+		if (!node) {
 			return;
 		}
-		await this.searchIndex.update(uri);
-		for (const panel of this.panels) {
-			await panel.reloadIfShowing(uri.toString());
-		}
+		await this.searchIndex.update(node);
+		await Promise.all([...this.tabs].map((tab) => tab.reloadIfShowing(uri.toString())));
 	}
 
 	/**
@@ -238,12 +137,16 @@ export class WikiSiteManager implements vscode.Disposable {
 	 */
 	getTree(): Promise<TreeNode[]> {
 		if (!this.tree) {
-			this.tree = loadWikiTree(this.workspace).then((tree) => {
-				const files = flattenFiles(tree);
-				this.docs = new Map(files.map((node) => [node.uri.toString(), node]));
-				this.searchIndex.setFiles(files);
+			const loading: Promise<TreeNode[]> = loadWikiTree(this.workspace).then((tree) => {
+				// A refresh during the load started a newer one; only the newest may set the page index.
+				if (this.tree === loading) {
+					const files = flattenFiles(tree);
+					this.docs = new Map(files.map((node) => [node.uri.toString(), node]));
+					this.searchIndex.setFiles(files);
+				}
 				return tree;
 			});
+			this.tree = loading;
 		}
 		return this.tree;
 	}
@@ -271,55 +174,43 @@ export class WikiSiteManager implements vscode.Disposable {
 	}
 
 	/**
-	 * Resolves the target of a webview context-menu command.
+	 * Resolves the target of a webview right-click command.
 	 *
-	 * @param context The `data-vscode-context` of the element right-clicked
-	 * @returns The wiki page or workspace file it names, or undefined for an external link or no target
+	 * The context can come from page content, so a `uri` is accepted only when it names a wiki page,
+	 * and a link written in a page only when that page is in the wiki and the link stays inside a
+	 * workspace folder.
+	 *
+	 * @param raw The command's argument: the `data-vscode-context` of the element right-clicked
+	 * @returns The wiki page or workspace file it names, or undefined for an external link, no target,
+	 * or a target outside the workspace
 	 */
-	async resolveContextUri(context: SiteContextData | undefined): Promise<vscode.Uri | undefined> {
-		if (!context) {
+	async resolveContextUri(raw: unknown): Promise<vscode.Uri | undefined> {
+		const context = parseSiteContext(raw);
+		if (context?.uri !== undefined) {
+			return (await this.findDoc(context.uri))?.uri;
+		}
+		if (context?.href === undefined || context.fromUri === undefined) {
 			return undefined;
 		}
-		if (typeof context.uri === 'string') {
-			return vscode.Uri.parse(context.uri);
+		const target = await this.resolveLink(context.href, context.fromUri);
+		if (target?.kind === 'doc') {
+			return target.node.uri;
 		}
-		if (typeof context.href === 'string' && typeof context.fromUri === 'string') {
-			await this.getTree();
-			const target = resolveDocLink(
-				context.href,
-				vscode.Uri.parse(context.fromUri),
-				this.docs,
-				this.workspace.workspaceFolders ?? [],
-			);
-			if (target.kind === 'doc') {
-				return target.node.uri;
-			}
-			if (target.kind === 'file') {
-				return target.uri;
-			}
-		}
-		return undefined;
+		return target?.kind === 'file' ? target.uri : undefined;
 	}
 
 	/**
 	 * Resolves a link clicked in a page and opens it: a wiki page in the site (here or in a new tab),
 	 * an external URL in the browser, and any other workspace file in its editor.
 	 *
-	 * @param panel The tab the link was clicked in
+	 * @param tab The tab the link was clicked in
 	 * @param href The `href` as written
 	 * @param fromUri The page the link is on
 	 * @param newTab Whether a wiki page should open in another tab
 	 */
-	async openLink(panel: WikiSitePanel, href: string, fromUri: string, newTab: boolean): Promise<void> {
-		await this.getTree();
-		const target = resolveDocLink(
-			href,
-			vscode.Uri.parse(fromUri),
-			this.docs,
-			this.workspace.workspaceFolders ?? [],
-		);
-
-		switch (target.kind) {
+	async openLink(tab: WikiSiteTab, href: string, fromUri: string, newTab: boolean): Promise<void> {
+		const target = await this.resolveLink(href, fromUri);
+		switch (target?.kind) {
 			case 'external':
 				await this.openExternal(target.url, newTab);
 				return;
@@ -327,13 +218,11 @@ export class WikiSiteManager implements vscode.Disposable {
 				if (newTab) {
 					this.open(target.node.uri, { newTab: true });
 				} else {
-					panel.post({ type: 'goto', uri: target.node.uri.toString(), fragment: target.fragment });
+					tab.post({ type: 'goto', uri: target.node.uri.toString(), fragment: target.fragment });
 				}
 				return;
 			case 'file':
 				await vscode.commands.executeCommand('vscode.open', target.uri);
-				return;
-			case 'anchor':
 				return;
 		}
 	}
@@ -388,27 +277,19 @@ export class WikiSiteManager implements vscode.Disposable {
 		const config = this.workspace.getConfiguration?.('workspaceWiki');
 		const theme = config?.get('site.theme');
 		const customCss = config?.get('site.customCss');
-		const root = this.workspace.workspaceFolders?.[0]?.uri;
+		const root = this.folders[0]?.uri;
 
+		const stylesheets = root && Array.isArray(customCss) ? customCss : [];
 		const { logo } = await this.getBranding();
-		const info: SiteInfo = {
+		return {
 			name: this.siteName(),
 			theme: SITE_THEMES.includes(theme) ? theme : 'vscode',
-			customCss:
-				root && Array.isArray(customCss)
-					? customCss
-							.filter((path): path is string => typeof path === 'string' && path.trim().length > 0)
-							.map((path) =>
-								webview
-									.asWebviewUri(vscode.Uri.joinPath(root, path.trim().replace(/^\.?\//, '')))
-									.toString(),
-							)
-					: [],
+			customCss: stylesheets
+				.map((path) => (root && typeof path === 'string' ? resolveSettingPath(root, path) : undefined))
+				.filter((uri): uri is vscode.Uri => uri !== undefined)
+				.map((uri) => webview.asWebviewUri(uri).toString()),
+			logoSrc: logo ? webview.asWebviewUri(logo).toString() : undefined,
 		};
-		if (logo) {
-			info.logoSrc = webview.asWebviewUri(logo).toString();
-		}
-		return info;
 	}
 
 	/**
@@ -417,7 +298,7 @@ export class WikiSiteManager implements vscode.Disposable {
 	 * @returns The site name
 	 */
 	siteName(): string {
-		const folder = this.workspace.workspaceFolders?.[0]?.uri.path.split('/').filter(Boolean).pop();
+		const folder = this.folders[0] ? getFileName(this.folders[0].uri.path) : '';
 		return vscode.workspace.name || folder || 'Workspace Wiki';
 	}
 
@@ -428,7 +309,47 @@ export class WikiSiteManager implements vscode.Disposable {
 	 * @returns The deepest workspace folder containing it, or undefined
 	 */
 	workspaceFolderOf(uri: vscode.Uri): vscode.Uri | undefined {
-		return containingFolder(uri, this.workspace.workspaceFolders ?? []);
+		return containingFolder(uri, this.folders);
+	}
+
+	/** Closes every tab. */
+	dispose(): void {
+		for (const tab of [...this.tabs]) {
+			tab.panel.dispose();
+		}
+		this.tabs.clear();
+	}
+
+	private get folders(): readonly { uri: vscode.Uri }[] {
+		return this.workspace.workspaceFolders ?? [];
+	}
+
+	/**
+	 * Resolves a link written in a wiki page, keeping only targets the host may open: wiki pages,
+	 * external links, and files inside a workspace folder.
+	 *
+	 * @param href The `href` as written
+	 * @param fromUri `uri.toString()` of the page the link is on, which must be a wiki page
+	 * @returns Where the link leads, or undefined when it leads outside the workspace or comes from
+	 * a page that is not in the wiki
+	 */
+	private async resolveLink(href: string, fromUri: string): Promise<LinkTarget | undefined> {
+		const from = await this.findDoc(fromUri);
+		if (!from) {
+			return undefined;
+		}
+		const target = resolveDocLink(href, from.uri, this.docs, this.folders);
+		return target.kind === 'file' && !this.workspaceFolderOf(target.uri) ? undefined : target;
+	}
+
+	/** Forgets a closed tab, and with the last one the tree and search text it was holding. */
+	private closeTab(tab: WikiSiteTab): void {
+		this.tabs.delete(tab);
+		if (this.tabs.size === 0) {
+			this.tree = undefined;
+			this.docs = new Map();
+			this.searchIndex.setFiles([]);
+		}
 	}
 
 	private getBranding(): Promise<SiteBranding> {
@@ -442,203 +363,16 @@ export class WikiSiteManager implements vscode.Disposable {
 	}
 
 	/**
-	 * Sets a tab's icon: the workspace's tab icon when there is one the workbench can draw, otherwise
-	 * the Workspace Wiki icon in its light- and dark-theme colours.
+	 * Sets a tab's icon: the workspace's tab icon when it has one, otherwise the Workspace Wiki icon in
+	 * its light- and dark-theme colours.
 	 *
 	 * @param panel The tab
 	 */
 	private async applyTabIcon(panel: vscode.WebviewPanel): Promise<void> {
 		const { tabIcon } = await this.getBranding();
-		panel.iconPath =
-			tabIcon && TAB_ICON_SCHEMES.has(tabIcon.scheme)
-				? tabIcon
-				: {
-						light: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon-light.svg'),
-						dark: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon-dark.svg'),
-					};
-	}
-
-	/** Closes every tab. */
-	dispose(): void {
-		for (const panel of [...this.panels]) {
-			panel.panel.dispose();
-		}
-		this.panels.clear();
-	}
-}
-
-/** One Wiki Site tab: its webview document, and the messages between it and the host. */
-export class WikiSitePanel {
-	/** The page this tab last showed, so a save of that page re-renders it. */
-	private currentUri: string | undefined;
-	/** A route to show once the webview reports ready, set when the tab was opened on a page. */
-	private pendingRoute: SiteRoute | undefined;
-
-	/**
-	 * @param manager The manager owning this tab
-	 * @param panel The VS Code webview panel
-	 * @param route The page to open on, if not the home page
-	 */
-	constructor(
-		private readonly manager: WikiSiteManager,
-		readonly panel: vscode.WebviewPanel,
-		route?: SiteRoute,
-	) {
-		this.pendingRoute = route;
-		panel.webview.html = this.renderHtml();
-		panel.webview.onDidReceiveMessage((raw) => {
-			const message = parseViewMessage(raw);
-			if (message) {
-				void this.handleMessage(message).catch((error) =>
-					console.error('[WorkspaceWiki] Wiki Site message failed:', message.type, error),
-				);
-			}
-		});
-	}
-
-	/**
-	 * Brings the tab forward, optionally moving it to a page.
-	 *
-	 * @param route The page to show
-	 */
-	reveal(route?: SiteRoute): void {
-		this.panel.reveal();
-		if (route?.kind === 'page') {
-			this.post({ type: 'goto', uri: route.uri, fragment: route.fragment });
-		}
-	}
-
-	/**
-	 * Posts a message to the webview.
-	 *
-	 * @param message The message
-	 */
-	post(message: HostToView): void {
-		void this.panel.webview.postMessage(message);
-	}
-
-	/** Sends the webview the site settings and tree, with any route the tab was opened on. */
-	async sendInit(): Promise<void> {
-		const [tree, site] = await Promise.all([this.manager.getTree(), this.manager.siteInfo(this.panel.webview)]);
-		const route = this.pendingRoute;
-		this.pendingRoute = undefined;
-		this.post({ type: 'init', site, tree: tree.map(toSiteNode), route });
-	}
-
-	/**
-	 * Re-renders the page if this tab is showing it.
-	 *
-	 * @param uri `uri.toString()` of the changed page
-	 */
-	async reloadIfShowing(uri: string): Promise<void> {
-		if (this.currentUri === uri) {
-			await this.sendPage(uri);
-		}
-	}
-
-	private async handleMessage(message: ViewToHost): Promise<void> {
-		switch (message.type) {
-			case 'ready':
-				await this.sendInit();
-				return;
-			case 'navigate':
-				await this.sendPage(message.uri, message.fragment);
-				return;
-			case 'title':
-				this.panel.title = message.title.trim() || this.manager.siteName();
-				return;
-			case 'openLink':
-				await this.manager.openLink(this, message.href, message.fromUri, message.newTab);
-				return;
-			case 'openExternal':
-				await this.manager.openExternal(message.url, message.integrated);
-				return;
-			case 'openOriginal': {
-				const node = await this.manager.findDoc(message.uri);
-				if (node) {
-					(message.mode === 'editor' ? openInEditor : openInPreview)(node.uri);
-				}
-				return;
-			}
-			case 'openInNewTab': {
-				const node = await this.manager.findDoc(message.uri);
-				if (node) {
-					this.manager.open(node.uri, { newTab: true });
-				}
-				return;
-			}
-			case 'search': {
-				const results = await this.manager.search(message.query);
-				this.post({ type: 'searchResults', query: message.query, results });
-				return;
-			}
-		}
-	}
-
-	private async sendPage(uri: string, fragment?: string): Promise<void> {
-		// Only wiki pages are served: a webview asking for any other URI does not get its contents.
-		const node = await this.manager.findDoc(uri);
-		if (!node) {
-			this.post({ type: 'pageError', uri, message: 'This page is not part of the wiki.' });
-			return;
-		}
-
-		this.currentUri = uri;
-		const webview = this.panel.webview;
-		try {
-			const content = await loadPageContent(node.uri, (target) => this.manager.workspace.fs.readFile(target));
-			const folder = node.uri.with({ path: node.uri.path.slice(0, node.uri.path.lastIndexOf('/')) || '/' });
-			const page: PageData = {
-				uri,
-				title: node.title,
-				path: node.path,
-				kind: content.kind,
-				resourceBase: webview.asWebviewUri(folder).toString(),
-				rootBase: webview.asWebviewUri(this.manager.workspaceFolderOf(node.uri) ?? folder).toString(),
-				...(content.content !== undefined && { content: content.content }),
-				...(content.language && { language: content.language }),
-				...(content.truncated && { truncated: true }),
-				...(node.description && { description: node.description }),
-				...((content.kind === 'image' || content.kind === 'pdf') && {
-					fileSrc: webview.asWebviewUri(node.uri).toString(),
-				}),
-			};
-			this.post({ type: 'page', page, fragment });
-		} catch (error: any) {
-			this.post({ type: 'pageError', uri, message: `Could not read this file: ${error?.message ?? error}` });
-		}
-	}
-
-	private renderHtml(): string {
-		const webview = this.panel.webview;
-		const nonce = createNonce();
-		const asset = (file: string) =>
-			webview.asWebviewUri(vscode.Uri.joinPath(this.manager.extensionUri, 'dist', 'webview', file)).toString();
-		const csp = [
-			"default-src 'none'",
-			// pdf.js draws some PDF images through `blob:` URLs.
-			`img-src ${webview.cspSource} https: data: blob:`,
-			// Mermaid writes inline styles into the diagrams it draws.
-			`style-src ${webview.cspSource} 'unsafe-inline'`,
-			`font-src ${webview.cspSource}`,
-			// pdf.js fetches the PDF it shows.
-			`connect-src ${webview.cspSource}`,
-			`script-src 'nonce-${nonce}'`,
-		].join('; ');
-
-		return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="${csp}">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="${asset('site.css')}">
-<title>Workspace Wiki</title>
-</head>
-<body>
-<div id="app" data-mermaid-src="${asset('mermaid.js')}" data-pdf-src="${asset('pdf.js')}"></div>
-<script nonce="${nonce}" src="${asset('site.js')}"></script>
-</body>
-</html>`;
+		panel.iconPath = tabIcon ?? {
+			light: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon-light.svg'),
+			dark: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon-dark.svg'),
+		};
 	}
 }

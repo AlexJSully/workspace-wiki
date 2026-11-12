@@ -6,10 +6,26 @@ import type { SearchResult } from './protocol';
 
 /** A document as search sees it: identity, labels, and plain text. */
 export interface SearchDoc {
+	/** `uri.toString()` of the document. */
 	uri: string;
+	/** The display title, searched and weighted highest. */
 	title: string;
+	/** Path relative to the tree's common base, searched. */
 	path: string;
+	/** The body as plain text; empty for images, binaries, and unreadable files. */
 	text: string;
+	/** The title, path, and text lowercased once, so a search does not lowercase every document again. */
+	lower?: { title: string; path: string; text: string };
+}
+
+/**
+ * Lowercases the fields search compares against.
+ *
+ * @param doc The document
+ * @returns Its title, path, and text in lower case
+ */
+export function lowerCaseOf(doc: SearchDoc): { title: string; path: string; text: string } {
+	return { title: doc.title.toLowerCase(), path: doc.path.toLowerCase(), text: doc.text.toLowerCase() };
 }
 
 /** Results returned when the caller gives no limit. */
@@ -92,10 +108,10 @@ export function findRanges(text: string, terms: string[]): [number, number][] {
  *
  * @param text The document's plain text
  * @param terms Lowercased terms
+ * @param lower The text lowercased, when the caller already has it
  * @returns The snippet, opening at the start of the text when no term occurs in it
  */
-export function buildSnippet(text: string, terms: string[]): string {
-	const lower = text.toLowerCase();
+export function buildSnippet(text: string, terms: string[], lower: string = text.toLowerCase()): string {
 	const first = terms.map((term) => lower.indexOf(term)).filter((index) => index !== -1);
 	const anchor = first.length > 0 ? Math.min(...first) : 0;
 
@@ -117,7 +133,8 @@ export function buildSnippet(text: string, terms: string[]): string {
  * Searches documents for a query.
  *
  * Every whitespace-separated term must occur, case-insensitively, in the title, the path, or the
- * text. A title hit outweighs a path hit, which outweighs body hits; ties keep title order.
+ * text. Each term scores 20 for a title hit, 20 more when the title is exactly the term, 5 for a path
+ * hit, and 1 per body occurrence up to 10. Ties sort by title.
  *
  * @param docs The documents to search
  * @param query The user's query
@@ -132,9 +149,7 @@ export function searchDocs(docs: SearchDoc[], query: string, limit: number = DEF
 
 	const scored: { doc: SearchDoc; score: number }[] = [];
 	for (const doc of docs) {
-		const title = doc.title.toLowerCase();
-		const path = doc.path.toLowerCase();
-		const text = doc.text.toLowerCase();
+		const { title, path, text } = doc.lower ?? lowerCaseOf(doc);
 
 		let score = 0;
 		let matchedAll = true;
@@ -157,7 +172,7 @@ export function searchDocs(docs: SearchDoc[], query: string, limit: number = DEF
 	scored.sort((a, b) => b.score - a.score || a.doc.title.localeCompare(b.doc.title));
 
 	return scored.slice(0, limit).map(({ doc }) => {
-		const snippet = buildSnippet(doc.text, terms);
+		const snippet = buildSnippet(doc.text, terms, doc.lower?.text);
 		return { uri: doc.uri, title: doc.title, path: doc.path, snippet, ranges: findRanges(snippet, terms) };
 	});
 }

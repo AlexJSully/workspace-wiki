@@ -9,12 +9,6 @@ describe('Accessibility', () => {
 		});
 	});
 
-	it('has no axe violations on a PDF page', () => {
-		cy.openSite({ page: 'src/manual.pdf' });
-		cy.get('.pdf-page-text', { timeout: 15000 }).first().should('not.be.empty');
-		cy.a11yCheck();
-	});
-
 	it('has no axe violations on the search results', () => {
 		cy.openSite();
 		cy.get(byTestId('search-input')).type('scanner{enter}');

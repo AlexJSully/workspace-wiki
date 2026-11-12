@@ -39,7 +39,19 @@ describe('Links', () => {
 
 	it('opens a folder link on its index page', () => {
 		cy.contains('a', 'The docs folder').click();
+		cy.hostReceived('openLink').should('deep.equal', [
+			{ type: 'openLink', href: 'docs/', fromUri: `${ROOT}/README.md`, newTab: false },
+		]);
 		cy.get(byTestId('page-title')).should('have.text', 'Index');
+	});
+
+	it('lands on a heading whose id the site layout also uses', () => {
+		cy.contains('a', 'getting started guide').click();
+		cy.get(byTestId('page-title')).should('have.text', 'Getting Started');
+		cy.contains('a', 'go to Main').click();
+		cy.get(`${byTestId('page-body')} h2#main`).should('have.class', 'target-flash');
+		cy.get(byTestId('main')).should('have.attr', 'id', 'WikiMain');
+		cy.get(byTestId('main')).should('not.have.class', 'target-flash');
 	});
 
 	it('opens a page link in a new tab on a middle click or Ctrl+click', () => {

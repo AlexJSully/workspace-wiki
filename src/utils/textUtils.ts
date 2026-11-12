@@ -122,7 +122,7 @@ export async function extractFrontMatterTitle(uri: vscode.Uri): Promise<string |
  * @param fileName The file name to trim
  * @returns The name without its extension, or the name unchanged when there is nothing left to keep (`.env`)
  */
-function removeExtension(fileName: string): string {
+export function removeExtension(fileName: string): string {
 	const extension = getFileExtension(fileName);
 	if (!extension) {
 		return fileName;

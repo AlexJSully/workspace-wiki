@@ -1,23 +1,12 @@
 import type { TreeNode } from '@types';
 import { createMockUri } from '../test/mocks';
-import { containingFolder, normalizePosixPath, resolveDocLink } from './links';
+import { containingFolder, resolveDocLink } from './links';
 
 const fileNode = (uri: string, extra: Partial<TreeNode> = {}): TreeNode => {
 	const parsed = createMockUri(uri);
 	const name = parsed.path.split('/').pop() ?? '';
 	return { type: 'file', name, title: name, path: name, uri: parsed, ...extra };
 };
-
-describe('normalizePosixPath', () => {
-	test.each([
-		{ input: '/a/./b/../c', expected: '/a/c' },
-		{ input: '/a//b/', expected: '/a/b' },
-		{ input: '/../../a', expected: '/a' },
-		{ input: '/', expected: '/' },
-	])('normalizes $input', ({ input, expected }) => {
-		expect(normalizePosixPath(input)).toBe(expected);
-	});
-});
 
 describe('resolveDocLink', () => {
 	const docs = new Map<string, TreeNode>(
@@ -90,6 +79,23 @@ describe('resolveDocLink', () => {
 		const target = resolveDocLink('file:///workspace-root/README.md#top', from, docs, folders);
 
 		expect(target).toMatchObject({ kind: 'doc', fragment: 'top' });
+	});
+
+	test.each([
+		{ description: 'a relative path', href: '../../../etc/hosts', expected: '/etc/hosts' },
+		{ description: 'a root-relative path', href: '/../etc/hosts', expected: '/etc/hosts' },
+		{ description: 'an absolute URI', href: 'file:///workspace-root/docs/../../etc/hosts', expected: '/etc/hosts' },
+	])('resolves the dot segments of $description that climbs out of the workspace', ({ href, expected }) => {
+		const target = resolveDocLink(href, from, docs, folders);
+
+		expect(target.kind === 'file' && target.uri.path).toBe(expected);
+		expect(target.kind === 'file' && containingFolder(target.uri, folders)).toBeUndefined();
+	});
+
+	it('resolves the dot segments of an absolute URI to a wiki page', () => {
+		const target = resolveDocLink('file:///workspace-root/docs/api/../guide.md', from, docs, folders);
+
+		expect(target.kind === 'doc' && target.node.uri.path).toBe('/workspace-root/docs/guide.md');
 	});
 
 	it('leaves malformed percent-encoding as written', () => {

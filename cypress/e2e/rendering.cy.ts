@@ -72,7 +72,7 @@ describe('Rendering', () => {
 
 	it('strips script, event handlers, and styles from Markdown', () => {
 		cy.openSite({ page: 'docs/architecture.md' });
-		cy.get(byTestId('inline-html')).should('contain.html', '<strong>HTML</strong>');
+		cy.get('#inline-html').should('contain.html', '<strong>HTML</strong>');
 		cy.get(`${byTestId('page-body')} script`).should('not.exist');
 		// Mermaid's own diagrams carry a <style> inside their SVG; none may come from the document.
 		cy.get(byTestId('page-body'))
@@ -84,12 +84,20 @@ describe('Rendering', () => {
 		cy.window().should((win) => expect(Reflect.get(win, '__xss')).to.equal(undefined));
 	});
 
+	it('keeps no data attribute a document writes, so it cannot set what a right-click acts on', () => {
+		cy.openSite({ page: 'docs/architecture.md' });
+		cy.get('#inline-html').should('not.have.attr', 'data-testid');
+		cy.get('#spoofed-context').should('have.text', 'Spoofed context');
+		cy.get('#spoofed-context').should('not.have.attr', 'data-vscode-context');
+		cy.get('#spoofed-context').should('not.have.attr', 'data-uri');
+	});
+
 	it('renders HTML files sanitized', () => {
 		cy.openSite({ page: 'docs/api.html' });
 		cy.get(byTestId('page')).should('have.attr', 'data-kind', 'html').and('be.visible');
 		cy.get(byTestId('page-title')).should('have.text', 'API reference');
-		cy.get(byTestId('api-paragraph')).click();
-		cy.get(byTestId('api-paragraph')).should('not.have.attr', 'onclick');
+		cy.get('#api-paragraph').click();
+		cy.get('#api-paragraph').should('not.have.attr', 'onclick');
 		cy.window().should((win) => expect(Reflect.get(win, '__xss')).to.equal(undefined));
 		cy.get(`${byTestId('toc')} .toc-item`).should('have.length', 2);
 	});
@@ -107,80 +115,12 @@ describe('Rendering', () => {
 			.and('have.attr', 'alt', 'Diagram');
 	});
 
-	it('draws every page of a PDF', () => {
+	it('offers to open a PDF in its own editor', () => {
 		cy.openSite({ page: 'src/manual.pdf' });
-		cy.get(byTestId('page')).should('have.attr', 'data-kind', 'pdf');
-		cy.get(byTestId('pdf-document'), { timeout: 15000 }).should('have.attr', 'data-state', 'ready');
-		cy.get('.pdf-status')
-			.invoke('text')
-			.should('match', /^\d+ pages?$/);
-		cy.get('.pdf-page').should('have.length.at.least', 1);
-		cy.get('.pdf-page').first().should('have.attr', 'data-rendered');
-		cy.get('.pdf-page').first().should('have.attr', 'role', 'group');
-		cy.get('.pdf-page')
-			.first()
-			.should('have.attr', 'aria-label')
-			.and('match', /^Page 1 of \d+$/);
-		cy.get('.pdf-page canvas')
-			.first()
-			.should('have.attr', 'aria-hidden', 'true')
-			.and(($canvas) => expect(($canvas[0] as HTMLCanvasElement).width).to.be.greaterThan(0));
-		cy.screenshot('pdf-page', { capture: 'viewport' });
-	});
-
-	it("gives assistive technology each PDF page's text", () => {
-		cy.openSite({ page: 'src/manual.pdf' });
-		cy.get('.pdf-page-text', { timeout: 15000 })
-			.first()
-			.should('have.text', 'This is a placeholder for a Adobe PDF .pdf file.');
-		cy.get('.pdf-page-text').first().should('not.be.visible');
-	});
-
-	it('frees an open PDF when another page replaces it', () => {
-		const disposals: sinon.SinonSpy[] = [];
-		cy.openSite({ page: 'src/manual.pdf' });
-		cy.get(byTestId('pdf-document'), { timeout: 15000 }).should('have.attr', 'data-state', 'ready');
-		cy.window()
-			.its('wikiPdf')
-			.then((viewer: { open: (...args: unknown[]) => { dispose: () => void } }) => {
-				const open = viewer.open.bind(viewer);
-				cy.stub(viewer, 'open').callsFake((...args: unknown[]) => {
-					const view = open(...args);
-					disposals.push(Cypress.sinon.spy(view, 'dispose'));
-					return view;
-				});
-			});
-
-		// Open the PDF again through the stub, then leave it before and after it finishes loading.
-		cy.contains(byTestId('nav-link'), 'Doc').click();
-		cy.contains(byTestId('nav-link'), 'Manual').click();
-		cy.contains(byTestId('nav-link'), 'Doc').click();
-		cy.contains(byTestId('nav-link'), 'Manual').click();
-		cy.get(byTestId('pdf-document'), { timeout: 15000 }).should('have.attr', 'data-state', 'ready');
-		cy.contains(byTestId('nav-link'), 'Doc').click();
-		cy.get(byTestId('page-title')).should('have.text', 'Doc');
-		cy.wrap(disposals).should('have.length', 2);
-		cy.wrap(disposals).each((dispose: sinon.SinonSpy) => expect(dispose).to.have.been.calledOnce);
-	});
-
-	it('says when a PDF cannot be read', () => {
-		cy.openSite({ page: 'src/manual.pdf' });
-		cy.get(byTestId('pdf-document'), { timeout: 15000 }).should('have.attr', 'data-state', 'ready');
-		cy.hostSends({
-			type: 'page',
-			page: {
-				uri: 'file:///workspace-root/src/manual.pdf',
-				title: 'Manual',
-				path: 'src/manual.pdf',
-				kind: 'pdf',
-				fileSrc: 'http://localhost:5179/fixtures/src/missing.pdf',
-				resourceBase: 'http://localhost:5179/fixtures/src',
-				rootBase: 'http://localhost:5179/fixtures',
-			},
-		});
-		cy.get(byTestId('pdf-document'), { timeout: 15000 }).should('have.attr', 'data-state', 'failed');
-		cy.get('.pdf-status').should('contain.text', 'This PDF could not be shown');
+		cy.get(byTestId('page')).should('have.attr', 'data-kind', 'binary');
+		cy.get(byTestId('binary-note')).should('contain.text', 'can’t be shown here');
 		cy.get(byTestId('open-preview')).should('be.visible');
+		cy.get(`${byTestId('page')} canvas`).should('not.exist');
 	});
 
 	it('offers to open files it cannot show', () => {
@@ -210,5 +150,34 @@ describe('Rendering', () => {
 			},
 		});
 		cy.get(byTestId('page-body')).should('contain.text', 'Saved just now.');
+	});
+
+	it('keeps the reading position when the host re-sends the page shown', () => {
+		const longPage = (note: string) => ({
+			type: 'page' as const,
+			page: {
+				uri: 'file:///workspace-root/getting-started.md',
+				title: 'Getting Started',
+				path: 'getting-started.md',
+				kind: 'markdown' as const,
+				content: `# Getting Started\n\n${'A paragraph of filler text.\n\n'.repeat(120)}${note}\n`,
+				resourceBase: 'http://localhost:5179/fixtures',
+				rootBase: 'http://localhost:5179/fixtures',
+			},
+		});
+		cy.openSite({ page: 'getting-started.md' });
+		cy.get(byTestId('page-title')).should('have.text', 'Getting Started');
+		cy.hostSends(longPage('First copy.'));
+		cy.get(byTestId('page-body')).should('contain.text', 'First copy.');
+		cy.get(byTestId('main')).scrollTo(0, 600);
+		cy.get(byTestId('main')).invoke('scrollTop').should('be.closeTo', 600, 2);
+
+		cy.hostSends(longPage('Saved copy.'));
+		cy.get(byTestId('page-body')).should('contain.text', 'Saved copy.');
+		cy.get(byTestId('main')).invoke('scrollTop').should('be.closeTo', 600, 2);
+
+		cy.hostSends({ type: 'goto', uri: 'file:///workspace-root/docs/architecture.md' });
+		cy.get(byTestId('page-title')).should('have.text', 'Architecture');
+		cy.get(byTestId('main')).invoke('scrollTop').should('equal', 0);
 	});
 });

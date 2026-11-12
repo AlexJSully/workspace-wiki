@@ -1,13 +1,13 @@
 /**
  * Logic of the Wiki Site webview that needs no DOM, kept apart so Jest can test it directly.
  */
-import type { SiteNode, SiteRoute } from '@site/protocol';
+import { EXTERNAL_SCHEMES, type SiteContextData, type SiteNode, type SiteRoute } from '@site/protocol';
 
 /** What clicking a link in a page does. */
 export type HrefKind = 'anchor' | 'external' | 'internal' | 'blocked';
 
 /** Schemes opened in a browser or mail client. */
-const EXTERNAL_SCHEME = /^(https?|mailto|tel|ftp):/i;
+const EXTERNAL_SCHEME = new RegExp(`^(${EXTERNAL_SCHEMES.join('|')}):`, 'i');
 /** Schemes that never navigate anywhere useful from a page. */
 const BLOCKED_SCHEME = /^(javascript|data|vbscript|blob|about|command):/i;
 
@@ -154,25 +154,39 @@ export function rebaseSrcset(srcset: string, base: string, rootBase: string): st
 }
 
 /**
- * Lists every file in a tree, depth first.
+ * Lists every file in a tree, depth first. Generic, so the host's `TreeNode` and the webview's
+ * `SiteNode` share it.
  *
  * @param nodes The tree's roots
  * @returns The file nodes
  */
-export function flattenFiles(nodes: SiteNode[]): SiteNode[] {
-	const files: SiteNode[] = [];
-	const visit = (list: SiteNode[]) => {
-		for (const node of list) {
-			if (node.type === 'file') {
-				files.push(node);
-			}
-			if (node.children) {
-				visit(node.children);
-			}
-		}
-	};
-	visit(nodes);
-	return files;
+export function flattenFiles<T extends { type: 'file' | 'folder'; children?: T[] }>(nodes: T[]): T[] {
+	return nodes.flatMap((node) => [...(node.type === 'file' ? [node] : []), ...flattenFiles(node.children ?? [])]);
+}
+
+/**
+ * Percent-decodes a string, returning it unchanged when it is not valid percent-encoding, such as
+ * the fragment of `#50%-off`.
+ *
+ * @param value The encoded string
+ * @returns The decoded string
+ */
+export function decodeSafely(value: string): string {
+	try {
+		return decodeURIComponent(value);
+	} catch {
+		return value;
+	}
+}
+
+/**
+ * Serializes the right-click menu context an element carries in `data-vscode-context`.
+ *
+ * @param data What the element names
+ * @returns The JSON, with the webview's default menu items turned off
+ */
+export function contextJson(data: SiteContextData): string {
+	return JSON.stringify({ ...data, preventDefaultContextMenuItems: true });
 }
 
 /**

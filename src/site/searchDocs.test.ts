@@ -1,4 +1,4 @@
-import { type SearchDoc, buildSnippet, findRanges, searchDocs, toPlainText } from './searchDocs';
+import { type SearchDoc, buildSnippet, findRanges, lowerCaseOf, searchDocs, toPlainText } from './searchDocs';
 
 const doc = (title: string, text: string, path = `${title.toLowerCase()}.md`): SearchDoc => ({
 	uri: `file:///workspace-root/${path}`,
@@ -30,6 +30,13 @@ describe('searchDocs', () => {
 		expect(searchDocs(docs, query).map((result) => result.title)).toEqual(expected);
 	});
 
+	it('uses the lowercased fields a document carries', () => {
+		const plain = doc('Setup', 'Install the scanner.');
+		const withLower = { ...plain, lower: lowerCaseOf(plain) };
+
+		expect(searchDocs([withLower], 'SCANNER')).toEqual(searchDocs([plain], 'SCANNER'));
+	});
+
 	it('returns at most the limit', () => {
 		expect(searchDocs(docs, 'scanner', 2)).toHaveLength(2);
 	});
@@ -42,16 +49,30 @@ describe('searchDocs', () => {
 	});
 });
 
+describe('lowerCaseOf', () => {
+	it('lowercases the title, path, and text', () => {
+		expect(lowerCaseOf(doc('Setup', 'Use NPM.', 'Docs/Setup.md'))).toEqual({
+			title: 'setup',
+			path: 'docs/setup.md',
+			text: 'use npm.',
+		});
+	});
+});
+
 describe('buildSnippet', () => {
 	it('starts on a word boundary near a late match and marks the cuts', () => {
-		const text = `${'lorem ipsum '.repeat(20)}target ${'tail '.repeat(80)}`;
+		// The 60-character lead before `target` falls inside a word: `ab` shifts every word by two.
+		const text = `ab${'lorem ipsum '.repeat(20)}target ${'tail '.repeat(80)}`;
 
 		const snippet = buildSnippet(text, ['target']);
 
-		expect(snippet.startsWith('…')).toBe(true);
+		expect(snippet.startsWith('…ipsum ')).toBe(true);
 		expect(snippet.endsWith('…')).toBe(true);
 		expect(snippet).toContain('target');
-		expect(snippet.slice(1, 2)).not.toBe(' ');
+	});
+
+	it('searches the lowercased text it is given', () => {
+		expect(buildSnippet('Find ME here', ['me'], 'find me here')).toBe('Find ME here');
 	});
 
 	it('opens at the start of the text when no term occurs in it', () => {

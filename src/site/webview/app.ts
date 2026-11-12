@@ -1,87 +1,51 @@
-import type { HostToView, PageData, SearchResult, SiteInfo, SiteNode, SiteRoute } from '@site/protocol';
+import type { HostToView, PageData, SiteInfo, SiteNode, SiteRoute } from '@site/protocol';
 import type { HostBridge } from './bridge';
-import { RouteHistory, findAncestors, findHomePage, flattenFiles, splitByRanges, suggestPages } from './helpers';
+import { el } from './dom';
+import { RouteHistory, decodeSafely, findHomePage, flattenFiles } from './helpers';
 import { renderMermaid } from './mermaid';
-import { renderPdf } from './pdf';
-import { highlightCode, renderDocument } from './render';
+import { NavTree } from './navTree';
+import { SearchBox } from './searchBox';
+import { Toc } from './toc';
+import { landingView, loadingView, messageView, pageView, resultsView } from './views';
 
 /** Settings the page passes the app from its own markup. */
 export interface AppOptions {
 	/** URL of the lazily loaded Mermaid bundle. */
 	mermaidSrc?: string;
-	/** URL of the lazily loaded pdf.js bundle. */
-	pdfSrc?: string;
 	/** The page's script nonce, required for the Mermaid script the app adds. */
 	nonce?: string;
 }
 
-/** Context attached to elements that name a wiki page, for the webview's right-click menu. */
-interface DocContext {
-	webviewSection: 'doc';
-	uri: string;
-	preventDefaultContextMenuItems: true;
-}
-
 /**
- * Creates an element with a class and text in one step.
- *
- * @param tag The tag name
- * @param className The class attribute, if any
- * @param text The text content, if any
- * @returns The element
+ * Ids of the shell's own elements. Upper case, so no heading id (always lower case, from `slugify`)
+ * can collide with them.
  */
-function el<K extends keyof HTMLElementTagNameMap>(
-	tag: K,
-	className?: string,
-	text?: string,
-): HTMLElementTagNameMap[K] {
-	const element = document.createElement(tag);
-	if (className) {
-		element.className = className;
-	}
-	if (text !== undefined) {
-		element.textContent = text;
-	}
-	return element;
-}
+const NAV_ID = 'WikiNav';
+const MAIN_ID = 'WikiMain';
 
 /**
- * The context-menu data for an element naming a page.
- *
- * @param uri The page
- * @returns The JSON for `data-vscode-context`
- */
-function docContext(uri: string): string {
-	const context: DocContext = { webviewSection: 'doc', uri, preventDefaultContextMenuItems: true };
-	return JSON.stringify(context);
-}
-
-/**
- * The Wiki Site: header, navigation, page, outline, and search, driven entirely by host messages.
+ * The Wiki Site: routes between pages, the landing page, and search results, driven entirely by host
+ * messages. The navigation, search field, and outline are their own classes; this one coordinates them.
  */
 export class WikiSiteApp {
 	private site: SiteInfo | undefined;
 	private tree: SiteNode[] = [];
-	private files: SiteNode[] = [];
-	private history: RouteHistory;
-	private expanded = new Set<string>();
+	private readonly history: RouteHistory;
 	private page: PageData | undefined;
-	/** Frees what the shown page holds, such as an open PDF; called before the page is replaced. */
+	/** Stops work the shown page started, such as drawing diagrams; called before the page is replaced. */
 	private releasePage: (() => void) | undefined;
-	private tocObserver: IntersectionObserver | undefined;
-	private suggestions: SiteNode[] = [];
-	private activeSuggestion = -1;
+	/** A scroll position to keep when the page shown is rendered again, after a save or a refresh. */
+	private keptScroll: { uri: string; top: number } | undefined;
 
 	private readonly shell: HTMLElement;
 	private readonly brand: HTMLAnchorElement;
-	private readonly searchInput: HTMLInputElement;
-	private readonly suggestionList: HTMLUListElement;
 	private readonly backButton: HTMLButtonElement;
 	private readonly forwardButton: HTMLButtonElement;
 	private readonly navToggle: HTMLButtonElement;
-	private readonly nav: HTMLElement;
 	private readonly main: HTMLElement;
-	private readonly toc: HTMLElement;
+	private readonly nav: NavTree;
+	private readonly search: SearchBox;
+	private readonly toc: Toc;
 
 	/**
 	 * @param root The element the site renders into
@@ -89,82 +53,68 @@ export class WikiSiteApp {
 	 * @param options Values the page markup supplies
 	 */
 	constructor(
-		private readonly root: HTMLElement,
+		root: HTMLElement,
 		private readonly bridge: HostBridge,
 		private readonly options: AppOptions = {},
 	) {
 		const saved = bridge.getState() as { history?: unknown; expanded?: unknown } | undefined;
 		this.history = RouteHistory.fromJSON(saved?.history);
-		if (Array.isArray(saved?.expanded)) {
-			this.expanded = new Set(saved.expanded.filter((uri): uri is string => typeof uri === 'string'));
-		}
+		const expanded = new Set(
+			Array.isArray(saved?.expanded)
+				? saved.expanded.filter((uri): uri is string => typeof uri === 'string')
+				: [],
+		);
 
 		this.shell = el('div', 'wiki');
 		this.shell.dataset.state = 'loading';
 
-		const header = el('header', 'wiki-header');
 		this.navToggle = el('button', 'icon-button nav-toggle');
 		this.navToggle.type = 'button';
 		this.navToggle.setAttribute('aria-label', 'Show navigation');
 		this.navToggle.setAttribute('aria-expanded', 'false');
-		this.navToggle.setAttribute('aria-controls', 'wiki-nav');
+		this.navToggle.setAttribute('aria-controls', NAV_ID);
 		this.navToggle.dataset.testid = 'nav-toggle';
 		this.navToggle.innerHTML =
 			'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg>';
 
 		this.brand = el('a', 'brand');
 		this.brand.href = '#';
+		this.brand.dataset.home = '';
 		this.brand.dataset.testid = 'brand';
 
-		const search = el('div', 'search');
-		search.setAttribute('role', 'search');
-		this.searchInput = el('input', 'search-input');
-		this.searchInput.type = 'search';
-		this.searchInput.placeholder = 'Search the docs';
-		this.searchInput.setAttribute('aria-label', 'Search the docs');
-		this.searchInput.setAttribute('role', 'combobox');
-		this.searchInput.setAttribute('aria-autocomplete', 'list');
-		this.searchInput.setAttribute('aria-expanded', 'false');
-		this.searchInput.setAttribute('aria-controls', 'search-suggestions');
-		this.searchInput.autocomplete = 'off';
-		this.searchInput.spellcheck = false;
-		this.searchInput.dataset.testid = 'search-input';
-		const shortcut = el('kbd', 'search-shortcut', '/');
-		shortcut.setAttribute('aria-hidden', 'true');
-		this.suggestionList = el('ul', 'suggestions');
-		this.suggestionList.id = 'search-suggestions';
-		this.suggestionList.setAttribute('role', 'listbox');
-		this.suggestionList.setAttribute('aria-label', 'Matching pages');
-		this.suggestionList.dataset.testid = 'search-suggestions';
-		this.suggestionList.hidden = true;
-		search.append(this.searchInput, shortcut, this.suggestionList);
+		this.search = new SearchBox((route) => this.go(route));
 
 		const historyButtons = el('div', 'history-buttons');
-		this.backButton = this.historyButton('Back', 'history-back', 'M10 3 5 8l5 5');
-		this.forwardButton = this.historyButton('Forward', 'history-forward', 'm6 3 5 5-5 5');
+		this.backButton = historyButton('Back', 'history-back', 'M10 3 5 8l5 5');
+		this.forwardButton = historyButton('Forward', 'history-forward', 'm6 3 5 5-5 5');
 		historyButtons.append(this.backButton, this.forwardButton);
 
-		header.append(this.navToggle, this.brand, search, historyButtons);
+		const header = el('header', 'wiki-header');
+		header.append(this.navToggle, this.brand, this.search.element, historyButtons);
 
-		const body = el('div', 'wiki-body');
-		this.nav = el('nav', 'wiki-nav');
-		this.nav.id = 'wiki-nav';
-		this.nav.setAttribute('aria-label', 'Docs');
-		this.nav.dataset.testid = 'nav';
+		const navElement = el('nav', 'wiki-nav');
+		navElement.id = NAV_ID;
+		navElement.setAttribute('aria-label', 'Docs');
+		navElement.dataset.testid = 'nav';
+		this.nav = new NavTree(navElement, expanded, () => this.saveState());
+
 		this.main = el('main', 'wiki-main');
-		this.main.id = 'main';
+		this.main.id = MAIN_ID;
 		this.main.tabIndex = -1;
 		this.main.dataset.testid = 'main';
-		this.toc = el('aside', 'wiki-toc');
-		this.toc.setAttribute('aria-label', 'On this page');
-		this.toc.dataset.testid = 'toc';
-		body.append(this.nav, this.main, this.toc);
 
+		const tocElement = el('aside', 'wiki-toc');
+		tocElement.setAttribute('aria-label', 'On this page');
+		tocElement.dataset.testid = 'toc';
+		this.toc = new Toc(tocElement, this.main);
+
+		const body = el('div', 'wiki-body');
+		body.append(navElement, this.main, tocElement);
 		this.shell.append(header, body);
 		root.replaceChildren(this.shell);
 
-		this.bindEvents();
-		this.main.append(this.loadingNote('Loading the wiki…'));
+		this.bindEvents(navElement);
+		this.main.append(loadingView('Loading the wiki…'));
 		bridge.subscribe((message) => this.receive(message));
 		bridge.post({ type: 'ready' });
 	}
@@ -180,13 +130,19 @@ export class WikiSiteApp {
 				this.applyInit(message.site, message.tree, message.route);
 				return;
 			case 'page':
-				if (this.isShowingPage(message.page.uri)) {
-					this.renderPage(message.page, message.fragment ?? this.currentFragment());
+				if (this.shownPageUri() !== message.page.uri) {
+					return;
 				}
+				if (this.page?.uri === message.page.uri) {
+					this.keepScroll();
+				}
+				this.renderPage(message.page, message.fragment ?? this.currentFragment());
 				return;
 			case 'pageError':
-				if (this.isShowingPage(message.uri)) {
-					this.renderMessage('This page could not be shown', message.message);
+				if (this.shownPageUri() === message.uri) {
+					this.main.removeAttribute('aria-busy');
+					this.toc.clear();
+					this.main.replaceChildren(messageView('This page could not be shown', message.message));
 				}
 				return;
 			case 'goto':
@@ -195,28 +151,47 @@ export class WikiSiteApp {
 			case 'searchResults': {
 				const current = this.history.current;
 				if (current?.kind === 'search' && current.query === message.query) {
-					this.renderResults(message.query, message.results);
+					this.main.replaceChildren(resultsView(message.query, message.results));
+					this.main.scrollTop = 0;
 				}
 				return;
 			}
 		}
 	}
 
-	private historyButton(label: string, testid: string, path: string): HTMLButtonElement {
-		const button = el('button', 'icon-button');
-		button.type = 'button';
-		button.setAttribute('aria-label', label);
-		button.title = `${label} (Alt+${label === 'Back' ? 'Left' : 'Right'})`;
-		button.dataset.testid = testid;
-		button.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${path}"/></svg>`;
-		button.disabled = true;
-		return button;
+	/**
+	 * Moves to a route and records it in the history.
+	 *
+	 * @param route Where to go
+	 */
+	go(route: SiteRoute): void {
+		const current = this.history.current;
+		const samePage =
+			route.kind === 'page' &&
+			current?.kind === 'page' &&
+			current.uri === route.uri &&
+			this.page?.uri === route.uri;
+		this.history.push(route);
+		if (!samePage) {
+			this.show();
+			return;
+		}
+		// Same page: only the anchor changes, so scroll rather than reload.
+		this.saveState();
+		if (route.kind === 'page' && route.fragment) {
+			this.scrollToFragment(route.fragment);
+		}
 	}
 
 	private applyInit(site: SiteInfo, tree: SiteNode[], route: SiteRoute | undefined): void {
+		// A refresh re-sends the site while a page is open; keep the reader where they were on it.
+		if (this.page && !route) {
+			this.keepScroll();
+		}
 		this.site = site;
 		this.tree = tree;
-		this.files = flattenFiles(tree);
+		this.search.setFiles(flattenFiles(tree));
+		this.nav.render(tree);
 		this.applyTheme(site);
 		this.renderBrand(site);
 		this.shell.dataset.state = 'ready';
@@ -261,34 +236,28 @@ export class WikiSiteApp {
 		this.brand.setAttribute('aria-label', `${site.name} home`);
 	}
 
-	private bindEvents(): void {
-		this.brand.addEventListener('click', (event) => {
-			event.preventDefault();
-			this.go({ kind: 'home' });
-		});
+	private bindEvents(navElement: HTMLElement): void {
 		this.backButton.addEventListener('click', () => this.step(-1));
 		this.forwardButton.addEventListener('click', () => this.step(1));
 		this.navToggle.addEventListener('click', () => this.setNavOpen(this.shell.dataset.navOpen !== 'true'));
-
-		this.searchInput.addEventListener('input', () => this.updateSuggestions());
-		this.searchInput.addEventListener('keydown', (event) => this.onSearchKey(event));
-		this.searchInput.addEventListener('blur', () => {
-			// Wait so a click on a suggestion lands before the list goes.
-			setTimeout(() => this.closeSuggestions(), 150);
-		});
-
 		document.addEventListener('keydown', (event) => this.onGlobalKey(event));
 
-		// One set of listeners serves every page link, nav entry, breadcrumb, and result.
+		// One set of listeners serves every page link, nav entry, breadcrumb, result, and button.
 		this.shell.addEventListener('click', (event) => this.onClick(event));
-		this.shell.addEventListener('auxclick', (event) => this.onAuxClick(event));
+		this.shell.addEventListener('auxclick', (event) => {
+			const link = (event.target as HTMLElement).closest('a');
+			if (event.button === 1 && link) {
+				event.preventDefault();
+				this.activateLink(link, { middle: true, modified: false });
+			}
+		});
 		this.shell.addEventListener('mousedown', (event) => {
 			// A middle press would otherwise start autoscroll before `auxclick` fires.
 			if (event.button === 1 && (event.target as HTMLElement).closest('a')) {
 				event.preventDefault();
 			}
 		});
-		this.nav.addEventListener('dblclick', (event) => {
+		navElement.addEventListener('dblclick', (event) => {
 			const link = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[data-uri]');
 			if (link?.dataset.uri) {
 				event.preventDefault();
@@ -303,8 +272,7 @@ export class WikiSiteApp {
 
 		if ((event.key === '/' && !typing) || (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey))) {
 			event.preventDefault();
-			this.searchInput.focus();
-			this.searchInput.select();
+			this.search.focus();
 			return;
 		}
 		if (event.altKey && event.key === 'ArrowLeft') {
@@ -322,22 +290,41 @@ export class WikiSiteApp {
 		const target = event.target as HTMLElement;
 
 		const folder = target.closest<HTMLButtonElement>('button[data-folder]');
-		if (folder) {
-			this.toggleFolder(folder.dataset.folder ?? '');
+		if (folder?.dataset.folder) {
+			this.nav.toggle(folder.dataset.folder);
 			return;
 		}
 
-		const link = target.closest<HTMLAnchorElement>('a');
-		if (!link || link === this.brand) {
+		const open = target.closest<HTMLButtonElement>('button[data-open]');
+		if (open && this.page) {
+			const mode = open.dataset.open === 'editor' ? 'editor' : 'preview';
+			this.bridge.post({ type: 'openOriginal', uri: this.page.uri, mode });
 			return;
 		}
 
-		const newTab = event.ctrlKey || event.metaKey;
-		if (link.closest('.suggestions')) {
-			this.closeSuggestions();
-		}
-		if (link.dataset.uri) {
+		const link = target.closest('a');
+		if (link) {
 			event.preventDefault();
+			this.activateLink(link, { middle: false, modified: event.ctrlKey || event.metaKey });
+		}
+	}
+
+	/**
+	 * Follows a link for a click. A middle click or Ctrl/Cmd+click opens a page in a new tab, and a
+	 * middle click opens an external link inside VS Code rather than in the default browser.
+	 *
+	 * @param link The link clicked
+	 * @param click Which button, and whether Ctrl or Cmd was held
+	 */
+	private activateLink(link: HTMLAnchorElement, click: { middle: boolean; modified: boolean }): void {
+		const newTab = click.middle || click.modified;
+
+		if (link.dataset.home !== undefined) {
+			this.go({ kind: 'home' });
+			return;
+		}
+
+		if (link.dataset.uri) {
 			if (newTab) {
 				this.bridge.post({ type: 'openInNewTab', uri: link.dataset.uri });
 			} else {
@@ -350,127 +337,19 @@ export class WikiSiteApp {
 		const href = link.getAttribute('href') ?? '';
 		switch (link.dataset.linkKind) {
 			case 'anchor':
-				event.preventDefault();
-				this.scrollToFragment(decodeURIComponent(href.slice(1)));
+				if (!click.middle) {
+					this.scrollToFragment(decodeSafely(href.slice(1)));
+				}
 				return;
 			case 'external':
-				event.preventDefault();
-				this.bridge.post({ type: 'openExternal', url: href, integrated: false });
+				this.bridge.post({ type: 'openExternal', url: href, integrated: click.middle });
 				return;
 			case 'internal':
-				event.preventDefault();
 				if (this.page) {
 					this.bridge.post({ type: 'openLink', href, fromUri: this.page.uri, newTab });
 				}
 				return;
-			case 'blocked':
-				event.preventDefault();
-				return;
 		}
-	}
-
-	private onAuxClick(event: MouseEvent): void {
-		if (event.button !== 1) {
-			return;
-		}
-		const link = (event.target as HTMLElement).closest<HTMLAnchorElement>('a');
-		if (!link || link === this.brand) {
-			return;
-		}
-		event.preventDefault();
-
-		if (link.dataset.uri) {
-			this.bridge.post({ type: 'openInNewTab', uri: link.dataset.uri });
-			return;
-		}
-		const href = link.getAttribute('href') ?? '';
-		if (link.dataset.linkKind === 'external') {
-			this.bridge.post({ type: 'openExternal', url: href, integrated: true });
-		} else if (link.dataset.linkKind === 'internal' && this.page) {
-			this.bridge.post({ type: 'openLink', href, fromUri: this.page.uri, newTab: true });
-		}
-	}
-
-	private onSearchKey(event: KeyboardEvent): void {
-		const count = this.suggestions.length;
-		if (event.key === 'ArrowDown' && count > 0) {
-			event.preventDefault();
-			this.setActiveSuggestion((this.activeSuggestion + 1) % count);
-		} else if (event.key === 'ArrowUp' && count > 0) {
-			event.preventDefault();
-			this.setActiveSuggestion((this.activeSuggestion - 1 + count) % count);
-		} else if (event.key === 'Enter') {
-			event.preventDefault();
-			const chosen = this.suggestions[this.activeSuggestion];
-			const query = this.searchInput.value.trim();
-			this.closeSuggestions();
-			if (chosen) {
-				this.go({ kind: 'page', uri: chosen.uri });
-			} else if (query) {
-				this.go({ kind: 'search', query });
-			}
-		} else if (event.key === 'Escape') {
-			if (this.suggestionList.hidden) {
-				this.searchInput.blur();
-			}
-			this.closeSuggestions();
-		}
-	}
-
-	private updateSuggestions(): void {
-		this.suggestions = suggestPages(this.files, this.searchInput.value);
-		this.activeSuggestion = -1;
-		this.suggestionList.replaceChildren();
-
-		this.suggestions.forEach((node, index) => {
-			const item = el('li', 'suggestion');
-			item.id = `suggestion-${index}`;
-			item.setAttribute('role', 'option');
-			item.setAttribute('aria-selected', 'false');
-			const link = el('a', 'suggestion-link');
-			link.href = '#';
-			link.dataset.uri = node.uri;
-			link.dataset.vscodeContext = docContext(node.uri);
-			link.tabIndex = -1;
-			link.append(el('span', 'suggestion-title', node.title), el('span', 'suggestion-path', node.path));
-			item.append(link);
-			this.suggestionList.append(item);
-		});
-
-		const query = this.searchInput.value.trim();
-		if (query) {
-			const item = el('li', 'suggestion suggestion-all');
-			item.setAttribute('role', 'option');
-			item.setAttribute('aria-selected', 'false');
-			item.textContent = `Search all pages for “${query}”`;
-			item.addEventListener('mousedown', (event) => {
-				event.preventDefault();
-				this.closeSuggestions();
-				this.go({ kind: 'search', query });
-			});
-			this.suggestionList.append(item);
-		}
-
-		const open = this.suggestionList.childElementCount > 0;
-		this.suggestionList.hidden = !open;
-		this.searchInput.setAttribute('aria-expanded', String(open));
-		this.searchInput.removeAttribute('aria-activedescendant');
-	}
-
-	private setActiveSuggestion(index: number): void {
-		this.activeSuggestion = index;
-		this.suggestionList.querySelectorAll('[role="option"]').forEach((option, i) => {
-			option.setAttribute('aria-selected', String(i === index));
-		});
-		this.searchInput.setAttribute('aria-activedescendant', `suggestion-${index}`);
-	}
-
-	private closeSuggestions(): void {
-		this.suggestionList.hidden = true;
-		this.suggestions = [];
-		this.activeSuggestion = -1;
-		this.searchInput.setAttribute('aria-expanded', 'false');
-		this.searchInput.removeAttribute('aria-activedescendant');
 	}
 
 	private setNavOpen(open: boolean): void {
@@ -486,31 +365,6 @@ export class WikiSiteApp {
 		}
 	}
 
-	/**
-	 * Moves to a route and records it in the history.
-	 *
-	 * @param route Where to go
-	 */
-	go(route: SiteRoute): void {
-		const current = this.history.current;
-		if (
-			route.kind === 'page' &&
-			current?.kind === 'page' &&
-			current.uri === route.uri &&
-			this.page?.uri === route.uri
-		) {
-			// Same page: only the anchor changes, so scroll rather than reload.
-			this.history.push(route);
-			this.saveState();
-			if (route.fragment) {
-				this.scrollToFragment(route.fragment);
-			}
-			return;
-		}
-		this.history.push(route);
-		this.show();
-	}
-
 	/** Renders whatever the current route is. */
 	private show(): void {
 		this.release();
@@ -519,36 +373,34 @@ export class WikiSiteApp {
 		this.forwardButton.disabled = !this.history.canGoForward;
 
 		const route = this.history.current ?? { kind: 'home' };
-		if (route.kind === 'home') {
-			const home = findHomePage(this.tree);
-			if (home) {
-				this.requestPage(home.uri, undefined);
-			} else {
-				this.renderLanding();
-			}
-		} else if (route.kind === 'page') {
-			this.requestPage(route.uri, route.fragment);
-		} else {
-			this.searchInput.value = route.query;
+		const uri =
+			route.kind === 'page' ? route.uri : route.kind === 'home' ? findHomePage(this.tree)?.uri : undefined;
+		if (uri) {
 			this.page = undefined;
-			this.renderNav();
-			this.clearToc();
-			this.main.replaceChildren(this.loadingNote(`Searching for “${route.query}”…`));
+			this.nav.setActive(uri);
+			this.main.setAttribute('aria-busy', 'true');
+			const fragment = route.kind === 'page' ? route.fragment : undefined;
+			this.bridge.post(fragment ? { type: 'navigate', uri, fragment } : { type: 'navigate', uri });
+			return;
+		}
+
+		this.page = undefined;
+		this.nav.setActive(undefined);
+		this.toc.clear();
+		if (route.kind === 'search') {
+			this.search.setQuery(route.query);
+			this.main.replaceChildren(loadingView(`Searching for “${route.query}”…`));
 			this.setTitle(`Search: ${route.query}`);
 			this.bridge.post({ type: 'search', query: route.query });
+			return;
 		}
+		const name = this.site?.name ?? 'Workspace Wiki';
+		this.setTitle(name);
+		this.main.replaceChildren(landingView(name, this.tree));
 	}
 
 	private saveState(): void {
-		this.bridge.setState({ history: this.history.toJSON(), expanded: [...this.expanded] });
-	}
-
-	private requestPage(uri: string, fragment: string | undefined): void {
-		this.page = undefined;
-		this.expandTo(uri);
-		this.renderNav(uri);
-		this.main.setAttribute('aria-busy', 'true');
-		this.bridge.post(fragment ? { type: 'navigate', uri, fragment } : { type: 'navigate', uri });
+		this.bridge.setState({ history: this.history.toJSON(), expanded: [...this.nav.expanded] });
 	}
 
 	/** The page the current route shows: its own URI, or the README the home route resolves to. */
@@ -557,14 +409,7 @@ export class WikiSiteApp {
 		if (route?.kind === 'page') {
 			return route.uri;
 		}
-		if (route?.kind === 'home') {
-			return findHomePage(this.tree)?.uri;
-		}
-		return undefined;
-	}
-
-	private isShowingPage(uri: string): boolean {
-		return this.shownPageUri() === uri;
+		return route?.kind === 'home' ? findHomePage(this.tree)?.uri : undefined;
 	}
 
 	private currentFragment(): string | undefined {
@@ -576,109 +421,14 @@ export class WikiSiteApp {
 		this.bridge.post({ type: 'title', title });
 	}
 
-	private expandTo(uri: string): void {
-		for (const node of findAncestors(this.tree, uri).slice(0, -1)) {
-			this.expanded.add(node.uri);
+	private keepScroll(): void {
+		const uri = this.page?.uri ?? this.shownPageUri();
+		if (uri) {
+			this.keptScroll = { uri, top: this.main.scrollTop };
 		}
 	}
 
-	private toggleFolder(uri: string): void {
-		if (this.expanded.has(uri)) {
-			this.expanded.delete(uri);
-		} else {
-			this.expanded.add(uri);
-		}
-		this.saveState();
-		const button = this.nav.querySelector<HTMLButtonElement>(`button[data-folder="${CSS.escape(uri)}"]`);
-		const open = this.expanded.has(uri);
-		button?.setAttribute('aria-expanded', String(open));
-		const group = button?.nextElementSibling as HTMLElement | null;
-		if (group) {
-			group.hidden = !open;
-		}
-	}
-
-	private renderNav(activeUri: string | undefined = this.shownPageUri()): void {
-		const scroll = this.nav.scrollTop;
-		this.nav.replaceChildren();
-		if (this.tree.length === 0) {
-			this.nav.append(el('p', 'nav-empty', 'No documents found.'));
-			return;
-		}
-		this.nav.append(this.renderNavList(this.tree, activeUri, 0));
-		this.nav.scrollTop = scroll;
-		this.nav.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest' });
-	}
-
-	private renderNavList(nodes: SiteNode[], activeUri: string | undefined, depth: number): HTMLUListElement {
-		const list = el('ul', depth === 0 ? 'nav-list' : 'nav-list nav-group');
-		for (const node of nodes) {
-			const item = el('li', 'nav-item');
-			if (node.type === 'folder') {
-				const open = this.expanded.has(node.uri);
-				const button = el('button', 'nav-folder');
-				button.type = 'button';
-				button.dataset.folder = node.uri;
-				button.dataset.testid = 'nav-folder';
-				button.setAttribute('aria-expanded', String(open));
-				const chevron = el('span', 'chevron');
-				chevron.setAttribute('aria-hidden', 'true');
-				button.append(el('span', 'nav-label', node.title), chevron);
-				item.append(button);
-				const children = this.renderNavList(node.children ?? [], activeUri, depth + 1);
-				children.hidden = !open;
-				item.append(children);
-			} else {
-				const link = el('a', 'nav-link');
-				link.href = '#';
-				link.dataset.uri = node.uri;
-				link.dataset.testid = 'nav-link';
-				link.dataset.vscodeContext = docContext(node.uri);
-				link.title = node.description ?? node.path;
-				link.append(el('span', 'nav-label', node.title));
-				if (node.uri === activeUri) {
-					link.setAttribute('aria-current', 'page');
-				}
-				item.append(link);
-			}
-			list.append(item);
-		}
-		return list;
-	}
-
-	private renderBreadcrumbs(uri: string): HTMLElement {
-		const crumbs = el('nav', 'breadcrumbs');
-		crumbs.setAttribute('aria-label', 'Breadcrumbs');
-		crumbs.dataset.testid = 'breadcrumbs';
-		const list = el('ol');
-		const home = el('li');
-		const homeLink = el('a', undefined, 'Home');
-		homeLink.href = '#';
-		homeLink.addEventListener('click', (event) => {
-			event.preventDefault();
-			event.stopPropagation();
-			this.go({ kind: 'home' });
-		});
-		home.append(homeLink);
-		list.append(home);
-
-		const chain = findAncestors(this.tree, uri);
-		chain.forEach((node, index) => {
-			const item = el('li');
-			if (index === chain.length - 1) {
-				const current = el('span', undefined, node.title);
-				current.setAttribute('aria-current', 'page');
-				item.append(current);
-			} else {
-				item.append(el('span', undefined, node.title));
-			}
-			list.append(item);
-		});
-		crumbs.append(list);
-		return crumbs;
-	}
-
-	/** Frees the shown page's resources before something replaces it. */
+	/** Stops work the shown page started before something replaces it. */
 	private release(): void {
 		this.releasePage?.();
 		this.releasePage = undefined;
@@ -686,122 +436,26 @@ export class WikiSiteApp {
 
 	private renderPage(page: PageData, fragment: string | undefined): void {
 		this.release();
+		const kept = this.keptScroll?.uri === page.uri ? this.keptScroll.top : undefined;
+		this.keptScroll = undefined;
 		this.page = page;
 		this.main.removeAttribute('aria-busy');
 		this.setTitle(page.title);
 
-		const article = el('article', `page page-${page.kind}`);
-		article.dataset.testid = 'page';
-		article.dataset.kind = page.kind;
-
-		const header = el('header', 'page-header');
-		header.append(this.renderBreadcrumbs(page.uri));
-
-		const body = el('div', 'page-body');
-		body.dataset.testid = 'page-body';
-		let ownTitle: HTMLElement | null = null;
-
-		switch (page.kind) {
-			case 'markdown':
-			case 'html': {
-				body.append(renderDocument(page));
-				// A document opening with its own H1 keeps it as the page title rather than showing two.
-				const first = body.firstElementChild;
-				if (first?.tagName === 'H1') {
-					ownTitle = first as HTMLElement;
-				}
-				break;
-			}
-			case 'code': {
-				const pre = el('pre', 'code-block code-file');
-				const code = el('code', `hljs language-${page.language ?? 'plaintext'}`);
-				code.innerHTML = highlightCode(page.content ?? '', page.language);
-				pre.append(code);
-				body.append(pre);
-				break;
-			}
-			case 'image': {
-				const figure = el('figure', 'image-page');
-				const image = el('img');
-				image.src = page.fileSrc ?? '';
-				image.alt = page.title;
-				figure.append(image);
-				body.append(figure);
-				break;
-			}
-			case 'pdf': {
-				const pdf = el('div', 'pdf-document');
-				pdf.dataset.testid = 'pdf-document';
-				body.append(pdf);
-				break;
-			}
-			case 'binary': {
-				const note = el('div', 'binary-note');
-				note.dataset.testid = 'binary-note';
-				note.append(
-					el('p', 'binary-title', 'This file can’t be shown here'),
-					el(
-						'p',
-						undefined,
-						'It is not a text, Markdown, HTML, image, or PDF file. Open it to view it in its own editor.',
-					),
-				);
-				body.append(note);
-				break;
-			}
-		}
-
-		const title = ownTitle ?? el('h1', undefined, page.title);
-		title.classList.add('page-title');
-		title.dataset.testid = 'page-title';
-		header.append(title);
-		if (page.description) {
-			header.append(el('p', 'page-lede', page.description));
-		}
-		header.append(this.renderSource(page));
-
-		if (page.truncated) {
-			body.prepend(el('p', 'page-notice', 'This file is larger than 1 MB, so only its beginning is shown.'));
-		}
-
-		article.append(header, body);
+		const { article, body } = pageView(page, this.tree);
 		this.main.replaceChildren(article);
-		this.renderNav(page.uri);
-		this.renderToc(body);
+		this.nav.setActive(page.uri);
+		this.toc.render(body);
 
-		if (fragment) {
+		if (kept !== undefined) {
+			this.main.scrollTop = kept;
+		} else if (fragment) {
 			this.scrollToFragment(fragment);
 		} else {
 			this.main.scrollTop = 0;
 		}
 
-		void renderMermaid(body, this.options.mermaidSrc, this.options.nonce, this.isDark());
-
-		// Drawn once the article is in the page, since pages are sized to the width it is given.
-		const pdf = body.querySelector<HTMLElement>('.pdf-document');
-		if (pdf) {
-			this.releasePage = renderPdf(pdf, page.fileSrc, this.options.pdfSrc, this.options.nonce);
-		}
-	}
-
-	private renderSource(page: PageData): HTMLElement {
-		const source = el('div', 'page-source');
-		const path = el('code', 'page-path', page.path);
-		path.dataset.testid = 'page-path';
-		const actions = el('div', 'page-actions');
-		const preview = el('button', 'button', 'Open preview');
-		preview.type = 'button';
-		preview.dataset.testid = 'open-preview';
-		preview.addEventListener('click', () =>
-			this.bridge.post({ type: 'openOriginal', uri: page.uri, mode: 'preview' }),
-		);
-		const edit = el('button', 'button button-quiet', 'Edit source');
-		edit.type = 'button';
-		edit.dataset.testid = 'edit-source';
-		edit.addEventListener('click', () => this.bridge.post({ type: 'openOriginal', uri: page.uri, mode: 'editor' }));
-		actions.append(preview, edit);
-		source.append(path, actions);
-		return source;
+		this.releasePage = renderMermaid(body, this.options.mermaidSrc, this.options.nonce, this.isDark());
 	}
 
 	private isDark(): boolean {
@@ -819,168 +473,40 @@ export class WikiSiteApp {
 		return false;
 	}
 
-	private clearToc(): void {
-		this.tocObserver?.disconnect();
-		this.tocObserver = undefined;
-		this.toc.replaceChildren();
-		this.toc.hidden = true;
-	}
-
-	private renderToc(body: HTMLElement): void {
-		this.clearToc();
-		const headings = [...body.querySelectorAll<HTMLElement>('h2[id], h3[id]')];
-		if (headings.length < 2) {
-			return;
-		}
-
-		const heading = el('h2', 'toc-heading', 'On this page');
-		const list = el('ul', 'toc-list');
-		const links = new Map<string, HTMLAnchorElement>();
-		for (const target of headings) {
-			const item = el('li', target.tagName === 'H3' ? 'toc-item toc-sub' : 'toc-item');
-			const link = el('a', 'toc-link', target.textContent ?? '');
-			link.href = `#${target.id}`;
-			link.dataset.linkKind = 'anchor';
-			item.append(link);
-			list.append(item);
-			links.set(target.id, link);
-		}
-		this.toc.append(heading, list);
-		this.toc.hidden = false;
-
-		if (typeof IntersectionObserver === 'undefined') {
-			return;
-		}
-		// Each callback reports only the headings that changed, so visibility is tracked across calls and
-		// the highlight goes to the first heading, in document order, inside the top of the page.
-		const visible = new Set<string>();
-		this.tocObserver = new IntersectionObserver(
-			(entries) => {
-				for (const entry of entries) {
-					if (entry.isIntersecting) {
-						visible.add(entry.target.id);
-					} else {
-						visible.delete(entry.target.id);
-					}
-				}
-				const active = headings.find((target) => visible.has(target.id));
-				if (active) {
-					links.forEach((link, id) => link.classList.toggle('active', id === active.id));
-				}
-			},
-			{ root: this.main, rootMargin: '0px 0px -65% 0px' },
-		);
-		headings.forEach((target) => this.tocObserver?.observe(target));
-	}
-
+	/**
+	 * Scrolls to a heading or element on the shown page. Only the page is searched, so an id the shell
+	 * itself uses can never be the target.
+	 *
+	 * @param fragment The id, as written after `#`
+	 */
 	private scrollToFragment(fragment: string): void {
-		const target = document.getElementById(fragment) ?? document.getElementById(fragment.toLowerCase());
+		const find = (id: string) => this.main.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+		const target = find(fragment) ?? find(fragment.toLowerCase());
 		if (target) {
 			target.scrollIntoView({ block: 'start' });
 			target.classList.add('target-flash');
 			setTimeout(() => target.classList.remove('target-flash'), 1200);
 		}
 	}
+}
 
-	private renderLanding(): void {
-		this.page = undefined;
-		this.renderNav(undefined);
-		this.clearToc();
-		const name = this.site?.name ?? 'Workspace Wiki';
-		this.setTitle(name);
-
-		const landing = el('section', 'landing');
-		landing.dataset.testid = 'landing';
-		landing.append(el('h1', 'page-title', name));
-		if (this.tree.length === 0) {
-			landing.append(
-				el(
-					'p',
-					'page-lede',
-					'No documents match your Workspace Wiki settings yet. Add Markdown files, or widen “Supported Extensions” and “Include Globs” in settings.',
-				),
-			);
-			this.main.replaceChildren(landing);
-			return;
-		}
-
-		landing.append(
-			el(
-				'p',
-				'page-lede',
-				`${this.files.length} ${this.files.length === 1 ? 'page' : 'pages'} in this workspace.`,
-			),
-		);
-		const list = el('ul', 'landing-list');
-		for (const node of this.tree) {
-			const item = el('li', 'landing-item');
-			const target = node.type === 'file' ? node : flattenFiles(node.children ?? [])[0];
-			const link = el('a', 'landing-link', node.title);
-			link.href = '#';
-			if (target) {
-				link.dataset.uri = target.uri;
-				link.dataset.vscodeContext = docContext(target.uri);
-			}
-			item.append(link);
-			const count = node.type === 'folder' ? flattenFiles(node.children ?? []).length : 0;
-			const detail =
-				node.description ?? (node.type === 'folder' ? `${count} ${count === 1 ? 'page' : 'pages'}` : node.path);
-			item.append(el('span', 'landing-detail', detail));
-			list.append(item);
-		}
-		landing.append(list);
-		this.main.replaceChildren(landing);
-	}
-
-	private renderResults(query: string, results: SearchResult[]): void {
-		const section = el('section', 'results');
-		section.dataset.testid = 'search-results';
-		section.append(el('h1', 'page-title', `Results for “${query}”`));
-		section.append(
-			el(
-				'p',
-				'page-lede',
-				results.length === 0
-					? 'No pages match. Try fewer or different words.'
-					: `${results.length} ${results.length === 1 ? 'page matches' : 'pages match'}.`,
-			),
-		);
-
-		const list = el('ol', 'result-list');
-		for (const result of results) {
-			const item = el('li', 'result');
-			item.dataset.testid = 'search-result';
-			const link = el('a', 'result-title', result.title);
-			link.href = '#';
-			link.dataset.uri = result.uri;
-			link.dataset.vscodeContext = docContext(result.uri);
-			const path = el('p', 'result-path', result.path);
-			const snippet = el('p', 'result-snippet');
-			for (const run of splitByRanges(result.snippet, result.ranges)) {
-				snippet.append(run.mark ? el('mark', undefined, run.text) : document.createTextNode(run.text));
-			}
-			item.append(link, path, snippet);
-			list.append(item);
-		}
-		section.append(list);
-		this.main.replaceChildren(section);
-		this.main.scrollTop = 0;
-	}
-
-	private renderMessage(title: string, detail: string): void {
-		this.main.removeAttribute('aria-busy');
-		const section = el('section', 'notice');
-		section.dataset.testid = 'page-error';
-		section.append(el('h1', 'page-title', title), el('p', 'page-lede', detail));
-		this.main.replaceChildren(section);
-		this.clearToc();
-	}
-
-	private loadingNote(text: string): HTMLElement {
-		const note = el('p', 'loading', text);
-		note.setAttribute('role', 'status');
-		return note;
-	}
+/**
+ * Creates a back or forward button for the header.
+ *
+ * @param label The button's accessible name
+ * @param testid Its test id
+ * @param path The SVG path of its arrow
+ * @returns The button, disabled until there is history to move through
+ */
+function historyButton(label: string, testid: string, path: string): HTMLButtonElement {
+	const button = el('button', 'icon-button');
+	button.type = 'button';
+	button.setAttribute('aria-label', label);
+	button.title = `${label} (Alt+${label === 'Back' ? 'Left' : 'Right'})`;
+	button.dataset.testid = testid;
+	button.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${path}"/></svg>`;
+	button.disabled = true;
+	return button;
 }
 
 /**

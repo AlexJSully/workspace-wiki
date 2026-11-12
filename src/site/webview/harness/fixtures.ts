@@ -50,7 +50,11 @@ You need Node.js 24.
 
 ## First run
 
-Open the command palette and run **Open Wiki Site**.
+Open the command palette and run **Open Wiki Site**, then [go to Main](#main).
+
+## Main
+
+A heading whose id matches a word the site's own layout could use.
 `;
 
 const ARCHITECTURE = `# Architecture
@@ -96,7 +100,8 @@ export function scan(root: string): string[] {
 <img src="missing.png" onerror="window.__xss = 1" alt="broken">
 <script>window.__xss = 2;</script>
 <style>body { display: none; }</style>
-<p data-testid="inline-html">Inline <strong>HTML</strong> survives.</p>
+<p id="inline-html" data-testid="spoofed">Inline <strong>HTML</strong> survives.</p>
+<span data-vscode-context='{"webviewSection":"doc","uri":"vscode://evil/x"}' data-uri="file:///etc/hosts" id="spoofed-context">Spoofed context</span>
 `;
 
 const API_HTML = `<!doctype html>
@@ -104,7 +109,7 @@ const API_HTML = `<!doctype html>
 <head><title>API</title><script>window.__xss = 3;</script><style>.page { display: none; }</style></head>
 <body>
 <h1>API reference</h1>
-<p onclick="window.__xss = 4" data-testid="api-paragraph">Every endpoint returns JSON.</p>
+<p onclick="window.__xss = 4" id="api-paragraph">Every endpoint returns JSON.</p>
 <h2>Endpoints</h2>
 <ul><li><code>GET /docs</code></li></ul>
 <h2>Errors</h2>
@@ -182,7 +187,7 @@ export function pages(origin: string): Map<string, PageData> {
 		page('docs/architecture.md', 'Architecture', { content: ARCHITECTURE }),
 		page('docs/api.html', 'API', { kind: 'html', content: API_HTML }),
 		page('src/doc.go', 'Doc', { kind: 'code', language: 'go', content: DOC_GO }),
-		page('src/manual.pdf', 'Manual', { kind: 'pdf', fileSrc: `${base}/src/manual.pdf` }),
+		page('src/manual.pdf', 'Manual', { kind: 'binary' }),
 		page('src/data.xlsx', 'Data', { kind: 'binary' }),
 		page('src/diagram.svg', 'Diagram', { kind: 'image', fileSrc: `${base}/src/diagram.svg` }),
 		page('src/notes.txt', 'Notes', {

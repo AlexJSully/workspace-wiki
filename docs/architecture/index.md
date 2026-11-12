@@ -4,7 +4,7 @@ This section explains the overall architecture of the Workspace Wiki extension, 
 
 ## Runtime targets
 
-The extension runs in two extension hosts from one set of sources. [`esbuild.js`](../../esbuild.js) emits `dist/extension.js` for the Node host used by VS Code desktop, Cursor, and Antigravity, and `dist/web/extension.js` for the Web Worker host used by vscode.dev and github.dev. [`package.json`](../../package.json) points `main` at the first and `browser` at the second. Further bundles in `dist/webview/` (`site.js`, plus `pdf.js` and `mermaid.js` loaded on demand) run in the [Wiki Site](./wiki-site.md) webview, a browser page in either host.
+The extension runs in two extension hosts from one set of sources. [`esbuild.js`](../../esbuild.js) emits `dist/extension.js` for the Node host used by VS Code desktop, Cursor, and Antigravity, and `dist/web/extension.js` for the Web Worker host used by vscode.dev and github.dev. [`package.json`](../../package.json) points `main` at the first and `browser` at the second. Further bundles in `dist/webview/` (`site.js`, plus `mermaid.js` loaded on demand) run in the [Wiki Site](./wiki-site.md) webview, a browser page in either host.
 
 No module branches on its environment. Node built-ins do not resolve in a Web Worker, so every file read goes through `vscode.workspace.fs` and no source file imports `fs`, `path`, or references `Buffer`. Two guards hold that line. [`eslint.config.mjs`](../../eslint.config.mjs) restricts the `Buffer`, `process`, `__dirname`, and `__filename` globals outside test files, since tests legitimately use those and keep `node` in `types`, which leaves the compiler unable to flag them. It also restricts DOM-only globals such as `window`, `document`, and `HTMLElement` everywhere except the webview under `src/site/webview/`: [`tsconfig.json`](../../tsconfig.json) sets `lib` to `ES2022` and `DOM` for the webview, and the `DOM` and `WebWorker` libs cannot be combined, so the compiler alone would accept a DOM global in host code. A Node built-in import is caught by the web bundle instead, since [`esbuild.js`](../../esbuild.js) builds it with esbuild's `browser` platform, where `fs` and `path` do not resolve.
 
@@ -38,7 +38,10 @@ src/
 ├── site/
 │   ├── index.ts
 │   ├── protocol.ts           # Host and webview message types
-│   ├── sitePanel.ts          # Wiki Site tabs and their messages
+│   ├── messages.ts           # Validation of webview messages and right-click context
+│   ├── sitePanel.ts          # WikiSiteManager: tabs, tree, search, link checks
+│   ├── siteTab.ts            # One site tab: its page and its messages
+│   ├── commands.ts           # The site's right-click menu commands
 │   ├── pageContent.ts        # File classification and reading
 │   ├── search.ts             # Search index over document text
 │   ├── searchDocs.ts         # Search ranking and snippets

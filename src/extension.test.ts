@@ -2,7 +2,9 @@
  * Unit tests for extension.ts - Main extension functionality
  * Tests only what is exported from extension.ts (activate, deactivate)
  */
+import { WikiSiteManager } from '@site/sitePanel';
 import { activate, deactivate } from './extension';
+import { createMockUri } from './test/mocks';
 
 // Mock the imported modules (vscode is already mocked in setupTests.ts)
 // Only the four open handlers are replaced; the command id and default map stay real, so a test
@@ -13,19 +15,6 @@ jest.mock('./controllers/previewController', () => ({
 	openInEditor: jest.fn(),
 	openInPreview: jest.fn(),
 	openMarkdown: jest.fn(),
-}));
-
-// The site manager is replaced so these tests see which manager call each command and listener
-// makes; the manager itself is covered by src/site/sitePanel.test.ts.
-jest.mock('./site/sitePanel', () => ({
-	WikiSiteManager: jest.fn().mockImplementation(() => ({
-		open: jest.fn(),
-		refresh: jest.fn(),
-		handleSave: jest.fn(async () => undefined),
-		resolveContextUri: jest.fn(async (context: any) => (context?.uri ? { path: context.uri } : undefined)),
-		openExternal: jest.fn(async () => undefined),
-		dispose: jest.fn(),
-	})),
 }));
 
 jest.mock('./tree/treeProvider', () => ({
@@ -45,6 +34,7 @@ jest.mock('./utils/configUtils', () => ({
 
 describe('extension', () => {
 	const mockContext = {
+		extensionUri: createMockUri('/extension'),
 		subscriptions: [] as any[],
 	};
 
@@ -323,141 +313,83 @@ describe('extension', () => {
 	});
 
 	describe('Wiki Site', () => {
+		afterEach(() => {
+			jest.restoreAllMocks();
+		});
+
 		/**
-		 * Activates the extension and returns the site manager it created with the handler a command id
-		 * was registered with.
+		 * Activates the extension and returns the site manager it created, with spies on the manager calls
+		 * the commands and listeners make, and the handler a command id was registered with.
 		 */
 		function activateSite() {
 			const vscode = require('vscode');
-			const { WikiSiteManager } = require('./site/sitePanel');
+			const open = jest.spyOn(WikiSiteManager.prototype, 'open');
+			const refresh = jest.spyOn(WikiSiteManager.prototype, 'refresh');
+			const handleSave = jest.spyOn(WikiSiteManager.prototype, 'handleSave');
 
 			activate(mockContext as any);
 
-			const manager = WikiSiteManager.mock.results[0].value;
+			const managers = mockContext.subscriptions.filter((item) => item instanceof WikiSiteManager);
 			const handler = (id: string) =>
 				vscode.commands.registerCommand.mock.calls.find((call: any) => call[0] === id)[1];
-			return { vscode, manager, handler };
+			return { vscode, managers, open, refresh, handleSave, handler };
 		}
 
 		it('creates one site manager for the extension and disposes it with the context', () => {
-			const { WikiSiteManager } = require('./site/sitePanel');
+			const { managers } = activateSite();
 
-			activate(mockContext as any);
-
-			expect(WikiSiteManager).toHaveBeenCalledTimes(1);
-			expect(mockContext.subscriptions).toContain(WikiSiteManager.mock.results[0].value);
+			expect(managers).toHaveLength(1);
 		});
 
 		it('opens the site home page', () => {
-			const { manager, handler } = activateSite();
+			const { open, handler } = activateSite();
 
 			handler('workspace-wiki.openSite')();
 
-			expect(manager.open).toHaveBeenCalledWith();
+			expect(open).toHaveBeenCalledWith();
 		});
 
+		const PAGE = createMockUri('/workspace-root/docs/a.md');
+
 		it.each([
-			{ description: 'a sidebar tree item', argument: { treeNode: { uri: 'tree-uri' } }, expected: 'tree-uri' },
-			{
-				description: 'a URI',
-				argument: { scheme: 'file', path: '/a.md' },
-				expected: { scheme: 'file', path: '/a.md' },
-			},
+			{ description: 'a sidebar tree item', argument: { treeNode: { uri: PAGE } }, expected: PAGE },
+			{ description: 'a URI', argument: PAGE, expected: PAGE },
 			{ description: 'nothing', argument: undefined, expected: undefined },
+			{ description: 'something else', argument: { path: '/a.md' }, expected: undefined },
 		])('opens the site on the page named by $description', ({ argument, expected }) => {
-			const { manager, handler } = activateSite();
+			const { open, handler } = activateSite();
 
 			handler('workspace-wiki.openInSite')(argument);
 
-			expect(manager.open).toHaveBeenCalledWith(expected);
-		});
-
-		it('opens a right-clicked page in a new tab, and to the side', async () => {
-			const { vscode, manager, handler } = activateSite();
-
-			await handler('workspace-wiki.site.openInNewTab')({ webviewSection: 'doc', uri: '/workspace-root/a.md' });
-			await handler('workspace-wiki.site.openToSide')({ webviewSection: 'doc', uri: '/workspace-root/a.md' });
-
-			expect(manager.open).toHaveBeenNthCalledWith(1, { path: '/workspace-root/a.md' }, { newTab: true });
-			expect(manager.open).toHaveBeenNthCalledWith(
-				2,
-				{ path: '/workspace-root/a.md' },
-				{ newTab: true, viewColumn: vscode.ViewColumn.Beside },
-			);
-		});
-
-		it('opens a right-clicked page as its original file, in preview or the editor', async () => {
-			const { openInPreview, openInEditor } = require('./controllers/previewController');
-			const { handler } = activateSite();
-
-			await handler('workspace-wiki.site.openOriginal')({ webviewSection: 'doc', uri: '/workspace-root/a.md' });
-			await handler('workspace-wiki.site.editSource')({ webviewSection: 'doc', uri: '/workspace-root/a.md' });
-
-			expect(openInPreview).toHaveBeenCalledWith({ path: '/workspace-root/a.md' });
-			expect(openInEditor).toHaveBeenCalledWith({ path: '/workspace-root/a.md' });
-		});
-
-		it('does nothing for a page command whose context names no page', async () => {
-			const { openInPreview } = require('./controllers/previewController');
-			const { manager, handler } = activateSite();
-
-			await handler('workspace-wiki.site.openInNewTab')(undefined);
-			await handler('workspace-wiki.site.openOriginal')({
-				webviewSection: 'external',
-				href: 'https://example.com',
-			});
-
-			expect(manager.open).not.toHaveBeenCalled();
-			expect(openInPreview).not.toHaveBeenCalled();
-		});
-
-		it('opens a right-clicked external link in the default or integrated browser, and copies it', async () => {
-			const { vscode, manager, handler } = activateSite();
-			const context = { webviewSection: 'external', href: 'https://example.com/docs' };
-
-			await handler('workspace-wiki.site.openLinkExternal')(context);
-			await handler('workspace-wiki.site.openLinkIntegrated')(context);
-			await handler('workspace-wiki.site.copyLink')(context);
-
-			expect(manager.openExternal).toHaveBeenNthCalledWith(1, 'https://example.com/docs', false);
-			expect(manager.openExternal).toHaveBeenNthCalledWith(2, 'https://example.com/docs', true);
-			expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith('https://example.com/docs');
-		});
-
-		it('copies the relative path of a right-clicked page', async () => {
-			const { vscode, handler } = activateSite();
-
-			await handler('workspace-wiki.site.copyPath')({ webviewSection: 'doc', uri: '/workspace-root/docs/a.md' });
-
-			expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith('docs/a.md');
+			expect(open).toHaveBeenCalledWith(expected);
 		});
 
 		it('refreshes the site with the tree', () => {
-			const { manager, handler } = activateSite();
+			const { refresh, handler } = activateSite();
 
 			handler('workspace-wiki.refresh')();
 
-			expect(manager.refresh).toHaveBeenCalledTimes(1);
+			expect(refresh).toHaveBeenCalledTimes(1);
 		});
 
 		it('refreshes the site when a workspaceWiki setting changes, and not for other settings', () => {
-			const { vscode, manager } = activateSite();
+			const { vscode, refresh } = activateSite();
 			const onChange = vscode.workspace.onDidChangeConfiguration.mock.calls[0][0];
 
 			onChange({ affectsConfiguration: (section: string) => section === 'editor' });
-			expect(manager.refresh).not.toHaveBeenCalled();
+			expect(refresh).not.toHaveBeenCalled();
 
 			onChange({ affectsConfiguration: (section: string) => section === 'workspaceWiki' });
-			expect(manager.refresh).toHaveBeenCalledTimes(1);
+			expect(refresh).toHaveBeenCalledTimes(1);
 		});
 
 		it('passes saved documents to the site', () => {
-			const { vscode, manager } = activateSite();
+			const { vscode, handleSave } = activateSite();
 			const onSave = vscode.workspace.onDidSaveTextDocument.mock.calls[0][0];
 
-			onSave({ uri: 'saved-uri' });
+			onSave({ uri: PAGE });
 
-			expect(manager.handleSave).toHaveBeenCalledWith('saved-uri');
+			expect(handleSave).toHaveBeenCalledWith(PAGE);
 		});
 	});
 

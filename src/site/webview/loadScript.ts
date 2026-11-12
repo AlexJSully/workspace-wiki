@@ -4,8 +4,8 @@ const loading = new Map<string, Promise<void>>();
 /**
  * Adds a script to the page once and waits for it to run.
  *
- * Used for the large libraries the site needs only on some pages, Mermaid and pdf.js, which are
- * separate bundles so pages without a diagram or a PDF never fetch them.
+ * Used for the large libraries the site needs only on some pages, such as Mermaid, which are
+ * separate bundles so pages without a diagram never fetch them.
  *
  * @param src URL of the script
  * @param nonce The page's script nonce, which the Content Security Policy requires

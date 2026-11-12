@@ -1,6 +1,6 @@
 import type { TreeNode } from '@types';
 import { createMockUri } from '../test/mocks';
-import { SearchIndex, flattenFiles } from './search';
+import { SearchIndex } from './search';
 
 const node = (path: string, title: string): TreeNode => ({
 	type: 'file',
@@ -8,17 +8,6 @@ const node = (path: string, title: string): TreeNode => ({
 	title,
 	path,
 	uri: createMockUri(`/workspace-root/${path}`),
-});
-
-describe('flattenFiles', () => {
-	it('lists files depth first and skips folders', () => {
-		const tree: TreeNode[] = [
-			node('a.md', 'A'),
-			{ ...node('docs', 'Docs'), type: 'folder', children: [node('docs/b.md', 'B'), node('docs/c.md', 'C')] },
-		];
-
-		expect(flattenFiles(tree).map((file) => file.title)).toEqual(['A', 'B', 'C']);
-	});
 });
 
 describe('SearchIndex', () => {
@@ -79,7 +68,7 @@ describe('SearchIndex', () => {
 		expect(readFile).toHaveBeenCalledTimes(1);
 	});
 
-	it('re-reads every document after invalidation', async () => {
+	it('re-reads every document after the file list changes', async () => {
 		const files = { '/workspace-root/a.md': 'old' };
 		const readFile = createReader(files);
 		const index = new SearchIndex(readFile);
@@ -87,7 +76,7 @@ describe('SearchIndex', () => {
 		await index.search('old');
 
 		files['/workspace-root/a.md'] = 'new';
-		index.invalidate();
+		index.setFiles([node('a.md', 'A')]);
 
 		expect((await index.search('new')).map((result) => result.title)).toEqual(['A']);
 	});
@@ -96,28 +85,53 @@ describe('SearchIndex', () => {
 		const files = { '/workspace-root/a.md': 'old', '/workspace-root/b.md': 'beta' };
 		const readFile = createReader(files);
 		const index = new SearchIndex(readFile);
-		index.setFiles([node('a.md', 'A'), node('b.md', 'B')]);
+		const a = node('a.md', 'A');
+		index.setFiles([a, node('b.md', 'B')]);
 		await index.search('old');
 
-		files['/workspace-root/a.md'] = 'fresh';
-		await index.update(createMockUri('/workspace-root/a.md'));
+		files['/workspace-root/a.md'] = 'Fresh';
+		await index.update(a);
 
-		expect((await index.search('fresh')).map((result) => result.title)).toEqual(['A']);
+		const [result] = await index.search('FRESH');
+		expect(result).toMatchObject({ title: 'A', snippet: 'Fresh' });
+		expect(await index.search('old')).toEqual([]);
 		expect(readFile).toHaveBeenCalledTimes(3);
 	});
 
-	it('ignores a save before the index is built, and of a file outside the wiki', async () => {
+	it('ignores a save before the index is built', async () => {
 		const readFile = createReader({ '/workspace-root/a.md': 'alpha' });
 		const index = new SearchIndex(readFile);
-		index.setFiles([node('a.md', 'A')]);
+		const a = node('a.md', 'A');
+		index.setFiles([a]);
 
-		await index.update(createMockUri('/workspace-root/a.md'));
-		await index.update(createMockUri('/workspace-root/other.md'));
+		await index.update(a);
 
 		expect(readFile).not.toHaveBeenCalled();
 	});
 
-	it('discards a read that a refresh overtook', async () => {
+	it('keeps a save made while the index is being built', async () => {
+		let release: () => void = () => undefined;
+		const gate = new Promise<void>((resolve) => (release = resolve));
+		const files = { '/workspace-root/a.md': 'before' };
+		const readFile = jest.fn(async (uri: { path: string }) => {
+			await gate;
+			return new TextEncoder().encode(files[uri.path as keyof typeof files]);
+		});
+		const index = new SearchIndex(readFile);
+		const a = node('a.md', 'A');
+		index.setFiles([a]);
+
+		const building = index.search('before');
+		files['/workspace-root/a.md'] = 'after';
+		const saving = index.update(a);
+		release();
+		await Promise.all([building, saving]);
+
+		expect((await index.search('after')).map((result) => result.title)).toEqual(['A']);
+		expect(await index.search('before')).toEqual([]);
+	});
+
+	it('discards a build that a new file list overtook', async () => {
 		let release: () => void = () => undefined;
 		const gate = new Promise<void>((resolve) => (release = resolve));
 		const files = { '/workspace-root/a.md': 'stale' };
@@ -129,11 +143,28 @@ describe('SearchIndex', () => {
 		index.setFiles([node('a.md', 'A')]);
 
 		const first = index.search('stale');
-		index.invalidate();
+		index.setFiles([node('a.md', 'A')]);
 		files['/workspace-root/a.md'] = 'current';
 		release();
 		await first;
 
 		expect((await index.search('current')).map((result) => result.title)).toEqual(['A']);
+	});
+
+	it('returns results in tree order however the reads interleave', async () => {
+		const delays: Record<string, number> = { '/workspace-root/a.md': 3, '/workspace-root/b.md': 0 };
+		const readFile = jest.fn(async (uri: { path: string }) => {
+			for (let i = 0; i < delays[uri.path]; i++) {
+				await Promise.resolve();
+			}
+			return new TextEncoder().encode('shared term');
+		});
+		const index = new SearchIndex(readFile);
+		index.setFiles([node('a.md', 'Same'), node('b.md', 'Same')]);
+
+		expect((await index.search('term')).map((result) => result.uri)).toEqual([
+			'file:///workspace-root/a.md',
+			'file:///workspace-root/b.md',
+		]);
 	});
 });

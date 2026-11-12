@@ -18,6 +18,7 @@ jest.mock(
 				viewType,
 				title,
 				iconPath: undefined,
+				visible: true,
 				posted: [] as unknown[],
 				receive: (_message: unknown) => undefined,
 				webview: {

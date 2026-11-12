@@ -1,7 +1,7 @@
-import type { PageData, SiteContextData } from '@site/protocol';
+import type { PageData } from '@site/protocol';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/common';
-import { classifyHref, createSlugger, languageFor, rebaseResource, rebaseSrcset } from './helpers';
+import { classifyHref, contextJson, createSlugger, languageFor, rebaseResource, rebaseSrcset } from './helpers';
 
 /**
  * Tags removed from rendered documents on top of DOMPurify's defaults. A `<style>` would restyle the
@@ -61,8 +61,9 @@ markdown.renderer.rules.fence = (tokens, index) => {
 };
 
 /**
- * Sanitizes HTML into a fragment: no script, no event handlers, no `javascript:` URLs, and none of
- * {@link FORBIDDEN_TAGS}.
+ * Sanitizes HTML into a fragment: no script, no event handlers, no `javascript:` URLs, none of
+ * {@link FORBIDDEN_TAGS}, and no `data-*` attributes. The site's own click handling and right-click
+ * menus read `data-*` attributes it sets after sanitizing, so a document must not be able to supply them.
  *
  * @param html Untrusted HTML
  * @returns The safe fragment
@@ -71,6 +72,7 @@ export function sanitize(html: string): DocumentFragment {
 	return DOMPurify.sanitize(html, {
 		RETURN_DOM_FRAGMENT: true,
 		FORBID_TAGS: FORBIDDEN_TAGS,
+		ALLOW_DATA_ATTR: false,
 		ADD_ATTR: ['target'],
 	}) as DocumentFragment;
 }
@@ -140,15 +142,11 @@ function decorateLink(link: HTMLAnchorElement, fromUri: string): void {
 	link.dataset.linkKind = kind;
 	link.removeAttribute('target');
 
-	let context: (SiteContextData & { preventDefaultContextMenuItems: boolean }) | undefined;
 	if (kind === 'external') {
 		link.rel = 'noopener noreferrer';
 		link.title = link.title || href;
-		context = { webviewSection: 'external', href, preventDefaultContextMenuItems: true };
+		link.dataset.vscodeContext = contextJson({ webviewSection: 'external', href });
 	} else if (kind === 'internal') {
-		context = { webviewSection: 'doc', href, fromUri, preventDefaultContextMenuItems: true };
-	}
-	if (context) {
-		link.dataset.vscodeContext = JSON.stringify(context);
+		link.dataset.vscodeContext = contextJson({ webviewSection: 'doc', href, fromUri });
 	}
 }

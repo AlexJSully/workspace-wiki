@@ -44,6 +44,12 @@ export interface MockWorkspaceConfig {
 	acronymCasing?: string[];
 	/** Extension-to-command map deciding how a file opens. */
 	openWith?: Record<string, string>;
+	/** The Wiki Site theme. Typed loosely, since tests pass invalid values on purpose. */
+	'site.theme'?: unknown;
+	/** Workspace-relative stylesheets the Wiki Site loads. Typed loosely, like `site.theme`. */
+	'site.customCss'?: unknown;
+	/** Workspace-relative logo for the Wiki Site. */
+	'site.logo'?: string;
 }
 
 /** File-system and search behaviour a mock workspace should present. */

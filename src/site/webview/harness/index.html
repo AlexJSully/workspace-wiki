@@ -5,7 +5,7 @@
 		<!-- The same policy the extension sets, so a change that breaks under it fails here too. -->
 		<meta
 			http-equiv="Content-Security-Policy"
-			content="default-src 'none'; img-src 'self' https: data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; script-src 'self'"
+			content="default-src 'none'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'"
 		/>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="stylesheet" href="harness.css" />
@@ -13,7 +13,7 @@
 		<title>Workspace Wiki harness</title>
 	</head>
 	<body>
-		<div id="app" data-mermaid-src="mermaid.js" data-pdf-src="pdf.js"></div>
+		<div id="app" data-mermaid-src="mermaid.js"></div>
 		<script src="harness.js"></script>
 	</body>
 </html>

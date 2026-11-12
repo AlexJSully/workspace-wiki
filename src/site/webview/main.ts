@@ -11,7 +11,6 @@ if (root) {
 	const script = document.currentScript as HTMLScriptElement | null;
 	startApp(root, createVscodeBridge(acquireVsCodeApi()), {
 		mermaidSrc: root.dataset.mermaidSrc,
-		pdfSrc: root.dataset.pdfSrc,
 		nonce: script?.nonce || undefined,
 	});
 }

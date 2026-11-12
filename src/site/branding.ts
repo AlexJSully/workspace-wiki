@@ -1,5 +1,5 @@
 import type { WorkspaceLike } from '@types';
-import { getFileExtension, getFileName } from '@utils';
+import { getFileExtension, getFileName, removeExtension, resolveSettingPath } from '@utils';
 import * as vscode from 'vscode';
 
 /** Logo file names, best first. A name may carry a size or variant suffix (`favicon-32x32`, `logo@2x`). */
@@ -12,6 +12,8 @@ const HEADER_FORMATS = ['svg', 'png', 'ico', 'webp', 'jpg', 'jpeg', 'gif'];
  * `protocolMainService.ts`), so an `.ico` cannot be a tab icon.
  */
 const TAB_FORMATS = ['svg', 'png', 'webp', 'jpg', 'jpeg', 'gif'];
+/** Schemes on which the workbench can draw a workspace image as a tab icon. */
+const TAB_ICON_SCHEMES = new Set(['file', 'vscode-remote']);
 /** Folders whose icons belong to tooling or build output rather than to the project. */
 const LOGO_EXCLUDES = [
 	'**/node_modules/**',
@@ -31,8 +33,19 @@ const LOGO_NAME = new RegExp(`^(${LOGO_NAMES.join('|')})(?:[-_.@].*)?$`);
 export interface SiteBranding {
 	/** Shown beside the workspace name in the site header. */
 	logo?: vscode.Uri;
-	/** Shown on the site's editor tab; always in one of {@link TAB_FORMATS}. */
+	/** Shown on the site's editor tab; always an image {@link canBeTabIcon} accepts. */
 	tabIcon?: vscode.Uri;
+}
+
+/**
+ * Reports whether the workbench can draw an image as an editor tab's icon: one of
+ * {@link TAB_FORMATS}, on a scheme the workbench loads directly rather than through a webview.
+ *
+ * @param uri The image
+ * @returns `true` when it can be a tab icon
+ */
+export function canBeTabIcon(uri: vscode.Uri): boolean {
+	return TAB_ICON_SCHEMES.has(uri.scheme) && TAB_FORMATS.includes(getFileExtension(uri.path));
 }
 
 /**
@@ -58,7 +71,7 @@ export function rankLogoCandidates(
 			const relative = workspace.asRelativePath(uri, false);
 			const fileName = getFileName(uri.path).toLowerCase();
 			const extension = getFileExtension(fileName);
-			const baseName = fileName.slice(0, -(extension.length + 1));
+			const baseName = removeExtension(fileName);
 			const match = LOGO_NAME.exec(baseName);
 			const folders = relative.split('/').slice(0, -1);
 			return {
@@ -86,10 +99,13 @@ export function rankLogoCandidates(
  * Finds the images to brand the site with: a logo for the header and an icon for the tab.
  *
  * A configured path, relative to the first workspace folder, is the logo when that file can be read,
- * and also the tab icon when its format is one a tab can show. Otherwise the workspace is searched
+ * and also the tab icon when {@link canBeTabIcon} accepts it. Otherwise the workspace is searched
  * for favicons and logos, skipping dependency and build folders and anything `excludeGlobs`
  * excludes, and the best candidate in each set of formats is taken. The two can differ: a workspace
  * whose favicon is an `.ico` shows it in the header and a PNG favicon, if it has one, on the tab.
+ *
+ * Exact names (`favicon.svg`) and suffixed ones (`favicon-32x32.png`) are searched separately, so a
+ * folder of suffixed icons cannot fill the result limit before the project's own favicon is found.
  *
  * @param workspace The workspace API
  * @param configured The `workspaceWiki.site.logo` setting; empty to search
@@ -97,34 +113,35 @@ export function rankLogoCandidates(
  */
 export async function findSiteBranding(workspace: WorkspaceLike, configured: string): Promise<SiteBranding> {
 	const root = workspace.workspaceFolders?.[0]?.uri;
-	const relative = configured.trim().replace(/^\.?\//, '');
+	const configuredUri = root ? resolveSettingPath(root, configured) : undefined;
 
 	let configuredLogo: vscode.Uri | undefined;
-	if (root && relative) {
-		const uri = vscode.Uri.joinPath(root, relative);
+	if (configuredUri) {
 		try {
-			await workspace.fs.readFile(uri);
-			configuredLogo = uri;
+			await workspace.fs.readFile(configuredUri);
+			configuredLogo = configuredUri;
 		} catch {
 			// A configured logo that is missing falls back to the search rather than a broken image.
 		}
 	}
-
-	const configuredTabIcon =
-		configuredLogo && TAB_FORMATS.includes(getFileExtension(configuredLogo.path)) ? configuredLogo : undefined;
-	if (configuredLogo && configuredTabIcon) {
-		return { logo: configuredLogo, tabIcon: configuredTabIcon };
+	if (configuredLogo && canBeTabIcon(configuredLogo)) {
+		return { logo: configuredLogo, tabIcon: configuredLogo };
 	}
 
 	const excludeGlobs = workspace.getConfiguration?.('workspaceWiki').get('excludeGlobs');
-	const excludes = [...LOGO_EXCLUDES, ...(Array.isArray(excludeGlobs) ? excludeGlobs : [])].filter(
-		(glob): glob is string => typeof glob === 'string' && glob.length > 0,
-	);
-	const pattern = `**/{${LOGO_NAMES.join(',')}}*.{${HEADER_FORMATS.join(',')}}`;
-	const found = [...((await workspace.findFiles(pattern, `{${excludes.join(',')}}`, 200)) ?? [])];
+	const exclude = `{${[...LOGO_EXCLUDES, ...(Array.isArray(excludeGlobs) ? excludeGlobs : [])]
+		.filter((glob): glob is string => typeof glob === 'string' && glob.length > 0)
+		.join(',')}}`;
+	const names = LOGO_NAMES.join(',');
+	const formats = HEADER_FORMATS.join(',');
+	const [exact, suffixed] = await Promise.all([
+		workspace.findFiles(`**/{${names}}.{${formats}}`, exclude, 50),
+		workspace.findFiles(`**/{${names}}[-_.@]*.{${formats}}`, exclude, 200),
+	]);
+	const found = [...(exact ?? []), ...(suffixed ?? [])];
 
 	return {
 		logo: configuredLogo ?? rankLogoCandidates(found, workspace, HEADER_FORMATS)[0],
-		tabIcon: rankLogoCandidates(found, workspace, TAB_FORMATS)[0],
+		tabIcon: rankLogoCandidates(found, workspace, TAB_FORMATS).find(canBeTabIcon),
 	};
 }

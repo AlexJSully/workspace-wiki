@@ -63,7 +63,7 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
 
 ## Wiki Site Webview Tests (Cypress)
 
-The specs run against a standalone harness, not VS Code. [`src/site/webview/harness/harness.ts`](../../src/site/webview/harness/harness.ts) starts the real webview app with a fake host that answers its messages from [`fixtures.ts`](../../src/site/webview/harness/fixtures.ts) and uses the extension's own search ranking. `node esbuild.js --harness` builds it into `out/harness/`, and `--serve` serves that folder. The harness page sets the same Content Security Policy the extension does, so a change that would break under it fails here too.
+The specs run against a standalone harness, not VS Code. [`src/site/webview/harness/harness.ts`](../../src/site/webview/harness/harness.ts) starts the real webview app with a fake host that answers its messages from [`fixtures.ts`](../../src/site/webview/harness/fixtures.ts) and uses the extension's own search ranking. `node esbuild.js --harness` builds it into `out/harness/`, and `--serve` serves that folder. The harness page sets the extension's Content Security Policy directives, with the page's own origin in place of the webview's resource origin and scripts allowed from that origin rather than by nonce, so a change that would break under the policy fails here too.
 
 The harness reads URL parameters:
 
@@ -78,14 +78,14 @@ The harness reads URL parameters:
 
 Specs drive it through four commands: `cy.openSite(params)`, `cy.hostSends(message)` to play a host message, `cy.hostReceived(type)` to read what the webview posted (it retries with the assertions chained after it), and `cy.a11yCheck()` to run axe. `byTestId(id)` builds a `[data-testid]` selector.
 
-| Spec                                                               | Covers                                                                                  |
-| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| [`navigation.cy.ts`](../../cypress/e2e/navigation.cy.ts)           | Tree order, folders, breadcrumbs, history, landing page, narrow layouts                 |
-| [`rendering.cy.ts`](../../cypress/e2e/rendering.cy.ts)             | Markdown, outline, code, Mermaid, images, PDFs, HTML, binaries, sanitizing, live reload |
-| [`links.cy.ts`](../../cypress/e2e/links.cy.ts)                     | Left, middle, Ctrl and double clicks, anchors, open buttons, right-click menu context   |
-| [`search.cy.ts`](../../cypress/e2e/search.cy.ts)                   | Suggestions, results, highlighting, shortcuts                                           |
-| [`branding-themes.cy.ts`](../../cypress/e2e/branding-themes.cy.ts) | Logo, name, the four themes, high contrast, custom stylesheets                          |
-| [`accessibility.cy.ts`](../../cypress/e2e/accessibility.cy.ts)     | axe on pages in every theme, search results, and the landing page                       |
+| Spec                                                               | Covers                                                                                |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| [`navigation.cy.ts`](../../cypress/e2e/navigation.cy.ts)           | Tree order, folders, breadcrumbs, history, landing page, narrow layouts               |
+| [`rendering.cy.ts`](../../cypress/e2e/rendering.cy.ts)             | Markdown, outline, code, Mermaid, images, HTML, binaries, sanitizing, live reload     |
+| [`links.cy.ts`](../../cypress/e2e/links.cy.ts)                     | Left, middle, Ctrl and double clicks, anchors, open buttons, right-click menu context |
+| [`search.cy.ts`](../../cypress/e2e/search.cy.ts)                   | Suggestions, results, highlighting, shortcuts                                         |
+| [`branding-themes.cy.ts`](../../cypress/e2e/branding-themes.cy.ts) | Logo, name, the four themes, high contrast, custom stylesheets                        |
+| [`accessibility.cy.ts`](../../cypress/e2e/accessibility.cy.ts)     | axe on pages in every theme, search results, and the landing page                     |
 
 `cypress-axe` injects axe with `eval`, which the harness's policy forbids, so `cy.a11yCheck()` loads the `axe.min.js` the harness build copies beside the page instead.
 

@@ -2,7 +2,9 @@ import type { SiteNode } from '@site/protocol';
 import {
 	RouteHistory,
 	classifyHref,
+	contextJson,
 	createSlugger,
+	decodeSafely,
 	findAncestors,
 	findHomePage,
 	flattenFiles,
@@ -157,6 +159,15 @@ describe('rebaseSrcset', () => {
 describe('tree helpers', () => {
 	it('lists files depth first', () => {
 		expect(flattenFiles(tree).map((node) => node.title)).toEqual(['README', 'Setup', 'API Reference']);
+	});
+
+	it('lists the files of any tree shape, keeping the node type', () => {
+		const nodes = [
+			{ type: 'folder' as const, id: 1, children: [{ type: 'file' as const, id: 2 }] },
+			{ type: 'file' as const, id: 3 },
+		];
+
+		expect(flattenFiles(nodes).map((node) => node.id)).toEqual([2, 3]);
 	});
 
 	test.each([
@@ -315,5 +326,26 @@ describe('sameRoute', () => {
 		{ a: { kind: 'home' as const }, b: undefined, expected: false },
 	])('compares $a with $b', ({ a, b, expected }) => {
 		expect(sameRoute(a, b)).toBe(expected);
+	});
+});
+
+describe('decodeSafely', () => {
+	test.each([
+		{ value: 'getting%20started', expected: 'getting started' },
+		{ value: '50%-off', expected: '50%-off' },
+		{ value: '%E0%A4%A', expected: '%E0%A4%A' },
+		{ value: 'plain', expected: 'plain' },
+	])('decodes $value to $expected', ({ value, expected }) => {
+		expect(decodeSafely(value)).toBe(expected);
+	});
+});
+
+describe('contextJson', () => {
+	it('serializes the context and turns off the default menu items', () => {
+		expect(JSON.parse(contextJson({ webviewSection: 'doc', uri: 'file:///root/a.md' }))).toEqual({
+			webviewSection: 'doc',
+			uri: 'file:///root/a.md',
+			preventDefaultContextMenuItems: true,
+		});
 	});
 });

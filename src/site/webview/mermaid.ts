@@ -6,6 +6,14 @@ interface MermaidApi {
 	run(options: { nodes: HTMLElement[]; suppressErrors?: boolean }): Promise<void>;
 }
 
+declare global {
+	// eslint-disable-next-line no-unused-vars
+	interface Window {
+		/** Set by the Mermaid bundle once {@link loadMermaid} has added it to the page. */
+		mermaid?: MermaidApi;
+	}
+}
+
 /**
  * Loads the Mermaid bundle once, on the first page that has a diagram.
  *
@@ -15,15 +23,14 @@ interface MermaidApi {
  */
 async function loadMermaid(src: string, nonce: string | undefined): Promise<MermaidApi> {
 	await loadScript(src, nonce);
-	const api = (window as unknown as { mermaid?: MermaidApi }).mermaid;
-	if (!api) {
+	if (!window.mermaid) {
 		throw new Error('Mermaid did not load');
 	}
-	return api;
+	return window.mermaid;
 }
 
 /**
- * Draws every Mermaid block in a container.
+ * Draws every Mermaid block in a container, one at a time.
  *
  * Diagrams render with `securityLevel: 'strict'`, which keeps them from running script or loading
  * links. A block that fails keeps its source text and gains the error, rather than vanishing.
@@ -32,32 +39,48 @@ async function loadMermaid(src: string, nonce: string | undefined): Promise<Merm
  * @param src URL of the Mermaid bundle
  * @param nonce The page's script nonce
  * @param dark Whether to use Mermaid's dark palette
+ * @returns Stops drawing the remaining diagrams; the caller calls it when the page is replaced
  */
-export async function renderMermaid(
+export function renderMermaid(
 	container: HTMLElement,
 	src: string | undefined,
 	nonce: string | undefined,
 	dark: boolean,
-): Promise<void> {
+): () => void {
 	const blocks = [...container.querySelectorAll<HTMLElement>('pre.mermaid')];
+	let cancelled = false;
 	if (blocks.length === 0 || !src) {
-		return;
+		return () => undefined;
 	}
 
-	try {
-		const mermaid = await loadMermaid(src, nonce);
-		mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: dark ? 'dark' : 'default' });
-		for (const block of blocks) {
-			try {
-				await mermaid.run({ nodes: [block] });
-				block.classList.add('mermaid-rendered');
-			} catch (error) {
-				markFailed(block, error);
+	void (async () => {
+		try {
+			const mermaid = await loadMermaid(src, nonce);
+			if (cancelled) {
+				return;
+			}
+			mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: dark ? 'dark' : 'default' });
+			for (const block of blocks) {
+				if (cancelled) {
+					return;
+				}
+				try {
+					await mermaid.run({ nodes: [block] });
+					block.classList.add('mermaid-rendered');
+				} catch (error) {
+					markFailed(block, error);
+				}
+			}
+		} catch (error) {
+			if (!cancelled) {
+				blocks.forEach((block) => markFailed(block, error));
 			}
 		}
-	} catch (error) {
-		blocks.forEach((block) => markFailed(block, error));
-	}
+	})();
+
+	return () => {
+		cancelled = true;
+	};
 }
 
 /**

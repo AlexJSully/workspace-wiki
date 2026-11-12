@@ -8,6 +8,7 @@ import {
 	isIndexFile,
 	isReadmeFile,
 	normalizeTitle,
+	removeExtension,
 	stripFrontMatter,
 } from './textUtils';
 
@@ -519,6 +520,18 @@ title: "  Whitespace Title  "
 			{ input: 'Document.TXT', expected: 'txt', description: 'mixed case extension' },
 		])('should handle $description: $input', ({ input, expected }: { input: any; expected: string }) => {
 			expect(getFileExtension(input as any)).toBe(expected);
+		});
+	});
+
+	describe('removeExtension', () => {
+		test.each([
+			{ input: 'favicon.svg', expected: 'favicon' },
+			{ input: 'favicon-32x32.png', expected: 'favicon-32x32' },
+			{ input: 'file.backup.md', expected: 'file.backup' },
+			{ input: 'Makefile', expected: 'Makefile' },
+			{ input: '.env', expected: '.env' },
+		])('turns $input into $expected', ({ input, expected }) => {
+			expect(removeExtension(input)).toBe(expected);
 		});
 	});
 
