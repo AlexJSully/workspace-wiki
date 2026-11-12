@@ -4,7 +4,7 @@ The TreeDataProvider module powers the Workspace Wiki sidebar tree, converting f
 
 ## Implementation
 
-The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tree/treeProvider.ts) as the `WorkspaceWikiTreeProvider` class, along with the `buildTree()` helper function in [`src/tree/buildTree.ts`](../../src/tree/buildTree.ts). The TreeNode interface is defined in [`src/types/treeNode.ts`](../../src/types/treeNode.ts).
+The TreeDataProvider is implemented in [`src/tree/treeProvider.ts`](../../src/tree/treeProvider.ts) as the `WorkspaceWikiTreeProvider` class, along with the `buildTree()` helper function in [`src/tree/buildTree.ts`](../../src/tree/buildTree.ts). Its root rebuild calls `loadWikiTree()` in [`src/tree/loadWikiTree.ts`](../../src/tree/loadWikiTree.ts), which scans and builds with the `directorySort` and `acronymCasing` settings; the [Wiki Site](./wiki-site.md) calls the same function, so both show one tree. The TreeNode interface is defined in [`src/types/treeNode.ts`](../../src/types/treeNode.ts).
 
 ## Responsibilities
 

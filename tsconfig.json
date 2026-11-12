@@ -4,7 +4,8 @@
 		"target": "ES2022",
 		"lib": [
 			"ES2022",
-			"WebWorker"
+			"DOM",
+			"DOM.Iterable"
 		],
 		"jsx": "react-jsx",
 		"esModuleInterop": true,
@@ -17,6 +18,8 @@
 			"@/*": ["./src/*"],
 			"@types": ["./src/types"],
 			"@scanner": ["./src/scanner"],
+			"@site": ["./src/site"],
+			"@site/*": ["./src/site/*"],
 			"@scanner/*": ["./src/scanner/*"],
 			"@controllers": ["./src/controllers"],
 			"@controllers/*": ["./src/controllers/*"],
@@ -31,6 +34,8 @@
 	"exclude": [
 		"**/*.spec.ts",
 		"bin/**/*",
+		"cypress/**/*",
+		"cypress.config.ts",
 		"node_modules/**/*",
 		"out/**/*",
 		"src/test/**/*",

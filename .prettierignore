@@ -12,6 +12,9 @@ bin/
 
 # Coverage and testing
 /coverage
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
 
 # Cache directories
 .cache

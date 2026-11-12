@@ -109,6 +109,32 @@ describe('previewController', () => {
 			);
 		});
 
+		// VS Code 1.146 publishes its selector as one brace pattern rather than `*.md`. Copied from the
+		// `markdown-language-features` manifest it ships.
+		test.each([
+			{ file: '/test/guide.md', expected: 'vscode.openWith' },
+			{ file: '/test/guide.markdown', expected: 'vscode.openWith' },
+			{ file: '/test/guide.mdx', expected: 'markdown.showPreview' },
+		])('should read a brace selector as VS Code does, for $file', ({ file, expected }) => {
+			const mockUri = createMockUri(file);
+			setMockExtensions([
+				createMockMarkdownExtension({
+					selectorPatterns: [
+						'*.{md,mkd,mkdn,mdwn,mdown,markdown,markdn,mdtxt,mdtext,litcoffee,ron,ronn,workbook}',
+						'*.txt',
+					],
+				}),
+			]);
+
+			openMarkdown(mockUri);
+
+			expect(mockVscode.commands.executeCommand).toHaveBeenCalledWith(
+				expected,
+				mockUri,
+				...(expected === 'vscode.openWith' ? ['vscode.markdown.editor'] : []),
+			);
+		});
+
 		it('should fall back to the preview when VS Code predates the Markdown Editor', () => {
 			const mockUri = createMockUri('/test/file.md');
 			setMockExtensions([createMockMarkdownExtension({ markdownEditor: false })]);

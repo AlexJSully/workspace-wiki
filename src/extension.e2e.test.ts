@@ -393,3 +393,77 @@ describe('User Workflow Integration E2E', () => {
 		assert.ok(depths.size > 1, 'Expected fixtures at more than one nesting level');
 	});
 });
+
+describe('Wiki Site E2E', () => {
+	/**
+	 * Lists the open tabs showing the Wiki Site.
+	 *
+	 * @returns The site tabs across every editor group
+	 */
+	function siteTabs(): vscode.Tab[] {
+		return vscode.window.tabGroups.all
+			.flatMap((group) => group.tabs)
+			.filter(
+				(tab) =>
+					tab.input instanceof vscode.TabInputWebview && tab.input.viewType.endsWith('workspaceWiki.site'),
+			);
+	}
+
+	afterEach(async () => {
+		await vscode.window.tabGroups.close(siteTabs());
+	});
+
+	it('registers the site commands', async () => {
+		const commands = await vscode.commands.getCommands(true);
+
+		for (const command of [
+			'workspace-wiki.openSite',
+			'workspace-wiki.openInSite',
+			'workspace-wiki.site.openInNewTab',
+			'workspace-wiki.site.openToSide',
+			'workspace-wiki.site.openOriginal',
+			'workspace-wiki.site.editSource',
+			'workspace-wiki.site.copyPath',
+			'workspace-wiki.site.openLinkExternal',
+			'workspace-wiki.site.openLinkIntegrated',
+			'workspace-wiki.site.copyLink',
+		]) {
+			assert.ok(commands.includes(command), `Command ${command} should be registered`);
+		}
+	});
+
+	it('opens the Wiki Site in one tab, revealing it on a second call', async () => {
+		await vscode.commands.executeCommand('workspace-wiki.openSite');
+		await waitFor(siteTabs, (tabs) => tabs.length === 1);
+
+		await vscode.commands.executeCommand('workspace-wiki.openSite');
+
+		assert.strictEqual(siteTabs().length, 1, 'A second open should reveal the existing tab');
+	});
+
+	it('opens a page in the Wiki Site from a URI, and in a new tab from the context menu', async () => {
+		const [readme] = await vscode.workspace.findFiles('README.md', null, 1);
+		assert.ok(readme, 'Expected the example README');
+
+		await vscode.commands.executeCommand('workspace-wiki.openInSite', readme);
+		await waitFor(siteTabs, (tabs) => tabs.length === 1);
+
+		await vscode.commands.executeCommand('workspace-wiki.site.openInNewTab', {
+			webviewSection: 'doc',
+			uri: readme.toString(),
+		});
+		await waitFor(siteTabs, (tabs) => tabs.length === 2);
+	});
+
+	it('copies the relative path of a page from the context menu', async () => {
+		const [readme] = await vscode.workspace.findFiles('README.md', null, 1);
+		assert.ok(readme, 'Expected the example README');
+
+		await vscode.commands.executeCommand('workspace-wiki.site.copyPath', {
+			webviewSection: 'doc',
+			uri: readme.toString(),
+		});
+
+		assert.strictEqual(await vscode.env.clipboard.readText(), 'README.md');
+	});
+});

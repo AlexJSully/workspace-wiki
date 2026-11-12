@@ -90,6 +90,15 @@ normalizeTitle('htmlCssGuide.md', acronyms); // → 'HTML CSS Guide'
 
 [`getFileExtension`](../../src/utils/textUtils.ts) reads the extension from the final path segment only, so a dotted directory name such as `/docs.v2/README` does not yield a spurious extension. [`previewController.ts`](../../src/controllers/previewController.ts) passes it `uri.path` to choose the command for a file, `extractFrontMatter` uses it to restrict parsing to Markdown and MDX, and `normalizeTitle` uses it to decide what to strip.
 
+## Glob Matching
+
+[`matchesGlobPattern`](../../src/utils/fileUtils.ts) converts each pattern to a regular expression: `**` matches across folders, `*` within one, and `?` one character. `{a,b}` alternations are first expanded by [`expandBraces`](../../src/utils/fileUtils.ts) into one pattern per alternative, nested groups included, because VS Code writes selectors that way: from VS Code 1.146 the built-in Markdown Editor claims `*.{md,mkd,…,markdown,…}`, which the [Markdown open chain](./preview-controller.md#markdown-open-chain) matches against.
+
+```typescript
+expandBraces('*.{md,txt}'); // → ['*.md', '*.txt']
+matchesGlobPattern('guide.markdown', ['*.{md,markdown}']); // → true
+```
+
 ## Include Pattern Normalization
 
 [`toSearchGlob`](../../src/utils/fileUtils.ts) prefixes a pattern with `**/` when it names a file rather than a path, because `findFiles` anchors a slashless pattern to the start of the path. Without it, `doc.go` in `includeGlobs` would match only at the workspace root. The [scanner](./scanner.md) is its only caller: an include pattern is matched once, by `findFiles`, and everything downstream works from the URIs that returns.

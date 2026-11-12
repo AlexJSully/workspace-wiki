@@ -46,10 +46,12 @@ than baked into a setting:
 
 1. **Markdown Editor** (`vscode.openWith` with viewType `vscode.markdown.editor`) when some
    extension contributes that custom editor and one of its selector patterns matches the file name.
-   VS Code contributes it from 1.131 onward, with a `*.md` selector.
+   VS Code contributes it from 1.131 onward, with a `*.md` selector; VS Code 1.146 widens it to the
+   brace pattern `*.{md,mkd,mkdn,mdwn,mdown,markdown,markdn,mdtxt,mdtext,litcoffee,ron,ronn,workbook}`
+   plus `*.txt`, which [`matchesGlobPattern`](../../src/utils/fileUtils.ts) expands.
 2. **Markdown Preview** (`markdown.showPreview`) when the Markdown Editor does not claim the file, or
-   is not present at all. This covers `.mdx`, `.markdown`, an extensionless `README`, and every
-   VS Code before 1.131.
+   is not present at all. This covers `.mdx`, an extensionless `README`, `.markdown` before
+   VS Code 1.146, and every VS Code before 1.131.
 3. **A plain open** (`vscode.open`), which resolves whatever the user set in
    `workbench.editorAssociations`, when neither of the above is available.
 

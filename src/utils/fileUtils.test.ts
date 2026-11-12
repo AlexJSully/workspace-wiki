@@ -1,5 +1,6 @@
 import { createMockUri } from '../test/mocks';
 import {
+	expandBraces,
 	getDirectoryName,
 	getFileName,
 	getPathDepth,
@@ -7,6 +8,7 @@ import {
 	isHiddenPath,
 	matchesGlobPattern,
 	normalizePath,
+	resolveSettingPath,
 	toSearchGlob,
 } from './fileUtils';
 
@@ -26,6 +28,7 @@ jest.mock(
 		},
 		Uri: {
 			file: jest.fn(),
+			joinPath: jest.fn((...args: any[]) => require('vscode-uri').Utils.joinPath(...args)),
 		},
 	}),
 	{ virtual: true },
@@ -139,6 +142,20 @@ describe('fileUtils', () => {
 		});
 	});
 
+	describe('expandBraces', () => {
+		test.each([
+			{ pattern: '*.md', expected: ['*.md'] },
+			{ pattern: '*.{md,txt}', expected: ['*.md', '*.txt'] },
+			{ pattern: '{a,b}/{c,d}', expected: ['a/c', 'a/d', 'b/c', 'b/d'] },
+			{ pattern: 'x{a,{b,c}}', expected: ['xa', 'xb', 'xc'] },
+			{ pattern: '*.{md}', expected: ['*.md'] },
+			{ pattern: 'a{,b}', expected: ['a', 'ab'] },
+			{ pattern: 'a{b,c', expected: ['a{b,c'] },
+		])('expands $pattern', ({ pattern, expected }) => {
+			expect(expandBraces(pattern)).toEqual(expected);
+		});
+	});
+
 	describe('matchesGlobPattern', () => {
 		it('should match simple glob patterns', () => {
 			expect(matchesGlobPattern('/docs/file.md', ['**/*.md'])).toBe(true);
@@ -166,6 +183,29 @@ describe('fileUtils', () => {
 			expect(matchesGlobPattern('/SRC/INDEX.JS', ['**/*.js'])).toBe(true);
 		});
 
+		test.each([
+			{ path: 'guide.md', pattern: '*.{md,markdown}', expected: true },
+			{ path: 'guide.markdown', pattern: '*.{md,markdown}', expected: true },
+			{ path: 'guide.mdx', pattern: '*.{md,markdown}', expected: false },
+			{ path: '/repo/vendor/a.js', pattern: '{**/vendor/**,**/dist/**}', expected: true },
+			{ path: '/repo/src/a.js', pattern: '{**/vendor/**,**/dist/**}', expected: false },
+			{ path: '/repo/docs/a.md', pattern: '**/{docs,guides}/*.md', expected: true },
+		])('should match brace alternatives: $path against $pattern', ({ path, pattern, expected }) => {
+			expect(matchesGlobPattern(path, [pattern])).toBe(expected);
+		});
+
+		it('gives the same answers after more patterns than it caches', () => {
+			const patterns = Array.from({ length: 600 }, (_, i) => `**/dir${i}/*.md`);
+
+			for (const pattern of patterns) {
+				matchesGlobPattern('/x/a.md', [pattern]);
+			}
+
+			expect(matchesGlobPattern('/repo/dir0/a.md', [patterns[0]])).toBe(true);
+			expect(matchesGlobPattern('/repo/dir599/a.md', [patterns[599]])).toBe(true);
+			expect(matchesGlobPattern('/repo/dir1/a.md', [patterns[0]])).toBe(false);
+		});
+
 		it('should handle invalid patterns gracefully', () => {
 			expect(matchesGlobPattern('/docs/file.md', ['[invalid'])).toBe(false);
 		});
@@ -174,6 +214,31 @@ describe('fileUtils', () => {
 			expect(matchesGlobPattern('', ['**/*.md'])).toBe(false);
 			expect(matchesGlobPattern('/file.md', null as any)).toBe(false);
 			expect(matchesGlobPattern('/file.md', [])).toBe(false);
+		});
+	});
+
+	describe('resolveSettingPath', () => {
+		const root = createMockUri('/workspace-root');
+
+		test.each([
+			{ value: 'brand/logo.svg', expected: '/workspace-root/brand/logo.svg' },
+			{ value: './brand/logo.svg', expected: '/workspace-root/brand/logo.svg' },
+			{ value: '/brand/logo.svg', expected: '/workspace-root/brand/logo.svg' },
+			{ value: '  styles/wiki.css  ', expected: '/workspace-root/styles/wiki.css' },
+			{ value: 'a/../b.css', expected: '/workspace-root/b.css' },
+			{ value: '', expected: undefined },
+			{ value: '   ', expected: undefined },
+			{ value: '../outside.css', expected: undefined },
+			{ value: 'a/../../outside.css', expected: undefined },
+			{ value: '/../../etc/x.css', expected: undefined },
+		])('resolves "$value" to $expected', ({ value, expected }) => {
+			expect(resolveSettingPath(root, value)?.path).toBe(expected);
+		});
+
+		it('keeps the scheme and authority of a virtual workspace', () => {
+			const vfsRoot = createMockUri('vscode-vfs://github/owner/repo');
+
+			expect(resolveSettingPath(vfsRoot, 'logo.svg')?.toString()).toBe('vscode-vfs://github/owner/repo/logo.svg');
 		});
 	});
 

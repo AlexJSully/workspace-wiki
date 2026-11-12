@@ -8,6 +8,8 @@ import {
 	isIndexFile,
 	isReadmeFile,
 	normalizeTitle,
+	removeExtension,
+	stripFrontMatter,
 } from './textUtils';
 
 describe('textUtils', () => {
@@ -208,6 +210,23 @@ import { Note } from './Note';
 
 			consoleErrorSpy.mockRestore();
 			fs.unlinkSync(testFile);
+		});
+	});
+
+	describe('stripFrontMatter', () => {
+		test.each([
+			{ description: 'a front matter block', input: '---\ntitle: A\n---\n# Body\n', expected: '# Body\n' },
+			{ description: 'CRLF line endings', input: '---\r\ntitle: A\r\n---\r\nBody', expected: 'Body' },
+			{ description: 'a byte order mark', input: '\uFEFF---\ntitle: A\n---\nBody', expected: 'Body' },
+			{ description: 'a block closing the file', input: '---\ntitle: A\n---', expected: '' },
+			{ description: 'no front matter', input: '# Body\n---\nmore', expected: '# Body\n---\nmore' },
+			{
+				description: 'a delimiter not on the first line',
+				input: '\n---\ntitle: A\n---\n',
+				expected: '\n---\ntitle: A\n---\n',
+			},
+		])('handles $description', ({ input, expected }) => {
+			expect(stripFrontMatter(input)).toBe(expected);
 		});
 	});
 
@@ -501,6 +520,18 @@ title: "  Whitespace Title  "
 			{ input: 'Document.TXT', expected: 'txt', description: 'mixed case extension' },
 		])('should handle $description: $input', ({ input, expected }: { input: any; expected: string }) => {
 			expect(getFileExtension(input as any)).toBe(expected);
+		});
+	});
+
+	describe('removeExtension', () => {
+		test.each([
+			{ input: 'favicon.svg', expected: 'favicon' },
+			{ input: 'favicon-32x32.png', expected: 'favicon-32x32' },
+			{ input: 'file.backup.md', expected: 'file.backup' },
+			{ input: 'Makefile', expected: 'Makefile' },
+			{ input: '.env', expected: '.env' },
+		])('turns $input into $expected', ({ input, expected }) => {
+			expect(removeExtension(input)).toBe(expected);
 		});
 	});
 

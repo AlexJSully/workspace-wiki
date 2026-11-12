@@ -12,6 +12,8 @@ on:
       - "**/*.ts"
       - "**/*.tsx"
       - ".github/workflows/code-qa-js.yaml"
+      - "cypress/**"
+      - "cypress.config.ts"
       - "esbuild.js"
       - "jest.config.js"
       - "package*.json"
@@ -28,6 +30,8 @@ on:
       - "**/*.ts"
       - "**/*.tsx"
       - ".github/workflows/code-qa-js.yaml"
+      - "cypress/**"
+      - "cypress.config.ts"
       - "esbuild.js"
       - "jest.config.js"
       - "package*.json"
@@ -55,8 +59,20 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
 
+      # The Cypress binary lives outside node_modules, so it is cached on its own.
+      - name: Cache Cypress binary
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install dependencies
         run: npm ci
+
+      # npm may hold back install scripts until they are approved, and Cypress downloads its binary
+      # in one; this installs it either way, and is a no-op when the cache already holds it.
+      - name: Install Cypress binary
+        run: npx cypress install
 
       # Builds the desktop and web bundles
       - name: Build extension
@@ -82,3 +98,16 @@ jobs:
 
       - name: Run web extension tests
         run: npm run test:web
+
+      # Drives the Wiki Site webview in a standalone harness page with a fake extension host, since
+      # Cypress cannot drive VS Code itself.
+      - name: Run Wiki Site webview tests
+        run: xvfb-run -a npm run test:cypress
+
+      - name: Upload Cypress screenshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+          if-no-files-found: ignore

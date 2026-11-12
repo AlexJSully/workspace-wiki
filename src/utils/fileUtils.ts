@@ -82,10 +82,111 @@ export function getFileName(path: string): string {
 }
 
 /**
+ * Expands the `{a,b}` alternations of a glob into one pattern per alternative, as VS Code's own glob
+ * matcher reads them. Nested groups expand fully; a brace with no closing partner is left as written.
+ *
+ * @param pattern The glob
+ * @returns Every pattern the alternations spell out, or the pattern alone when it has none
+ */
+export function expandBraces(pattern: string): string[] {
+	const open = pattern.indexOf('{');
+	if (open === -1) {
+		return [pattern];
+	}
+
+	// Find the matching close brace and the top-level commas between them.
+	let depth = 0;
+	const commas: number[] = [];
+	let close = -1;
+	for (let i = open; i < pattern.length; i++) {
+		const char = pattern[i];
+		if (char === '{') {
+			depth++;
+		} else if (char === '}') {
+			depth--;
+			if (depth === 0) {
+				close = i;
+				break;
+			}
+		} else if (char === ',' && depth === 1) {
+			commas.push(i);
+		}
+	}
+	if (close === -1) {
+		return [pattern];
+	}
+
+	const head = pattern.slice(0, open);
+	const tail = pattern.slice(close + 1);
+	const bounds = [open, ...commas, close];
+	const alternatives = bounds.slice(0, -1).map((start, index) => pattern.slice(start + 1, bounds[index + 1]));
+
+	return alternatives.flatMap((alternative) => expandBraces(`${head}${alternative}${tail}`));
+}
+
+/** Compiled matchers by pattern, so a pattern applied to every file of a scan is converted once. */
+const compiledGlobs = new Map<string, ((path: string) => boolean)[]>();
+/** Patterns cached at most; the cache restarts past this, since settings rarely hold more. */
+const MAX_COMPILED_GLOBS = 500;
+
+/**
+ * Converts one glob, after brace expansion, to a matcher over a lowercased, forward-slash path.
+ *
+ * @param pattern A glob with no `{a,b}` alternations
+ * @returns The matcher; a pattern that does not form a valid expression matches by substring
+ */
+function compileGlob(pattern: string): (path: string) => boolean {
+	try {
+		let regexPattern = pattern.toLowerCase();
+
+		// Escape special regex characters except glob ones
+		regexPattern = regexPattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+
+		// Handle glob patterns
+		regexPattern = regexPattern
+			.replace(/\*\*/g, '___DOUBLESTAR___') // Placeholder for **
+			.replace(/\*/g, '[^/]*') // * matches any characters except /
+			.replace(/___DOUBLESTAR___/g, '.*') // ** matches any characters including /
+			.replace(/\?/g, '[^/]'); // ? matches any single character except /
+
+		// Handle anchoring based on pattern
+		if (pattern.startsWith('**/')) {
+			// **/ at start means match anywhere
+			regexPattern = regexPattern;
+		} else if (pattern.startsWith('/')) {
+			// / at start means match from root
+			regexPattern = '^' + regexPattern.substring(1);
+		} else if (pattern.includes('/')) {
+			// Contains slash but doesn't start with ** or /, match from any directory boundary
+			regexPattern = '(^|/)' + regexPattern;
+		} else {
+			// No slash, match filename only (no directories allowed)
+			regexPattern = '^' + regexPattern;
+		}
+
+		// Ensure proper ending
+		if (pattern.endsWith('/**')) {
+			// Ends with /**, already handled by .* conversion
+		} else {
+			regexPattern = regexPattern + '$';
+		}
+
+		const regex = new RegExp(regexPattern);
+		return (path) => regex.test(path);
+	} catch {
+		// If regex is invalid, do simple string matching
+		const needle = pattern.toLowerCase();
+		return (path) => path.includes(needle);
+	}
+}
+
+/**
  * Checks if a file path matches any of the given glob patterns
  *
- * Patterns are converted to regular expressions (`**` matches any depth, `*` matches within a segment,
- * `?` matches a single non-slash character); an invalid pattern falls back to a substring match.
+ * Patterns are converted to regular expressions: `**` matches across path segments, though a leading
+ * `**\/` needs at least one `/` before the rest, so it never matches a bare file name; `*` matches
+ * within a segment, `?` matches a single non-slash character, and `{a,b}` matches either alternative.
+ * An invalid pattern falls back to a substring match. Each pattern is converted once and reused.
  *
  * @param filePath The file path to test
  * @param patterns The glob patterns to match against
@@ -99,48 +200,39 @@ export function matchesGlobPattern(filePath: string, patterns: string[]): boolea
 	const normalizedPath = normalizePath(filePath).toLowerCase();
 
 	return patterns.some((pattern) => {
-		try {
-			let regexPattern = pattern.toLowerCase();
-
-			// Escape special regex characters except glob ones
-			regexPattern = regexPattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-
-			// Handle glob patterns
-			regexPattern = regexPattern
-				.replace(/\*\*/g, '___DOUBLESTAR___') // Placeholder for **
-				.replace(/\*/g, '[^/]*') // * matches any characters except /
-				.replace(/___DOUBLESTAR___/g, '.*') // ** matches any characters including /
-				.replace(/\?/g, '[^/]'); // ? matches any single character except /
-
-			// Handle anchoring based on pattern
-			if (pattern.startsWith('**/')) {
-				// **/ at start means match anywhere
-				regexPattern = regexPattern;
-			} else if (pattern.startsWith('/')) {
-				// / at start means match from root
-				regexPattern = '^' + regexPattern.substring(1);
-			} else if (pattern.includes('/')) {
-				// Contains slash but doesn't start with ** or /, match from any directory boundary
-				regexPattern = '(^|/)' + regexPattern;
-			} else {
-				// No slash, match filename only (no directories allowed)
-				regexPattern = '^' + regexPattern;
-			}
-
-			// Ensure proper ending
-			if (pattern.endsWith('/**')) {
-				// Ends with /**, already handled by .* conversion
-			} else {
-				regexPattern = regexPattern + '$';
-			}
-
-			const regex = new RegExp(regexPattern);
-			return regex.test(normalizedPath);
-		} catch {
-			// If regex is invalid, do simple string matching
-			return normalizedPath.includes(pattern.toLowerCase());
+		if (typeof pattern !== 'string') {
+			return false;
 		}
+		let matchers = compiledGlobs.get(pattern);
+		if (!matchers) {
+			if (compiledGlobs.size >= MAX_COMPILED_GLOBS) {
+				compiledGlobs.clear();
+			}
+			matchers = expandBraces(pattern).map(compileGlob);
+			compiledGlobs.set(pattern, matchers);
+		}
+		return matchers.some((matches) => matches(normalizedPath));
 	});
+}
+
+/**
+ * Resolves a path a setting gives relative to a workspace folder, such as `workspaceWiki.site.logo`.
+ *
+ * A leading `./` or `/` is ignored, and `.` and `..` segments are resolved before the result is
+ * checked, so a value cannot name a file outside the folder.
+ *
+ * @param root The workspace folder the path is relative to
+ * @param value The setting's value
+ * @returns The file's URI, or undefined for a blank value or one that leaves the folder
+ */
+export function resolveSettingPath(root: vscode.Uri, value: string): vscode.Uri | undefined {
+	const relative = value.trim().replace(/^\.?\//, '');
+	if (!relative) {
+		return undefined;
+	}
+	const uri = vscode.Uri.joinPath(root, relative);
+	const base = root.path.replace(/\/$/, '');
+	return uri.path === base || uri.path.startsWith(`${base}/`) ? uri : undefined;
 }
 
 /**

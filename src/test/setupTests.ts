@@ -8,9 +8,52 @@ jest.mock(
 		const nodeFs = require('fs');
 		const { URI, Utils } = require('vscode-uri');
 
+		/**
+		 * A webview panel as `createWebviewPanel` returns it. Records what the host posts and exposes
+		 * `receive`, which plays a message from the webview into the handler the host registered.
+		 */
+		const createMockWebviewPanel = (viewType: string, title: string) => {
+			const disposeListeners: (() => void)[] = [];
+			const panel: any = {
+				viewType,
+				title,
+				iconPath: undefined,
+				visible: true,
+				posted: [] as unknown[],
+				receive: (_message: unknown) => undefined,
+				webview: {
+					html: '',
+					cspSource: 'vscode-webview://test',
+					asWebviewUri: jest.fn((uri: any) =>
+						URI.from({
+							scheme: 'https',
+							authority: 'file+.vscode-resource.vscode-cdn.net',
+							path: uri.path,
+						}),
+					),
+					postMessage: jest.fn(async (message: unknown) => {
+						panel.posted.push(message);
+						return true;
+					}),
+					onDidReceiveMessage: jest.fn((listener: (message: unknown) => unknown) => {
+						panel.receive = listener;
+						return { dispose: jest.fn() };
+					}),
+				},
+				reveal: jest.fn(),
+				onDidDispose: jest.fn((listener: () => void) => {
+					disposeListeners.push(listener);
+					return { dispose: jest.fn() };
+				}),
+				dispose: jest.fn(() => disposeListeners.forEach((listener) => listener())),
+			};
+			return panel;
+		};
+
 		return {
 			commands: {
 				executeCommand: jest.fn(),
+				getCommands: jest.fn(async () => [] as string[]),
 				registerCommand: jest.fn().mockReturnValue({ dispose: jest.fn() }),
 			},
 			workspace: {
@@ -43,7 +86,14 @@ jest.mock(
 				}),
 				getWorkspaceFolder: jest.fn(() => undefined),
 				onDidChangeConfiguration: jest.fn().mockReturnValue({ dispose: jest.fn() }),
+				onDidSaveTextDocument: jest.fn().mockReturnValue({ dispose: jest.fn() }),
+				name: 'workspace-root',
 			},
+			env: {
+				openExternal: jest.fn(async () => true),
+				clipboard: { writeText: jest.fn(async () => undefined) },
+			},
+			ViewColumn: { Active: -1, Beside: -2, One: 1, Two: 2 },
 			// Starts empty so a test that reads a contribution has to install the extension it expects,
 			// rather than inheriting one and passing for the wrong reason. `setMockExtensions` sets it.
 			extensions: {
@@ -51,6 +101,7 @@ jest.mock(
 			},
 			window: {
 				registerTreeDataProvider: jest.fn(),
+				createWebviewPanel: jest.fn(createMockWebviewPanel),
 				createTreeView: jest.fn().mockReturnValue({
 					visible: true,
 					reveal: jest.fn(),

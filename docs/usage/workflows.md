@@ -23,6 +23,7 @@ The project uses GitHub Actions for continuous integration and code quality assu
 - `**/*.mjs` - ECMAScript module files
 - `**/*.ts`, `**/*.tsx` - TypeScript files
 - `**/*.json` - Configuration files
+- `cypress/**`, [`cypress.config.ts`](../../cypress.config.ts) - Wiki Site webview tests
 - [`esbuild.js`](../../esbuild.js) - Build configuration
 - [`jest.config.js`](../../jest.config.js) - Test configuration
 - `package*.json` - Dependencies
@@ -38,6 +39,7 @@ The project uses GitHub Actions for continuous integration and code quality assu
 - **Unit Tests:** Runs `npm run test:jest`
 - **Desktop Extension Tests:** Runs `xvfb-run -a npm run test:extension`
 - **Web Extension Tests:** Runs `npm run test:web`
+- **Wiki Site Webview Tests:** Runs `xvfb-run -a npm run test:cypress`, after installing the Cypress binary (cached in `~/.cache/Cypress`), and uploads `cypress/screenshots` when it fails
 
 **Node.js Version:** 24.x
 

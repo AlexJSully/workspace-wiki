@@ -7,6 +7,7 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
 - **Unit Tests**: Test individual functions and modules (Jest).
 - **Desktop E2E Tests**: Validate extension behavior in a running VS Code instance (`@vscode/test-electron`).
 - **Web E2E Tests**: Validate extension behavior in a browser extension host (`@vscode/test-web`). This is the only place the extension runs in a browser, so a runtime web regression surfaces here rather than in the unit or desktop suites.
+- **Wiki Site Webview Tests**: Drive the [Wiki Site](../architecture/wiki-site.md) page in a browser with Cypress, against a fake extension host. Cypress cannot drive VS Code itself, so this is where clicks, rendering, search, themes, and accessibility of the site are tested.
 
 ## Running Tests
 
@@ -32,6 +33,14 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
 
     Both scripts download a VS Code build on first use, roughly 53 MB, into `.vscode-test-web`. `npm run validate` includes the web suite, so it carries that cost too.
 
+- **Wiki Site webview tests:**
+
+    ```sh
+    npm run test:cypress
+    ```
+
+    Builds the harness, serves it on port 5179, and runs every spec headless in Electron. `npm run test:cypress:open` opens the Cypress app on the same harness instead.
+
 - **Watch mode:**
 
     ```sh
@@ -49,7 +58,38 @@ This guide explains how to run and write tests for the Workspace Wiki extension.
 - Unit tests: `src/**/*.test.ts`
 - Desktop E2E tests: `src/**/*.e2e.test.ts`
 - Web E2E tests: [`src/test/web/index.ts`](../../src/test/web/index.ts), driven by the runner in [`src/test/web/runner.ts`](../../src/test/web/runner.ts)
+- Wiki Site webview tests: `cypress/e2e/*.cy.ts`, with commands in [`cypress/support/commands.ts`](../../cypress/support/commands.ts)
 - Test utilities: `src/test/`
+
+## Wiki Site Webview Tests (Cypress)
+
+The specs run against a standalone harness, not VS Code. [`src/site/webview/harness/harness.ts`](../../src/site/webview/harness/harness.ts) starts the real webview app with a fake host that answers its messages from [`fixtures.ts`](../../src/site/webview/harness/fixtures.ts) and uses the extension's own search ranking. `node esbuild.js --harness` builds it into `out/harness/`, and `--serve` serves that folder. The harness page sets the extension's Content Security Policy directives, with the page's own origin in place of the webview's resource origin and scripts allowed from that origin rather than by nonce, so a change that would break under the policy fails here too.
+
+The harness reads URL parameters:
+
+| Parameter   | Values                               | Effect                                            |
+| ----------- | ------------------------------------ | ------------------------------------------------- |
+| `fixture`   | `default`, `noReadme`, `empty`       | Which tree the fake host serves                   |
+| `theme`     | `vscode`, `paper`, `slate`, `lagoon` | The `workspaceWiki.site.theme` value              |
+| `vscode`    | `light`, `dark`, `hc`                | The VS Code theme kind the page pretends to have  |
+| `customCss` | `1`                                  | Loads a fixture user stylesheet                   |
+| `logo`      | `0`                                  | Sends no logo                                     |
+| `page`      | A workspace-relative path            | Opens on that page, as **Open in Wiki Site** does |
+
+Specs drive it through four commands: `cy.openSite(params)`, `cy.hostSends(message)` to play a host message, `cy.hostReceived(type)` to read what the webview posted (it retries with the assertions chained after it), and `cy.a11yCheck()` to run axe. `byTestId(id)` builds a `[data-testid]` selector.
+
+| Spec                                                               | Covers                                                                                |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| [`navigation.cy.ts`](../../cypress/e2e/navigation.cy.ts)           | Tree order, folders, breadcrumbs, history, landing page, narrow layouts               |
+| [`rendering.cy.ts`](../../cypress/e2e/rendering.cy.ts)             | Markdown, outline, code, Mermaid, images, HTML, binaries, sanitizing, live reload     |
+| [`links.cy.ts`](../../cypress/e2e/links.cy.ts)                     | Left, middle, Ctrl and double clicks, anchors, open buttons, right-click menu context |
+| [`search.cy.ts`](../../cypress/e2e/search.cy.ts)                   | Suggestions, results, highlighting, shortcuts                                         |
+| [`branding-themes.cy.ts`](../../cypress/e2e/branding-themes.cy.ts) | Logo, name, the four themes, high contrast, custom stylesheets                        |
+| [`accessibility.cy.ts`](../../cypress/e2e/accessibility.cy.ts)     | axe on pages in every theme, search results, and the landing page                     |
+
+`cypress-axe` injects axe with `eval`, which the harness's policy forbids, so `cy.a11yCheck()` loads the `axe.min.js` the harness build copies beside the page instead.
+
+The Cypress specs have their own [`cypress/tsconfig.json`](../../cypress/tsconfig.json), which extends the root one and adds Cypress's types; `npm run check-types` checks both. A terminal inside VS Code inherits `ELECTRON_RUN_AS_NODE=1`, which stops Cypress's Electron from starting, so the scripts run through [`scripts/runWithoutElectronNode.mjs`](../../scripts/runWithoutElectronNode.mjs), which removes it.
 
 ## Jest Types in TypeScript Tests
 

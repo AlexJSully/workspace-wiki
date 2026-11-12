@@ -54,6 +54,7 @@ This guide enables AI coding agents to be immediately productive in the Workspac
     - **Preview/Open Controller:** Handles user interactions, opens files in preview/editor modes.
     - **Settings Manager:** Reads extension config from `workspaceWiki` namespace.
     - **Sync Module:** Reveals active file in the tree.
+    - **Wiki Site:** Shows the same tree as a documentation site in a webview tab (`src/site/`), with search, rendering, and themes.
     - **Utilities:** Title normalization, mime-type detection.
 
 ## Developer Workflows
@@ -71,6 +72,7 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 - Use `npm run test:jest` for Jest unit tests.
 - Use `npm run test:extension` for integration/e2e tests (via `vscode-test`).
 - Use `npm run watch-tests` for live test compilation.
+- Changes to the Wiki Site webview (`src/site/webview/`) also need Cypress specs in `cypress/e2e/`, run with `npm run test:cypress` against the harness in `src/site/webview/harness/`. See `docs/usage/testing.md`.
 - Test files must match `**.test.ts` (unit) and `**.e2e.test.ts` (e2e) and sit beside the file they test (e.g. `src/utils/textUtils.test.ts`). The `src/test/` directory holds only shared testing utilities (`mocks.ts`, `setupTests.ts`).
 
 **CRITICAL - Test Preservation:**
@@ -120,7 +122,8 @@ This guide enables AI coding agents to be immediately productive in the Workspac
 ## Project-Specific Conventions
 
 - **Ordering:** README at root is always top; folders display their own normalized name with any `index.md` shown as a child; alphabetical sorting elsewhere.
-- **TypeScript Config:** Use only the root `tsconfig.json`. Do not create per-purpose `tsconfig` files.
+- **TypeScript Config:** Use only the root `tsconfig.json`. Do not create per-purpose `tsconfig` files. The one exception is `cypress/tsconfig.json`, which extends the root config to add Cypress's types, since those clash with Jest's.
+- **Host vs. webview globals:** `tsconfig.json` includes the `DOM` lib for the Wiki Site webview, so ESLint, not the compiler, keeps DOM globals (`window`, `document`, ...) out of extension-host code. Only `src/site/webview/` may use them.
 - **Supported File Types:** `.md`, `.markdown`, `.txt` by default; `.pdf`, `.html` opt-in via settings.
 - **Settings:** All config under `workspaceWiki` namespace (see design doc for full schema).
 - **Excludes:** Respects `excludeGlobs` and `.gitignore` for scanning.

@@ -43,6 +43,10 @@ test('registers its commands', async () => {
 		'workspace-wiki.openMarkdown',
 		'workspace-wiki.openEditor',
 		'workspace-wiki.refresh',
+		'workspace-wiki.openSite',
+		'workspace-wiki.openInSite',
+		'workspace-wiki.site.openInNewTab',
+		'workspace-wiki.site.openLinkIntegrated',
 	]) {
 		ok(commands.includes(command), `Command ${command} should be registered`);
 	}
@@ -115,6 +119,23 @@ test('discovers and applies .gitignore rules', async () => {
 		false,
 		'An untracked-by-gitignore file should not be reported ignored',
 	);
+});
+
+test('opens the Wiki Site in a webview tab', async () => {
+	const isSiteTab = (tab: vscode.Tab) =>
+		tab.input instanceof vscode.TabInputWebview && tab.input.viewType.endsWith('workspaceWiki.site');
+	const siteTabs = () => vscode.window.tabGroups.all.flatMap((group) => group.tabs).filter(isSiteTab);
+
+	await vscode.commands.executeCommand('workspace-wiki.openSite');
+
+	// The tab appears once the workbench has created the panel, which is not synchronous with the command.
+	const deadline = Date.now() + 10_000;
+	while (siteTabs().length === 0 && Date.now() < deadline) {
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+	strictEqual(siteTabs().length, 1, 'The Wiki Site should open in one webview tab');
+
+	await vscode.window.tabGroups.close(siteTabs());
 });
 
 /**

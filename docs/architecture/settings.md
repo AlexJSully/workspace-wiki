@@ -29,6 +29,12 @@ The Settings Manager reads and applies user configuration for the Workspace Wiki
 - `workspaceWiki.autoReveal`: Automatically reveal the active file in the Workspace Wiki tree when the editor changes (default: `true`).
 - `workspaceWiki.autoRevealDelay`: Delay in milliseconds before revealing the active file (default: `500`). Set to `0` for immediate reveal.
 
+### Wiki Site
+
+- `workspaceWiki.site.theme`: Look of the [Wiki Site](./wiki-site.md): `vscode` (follows the colour theme), `paper`, `slate`, or `lagoon` (default: `vscode`). High-contrast colour themes always use `vscode`.
+- `workspaceWiki.site.customCss`: Stylesheets, as paths relative to the first workspace folder, loaded after the theme (default: none).
+- `workspaceWiki.site.logo`: Image for the site header and tab, relative to the first workspace folder (default: empty, which searches the workspace for a favicon or logo). A tab can show only `.svg`, `.png`, `.jpg`, `.gif`, or `.webp`, so an `.ico` appears in the header only.
+
 ## Example
 
 ```ts
@@ -48,13 +54,14 @@ See also: [Usage/Setup](../usage/setup.md)
 ```mermaid
 flowchart TD
 	accTitle: Settings Application Flow
-	accDescr: Shows how user settings flow from VS Code Settings through the Settings Manager and are applied to each module - Scanner, TreeDataProvider, Preview Controller, and Sync Module.
+	accDescr: Shows how user settings flow from VS Code Settings through the Settings Manager and are applied to each module - Scanner, TreeDataProvider, Preview Controller, Sync Module, and Wiki Site.
 	A[User] -->|Updates Settings| B[VS Code Settings]
 	B -->|Read by| C[Settings Manager]
 	C -->|Applies to| D[Scanner/Indexer]
 	C -->|Applies to| E[TreeDataProvider]
 	C -->|Applies to| F[Preview/Open Controller]
 	C -->|Applies to| G[Sync Module]
+	C -->|Applies to| H[Wiki Site]
 ```
 
 This diagram shows how user settings are read and applied by the Settings Manager to all major modules.

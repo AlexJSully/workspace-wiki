@@ -4,9 +4,9 @@ This section explains the overall architecture of the Workspace Wiki extension, 
 
 ## Runtime targets
 
-The extension runs in two extension hosts from one set of sources. [`esbuild.js`](../../esbuild.js) emits `dist/extension.js` for the Node host used by VS Code desktop, Cursor, and Antigravity, and `dist/web/extension.js` for the Web Worker host used by vscode.dev and github.dev. [`package.json`](../../package.json) points `main` at the first and `browser` at the second.
+The extension runs in two extension hosts from one set of sources. [`esbuild.js`](../../esbuild.js) emits `dist/extension.js` for the Node host used by VS Code desktop, Cursor, and Antigravity, and `dist/web/extension.js` for the Web Worker host used by vscode.dev and github.dev. [`package.json`](../../package.json) points `main` at the first and `browser` at the second. Further bundles in `dist/webview/` (`site.js`, plus `mermaid.js` loaded on demand) run in the [Wiki Site](./wiki-site.md) webview, a browser page in either host.
 
-No module branches on its environment. Node built-ins do not resolve in a Web Worker, so every file read goes through `vscode.workspace.fs` and no source file imports `fs`, `path`, or references `Buffer`. Three guards hold that line. [`tsconfig.json`](../../tsconfig.json) sets `lib` to `ES2022` and `WebWorker` rather than `DOM`, so a browser global the worker does not provide fails to compile. [`eslint.config.mjs`](../../eslint.config.mjs) restricts the `Buffer`, `process`, `__dirname`, and `__filename` globals outside test files, since tests legitimately use those and keep `node` in `types`, which leaves the compiler unable to flag them. A Node built-in import is caught by the web bundle instead, since [`esbuild.js`](../../esbuild.js) builds it with esbuild's `browser` platform, where `fs` and `path` do not resolve.
+No module branches on its environment. Node built-ins do not resolve in a Web Worker, so every file read goes through `vscode.workspace.fs` and no source file imports `fs`, `path`, or references `Buffer`. Two guards hold that line. [`eslint.config.mjs`](../../eslint.config.mjs) restricts the `Buffer`, `process`, `__dirname`, and `__filename` globals outside test files, since tests legitimately use those and keep `node` in `types`, which leaves the compiler unable to flag them. It also restricts DOM-only globals such as `window`, `document`, and `HTMLElement` everywhere except the webview under `src/site/webview/`: [`tsconfig.json`](../../tsconfig.json) sets `lib` to `ES2022` and `DOM` for the webview, and the `DOM` and `WebWorker` libs cannot be combined, so the compiler alone would accept a DOM global in host code. A Node built-in import is caught by the web bundle instead, since [`esbuild.js`](../../esbuild.js) builds it with esbuild's `browser` platform, where `fs` and `path` do not resolve.
 
 The same rule shapes how paths are handled. `Uri.fsPath` carries no scheme information, so on a virtual file system such as `vscode-vfs://` it yields a path that no longer identifies the file. Modules therefore use `uri.toString()` for identity, `uri.path` for path structure, and `workspace.asRelativePath` for anything relative to a workspace folder.
 
@@ -20,6 +20,7 @@ The same rule shapes how paths are handled. `Uri.fsPath` carries no scheme infor
 - **[Configuration Utilities](../../src/utils/configUtils.ts)**: Provides typed access to extension settings with default values.
 - **[Text Utilities](../../src/utils/textUtils.ts)**: Reads YAML front matter through `vscode.workspace.fs`, normalizes file names to human-readable titles, preserves acronym casing, handles special cases (README).
 - **[File Utilities](../../src/utils/fileUtils.ts)**: Path manipulation, hidden file detection, glob pattern matching.
+- **[Wiki Site](../../src/site/sitePanel.ts)**: Shows the wiki tree as a documentation site in a webview tab, with navigation, search, rendered pages, and themes. See [Wiki Site](./wiki-site.md).
 - **[Sync Module](../../src/extension.ts)**: Integrated into main extension activation, reveals active file in tree with configurable delay, respects visibility state.
 
 ## Source Code Structure
@@ -34,6 +35,19 @@ src/
 │   ├── index.ts
 │   ├── gitignore.ts          # .gitignore discovery and matching
 │   └── workspaceScanner.ts   # File discovery, filtering
+├── site/
+│   ├── index.ts
+│   ├── protocol.ts           # Host and webview message types
+│   ├── messages.ts           # Validation of webview messages and right-click context
+│   ├── sitePanel.ts          # WikiSiteManager: tabs, tree, search, link checks
+│   ├── siteTab.ts            # One site tab: its page and its messages
+│   ├── commands.ts           # The site's right-click menu commands
+│   ├── pageContent.ts        # File classification and reading
+│   ├── search.ts             # Search index over document text
+│   ├── searchDocs.ts         # Search ranking and snippets
+│   ├── links.ts              # Link resolution
+│   ├── branding.ts           # Logo detection
+│   └── webview/              # The site page: app, rendering, styles, Cypress harness
 ├── test/
 │   ├── mocks.ts              # Shared URI and WorkspaceLike mocks
 │   ├── setupTests.ts         # Virtual vscode module for Jest
@@ -41,6 +55,7 @@ src/
 ├── tree/
 │   ├── index.ts
 │   ├── buildTree.ts          # Tree construction, sorting
+│   ├── loadWikiTree.ts       # Scan plus build with the configured sort and acronyms
 │   └── treeProvider.ts       # VS Code TreeDataProvider implementation
 ├── types/
 │   ├── index.ts
@@ -61,13 +76,14 @@ src/
 - [Settings](./settings.md) - Configuration options
 - [Sync Module](./sync.md) - Active file revelation
 - [Utilities](./utilities.md) - Helper functions
+- [Wiki Site](./wiki-site.md) - The documentation site webview
 
 ## Architecture Diagram
 
 ```mermaid
 flowchart TB
     accTitle: Workspace Wiki Extension Architecture
-    accDescr: Shows the relationships between the main modules - Extension activation, Scanner, Tree Provider, Controllers, Utilities, and the VS Code API they all interact with.
+    accDescr: Shows the relationships between the main modules - Extension activation, Scanner, Tree Provider, Wiki Site, Controllers, Utilities, and the VS Code API they all interact with.
     subgraph Extension["Extension (src/extension.ts)"]
         A[activate]
         B[Command Registration]
@@ -86,6 +102,11 @@ flowchart TB
         I[buildTree]
         J[sortNodes]
         K[Node Mapping]
+    end
+
+    subgraph Site["Wiki Site (src/site/)"]
+        V[WikiSiteManager]
+        W[Webview app]
     end
 
     subgraph Controllers["Controllers (src/controllers/)"]
@@ -130,6 +151,13 @@ flowchart TB
     L --> N
     M --> S
     N --> S
+
+    A --> V
+    V --> I
+    V --> W
+    W --> V
+    V --> M
+    V --> N
 
     D --> T
     H --> P
