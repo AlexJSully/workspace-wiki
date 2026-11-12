@@ -86,7 +86,7 @@ To run the same checks locally before pushing:
 # Install dependencies
 npm ci
 
-# Run all validation checks (same as CI)
+# Run all validation checks (same as CI), then package the VSIX
 npm run validate
 
 # Individual checks

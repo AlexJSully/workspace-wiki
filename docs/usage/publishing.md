@@ -21,16 +21,10 @@ This guide explains how to package and publish the Workspace Wiki extension to t
     npm run package
     ```
 
-2. Run tests and lint:
+2. Run tests and lint, then package the VSIX:
 
     ```sh
     npm run validate
-    ```
-
-3. Package the VSIX:
-
-    ```sh
-    vsce package
     ```
 
 ## Publishing to Marketplace

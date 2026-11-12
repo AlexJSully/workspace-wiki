@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 To see tags and releases, please go to [Tags](https://github.com/AlexJSully/workspace-wiki/tags) on [GitHub](https://github.com/AlexJSully/workspace-wiki).
 
+## [1.3.0] - 2026-11-12
+
+Features:
+
+- **Wiki Site**: Read your documentation as a site in an editor tab. Open it from the book icon in the Workspace Wiki view's title bar, the **Workspace Wiki: Open Wiki Site** command, or **Open in Wiki Site** on a file's right-click menu.
+    - Browse with a navigation tree, breadcrumbs, and an "On this page" outline
+    - Press `/` or Ctrl/Cmd+K to jump to a page by title, or press Enter to search the text of every page
+    - Markdown (including Mermaid diagrams), HTML, source files with syntax highlighting, and images are rendered; PDFs and other binary files offer to open in their own editor
+    - Middle-click or Ctrl/Cmd+click a page to open it in a new tab, or double-click it in the navigation to edit its file
+    - Right-click a page for **Open in New Tab**, **Open to the Side**, **Open Original File**, **Edit Source**, and **Copy Relative Path**
+    - External links open in your default browser; a middle click on a web link opens it in VS Code's integrated browser, or the Simple Browser where VS Code has no integrated browser
+    - The header and tab show your workspace's name and its favicon or logo
+    - Works in VS Code for the Web
+
+Configuration:
+
+- Added `workspaceWiki.site.theme` to choose the Wiki Site's look: `vscode` (follows your colour theme, the default), `paper`, `slate`, or `lagoon`
+- Added `workspaceWiki.site.customCss` to load your own stylesheets into the Wiki Site
+- Added `workspaceWiki.site.logo` to choose the image shown in the Wiki Site's header and tab
+
+Bug Fixes:
+
+- On VS Code 1.146 and newer, `.md` files open in the Markdown Editor again instead of Markdown Preview, and `.markdown` files now open there too
+
 ## [1.2.0] - 2026-08-14
 
 Features:

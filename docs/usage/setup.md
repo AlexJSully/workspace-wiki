@@ -41,6 +41,15 @@ To change settings:
 2. Type `Preferences: Open Settings (UI)`.
 3. Search for `Workspace Wiki`.
 
+### File exclusion
+
+Files are left out of the tree when they match any of these:
+
+1. **Exclude patterns:** the patterns in `workspaceWiki.excludeGlobs`, which default to `**/node_modules/**` and `**/.git/**`. Your list replaces the default rather than adding to it, so include the default patterns in your list if you still want them applied.
+2. **`.gitignore` rules:** the `.gitignore` files in each workspace folder, nested files and `!` negation patterns included. See [Gitignore handling](../architecture/scanner.md#gitignore-handling) for how the rules are applied.
+
+Set `workspaceWiki.showIgnoredFiles` to `true` to show files matched by `.gitignore` or `excludeGlobs`. Hidden files and folders, those starting with a dot such as `.git`, are left out separately; set `workspaceWiki.showHiddenFiles` to `true` to show them.
+
 ## Example Settings
 
 ```json
