@@ -300,7 +300,7 @@
 						"**/node_modules/**",
 						"**/.git/**"
 					],
-					"description": "Glob patterns for files to exclude from the workspace wiki",
+					"description": "Glob patterns for files to exclude from the workspace wiki. Your list replaces the default rather than adding to it, so include the default patterns in your list if you still want them applied.",
 					"items": {
 						"type": "string"
 					}
@@ -408,7 +408,7 @@
 		"test:jest": "jest src/",
 		"test:jest:coverage": "jest --coverage src/",
 		"test:web": "npm run compile && npm run compile:tests:web && vscode-test-web --browserType=chromium --quality=stable --headless --extensionDevelopmentPath=. --extensionTestsPath=out/web/index.js example",
-		"validate": "npm run compile && npm run prettier && npm run lint && npm run lint:markdown && npm run test:jest && npm run test:extension && npm run test:web && npm run test:cypress && npm run package:vsix",
+		"validate": "npm run compile && npm run prettier && npm run lint && npm run lint:markdown && npm run test:jest && npm run test:extension && npm run test:web && npm run test:cypress && vsce package",
 		"vscode:prepublish": "npm run package",
 		"watch": "npm-run-all -p watch:*",
 		"watch-tests": "tsc -p . -w --outDir out",

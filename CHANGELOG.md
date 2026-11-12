@@ -16,7 +16,7 @@ Features:
     - Markdown (including Mermaid diagrams), HTML, source files with syntax highlighting, and images are rendered; PDFs and other binary files offer to open in their own editor
     - Middle-click or Ctrl/Cmd+click a page to open it in a new tab, or double-click it in the navigation to edit its file
     - Right-click a page for **Open in New Tab**, **Open to the Side**, **Open Original File**, **Edit Source**, and **Copy Relative Path**
-    - External links open in your default browser; a middle click opens them in VS Code's integrated browser
+    - External links open in your default browser; a middle click on a web link opens it in VS Code's integrated browser, or the Simple Browser where VS Code has no integrated browser
     - The header and tab show your workspace's name and its favicon or logo
     - Works in VS Code for the Web
 

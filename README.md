@@ -67,7 +67,7 @@ Included files are filtered exactly like extension matches: `excludeGlobs`, `.gi
 
 #### `workspaceWiki.excludeGlobs`
 
-Glob patterns to exclude from scanning (default: `**/node_modules/**`, `**/.git/**`). Files listed in your `.gitignore` files are also left out unless `workspaceWiki.showIgnoredFiles` is `true`.
+Glob patterns to exclude from scanning (default: `**/node_modules/**`, `**/.git/**`). Your list replaces the default rather than adding to it, so include the default patterns in your list if you still want them applied. Files listed in your `.gitignore` files are also left out unless `workspaceWiki.showIgnoredFiles` is `true`.
 
 ```json
 {
