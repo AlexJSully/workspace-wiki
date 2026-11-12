@@ -67,7 +67,7 @@ Included files are filtered exactly like extension matches: `excludeGlobs`, `.gi
 
 #### `workspaceWiki.excludeGlobs`
 
-Glob patterns to exclude from scanning.
+Glob patterns to exclude from scanning (default: `**/node_modules/**`, `**/.git/**`). Files listed in your `.gitignore` files are also left out unless `workspaceWiki.showIgnoredFiles` is `true`.
 
 ```json
 {
@@ -239,17 +239,5 @@ Click the book icon in the Workspace Wiki view's title bar, or run **Workspace W
 - **External links:** a click opens the link the way VS Code opens external links, normally in your default browser; a middle click on a web link opens it in a new tab of VS Code's integrated browser, or the Simple Browser where VS Code has no integrated browser, and otherwise in your default browser.
 
 PDFs, Office documents, and other binary files are not rendered; their page offers to open the file in its own editor.
-
-## File Exclusion
-
-The extension automatically excludes files based on:
-
-1. **Default excludes:** `node_modules` and `.git` directories
-2. **Custom excludes:** Patterns defined in `workspaceWiki.excludeGlobs` setting
-3. **GitIgnore patterns:** Files and folders listed in your workspace's `.gitignore` file
-
-To show ignored files in the tree, set `workspaceWiki.showIgnoredFiles` to `true`.
-
-To show hidden files (those starting with a dot), set `workspaceWiki.showHiddenFiles` to `true`.
 
 **Enjoy using Workspace Wiki!**

@@ -35,6 +35,16 @@ The extension works out-of-the-box, but you can customize it via settings:
 - `workspaceWiki.showIgnoredFiles`: Show files/folders listed in .gitignore and excludeGlobs (default: `false`).
 - `workspaceWiki.showHiddenFiles`: Show hidden files and folders (those starting with a dot, e.g. `.github`, `.env`) in the Workspace Wiki tree, unless excluded by .gitignore or excludeGlobs (default: `false`).
 
+### File exclusion
+
+Files are left out of the tree when they match any of these:
+
+1. **Default excludes:** `node_modules` and `.git` directories, from the `excludeGlobs` default (`**/node_modules/**`, `**/.git/**`).
+2. **Custom excludes:** patterns you add to `workspaceWiki.excludeGlobs`.
+3. **`.gitignore` rules:** every `.gitignore` in every workspace folder, nested files and `!` negation patterns included. See [Gitignore handling](../architecture/scanner.md#gitignore-handling) for how the rules are applied.
+
+Set `workspaceWiki.showIgnoredFiles` to `true` to show files matched by `.gitignore` or `excludeGlobs`. Hidden files and folders, those starting with a dot, are left out separately; set `workspaceWiki.showHiddenFiles` to `true` to show them.
+
 To change settings:
 
 1. Open Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
