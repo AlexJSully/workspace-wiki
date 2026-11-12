@@ -130,6 +130,20 @@
 					"group": "navigation@3"
 				}
 			],
+			"explorer/context": [
+				{
+					"command": "workspace-wiki.openInSite",
+					"when": "!explorerResourceIsFolder && (resource in workspaceWiki.indexedFiles || (!workspaceWiki.indexedFiles && resourceLangId == markdown))",
+					"group": "navigation"
+				}
+			],
+			"editor/title/context": [
+				{
+					"command": "workspace-wiki.openInSite",
+					"when": "resource in workspaceWiki.indexedFiles || (!workspaceWiki.indexedFiles && resourceLangId == markdown)",
+					"group": "navigation"
+				}
+			],
 			"view/item/inline": [
 				{
 					"command": "workspace-wiki.openPreview",

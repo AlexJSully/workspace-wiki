@@ -231,7 +231,7 @@ VS Code can only draw `.svg`, `.png`, `.jpg`, `.gif`, or `.webp` images on a tab
 
 ## Using the Wiki Site
 
-Click the book icon in the Workspace Wiki view's title bar, or run **Workspace Wiki: Open Wiki Site**, to read your docs as a site. Right-click a file in the sidebar and choose **Open in Wiki Site** to open it there.
+Click the book icon in the Workspace Wiki view's title bar, or run **Workspace Wiki: Open Wiki Site**, to read your docs as a site. Right-click a wiki file in the sidebar, the Explorer, or its editor tab and choose **Open in Wiki Site** to open it there.
 
 - **Navigate:** click a page to read it; middle-click or Ctrl/Cmd+click to open it in a new tab; double-click it in the navigation to edit its file.
 - **Search:** press `/` or Ctrl/Cmd+K, type to jump to a page by title, or press Enter to search the text of every page.

@@ -34,7 +34,9 @@ The tree comes from [`loadWikiTree`](../../src/tree/loadWikiTree.ts), the same f
 ## Opening the site
 
 - **Open Wiki Site** (`workspace-wiki.openSite`), in the Workspace Wiki view's title bar and the Command Palette, opens the home page: the top-level README, or a list of top-level sections when there is none.
-- **Open in Wiki Site** (`workspace-wiki.openInSite`), on a file's right-click menu in the sidebar, opens that file's page.
+- **Open in Wiki Site** (`workspace-wiki.openInSite`), on a file's right-click menu in the sidebar, the Explorer, and its editor tab, opens that file's page. The command takes a sidebar tree item or a bare URI.
+
+The Explorer and editor-tab entries show only for wiki files. Each [`loadWikiTree`](../../src/tree/loadWikiTree.ts) run sets the `workspaceWiki.indexedFiles` context key to an object keyed by every file's `uri.toString()`, and the menus' `when` clauses test `resource in workspaceWiki.indexedFiles`. Until the first scan sets that key, the entries show for every Markdown file, and a file outside the wiki opens to the site's "not part of the wiki" message.
 
 A second open reveals the existing tab. A new tab opens only on request, from a middle click or the right-click menu.
 
