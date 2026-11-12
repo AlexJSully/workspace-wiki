@@ -1,7 +1,7 @@
 # Workspace Wiki
 
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/alexjsully.workspace-wiki?label=VS%20Code%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
-[![Downloads](https://img.shields.io/visual-studio-marketplace/d/alexjsully.workspace-wiki)](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
+[![VS Code Marketplace](https://vsmarketplacebadges.dev/version/alexjsully.workspace-wiki.svg?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
+[![Downloads](https://vsmarketplacebadges.dev/downloads-short/alexjsully.workspace-wiki.svg)](https://marketplace.visualstudio.com/items?itemName=alexjsully.workspace-wiki)
 [![Open VSX Version](https://img.shields.io/open-vsx/v/alexjsully/workspace-wiki)](https://open-vsx.org/extension/alexjsully/workspace-wiki)
 [![Follow on Twitter](https://img.shields.io/twitter/follow/alexjsully?style=social)](https://twitter.com/alexjsully)
 [![GitHub repo size](https://img.shields.io/github/repo-size/AlexJSully/workspace-wiki)](https://github.com/AlexJSully/workspace-wiki)
@@ -225,9 +225,9 @@ Stylesheets, as paths relative to the first workspace folder, loaded after the t
 
 #### `workspaceWiki.site.logo`
 
-Image shown beside the workspace name in the site header and on its tab, relative to the first workspace folder (default: empty). When empty, the site uses a `favicon`, `logo`, or `icon` file it finds in the workspace, such as `public/favicon.ico` or `favicon-32x32.png`.
+Image shown beside the workspace name in the site header and on its tab, relative to the first workspace folder (default: empty). When empty, the site uses a `favicon`, `logo`, `icon`, or `apple-touch-icon` file it finds in the workspace, such as `public/favicon.ico` or `favicon-32x32.png`.
 
-VS Code can only draw `.svg`, `.png`, `.jpg`, `.gif`, or `.webp` images on a tab, so an `.ico` appears in the header only and the tab uses a PNG or SVG favicon if the workspace has one. Without one, the tab shows the Workspace Wiki icon.
+VS Code can only draw `.svg`, `.png`, `.jpg`, `.gif`, or `.webp` images on a tab, so an `.ico` appears in the header only, and the tab uses one of those images if the workspace has one. Without one, or when the workspace is not on a local or remote file system, as in VS Code for the Web, the tab shows the Workspace Wiki icon.
 
 ## Using the Wiki Site
 
@@ -236,7 +236,7 @@ Click the book icon in the Workspace Wiki view's title bar, or run **Workspace W
 - **Navigate:** click a page to read it; middle-click or Ctrl/Cmd+click to open it in a new tab; double-click it in the navigation to edit its file.
 - **Search:** press `/` or Ctrl/Cmd+K, type to jump to a page by title, or press Enter to search the text of every page.
 - **Open the file:** use **Open preview** or **Edit source** under the page title, or right-click a page for **Open in New Tab**, **Open to the Side**, **Open Original File**, **Edit Source**, and **Copy Relative Path**.
-- **External links:** a click opens the link the way VS Code opens external links, normally in your default browser; a middle click opens it in a new tab of VS Code's integrated browser where VS Code has one.
+- **External links:** a click opens the link the way VS Code opens external links, normally in your default browser; a middle click on a web link opens it in a new tab of VS Code's integrated browser, or the Simple Browser where VS Code has no integrated browser, and otherwise in your default browser.
 
 PDFs, Office documents, and other binary files are not rendered; their page offers to open the file in its own editor.
 
